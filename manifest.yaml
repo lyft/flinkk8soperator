@@ -1,4 +1,4 @@
-name: flinkk8operator
+name: flinkk8soperator
 description: Kubernetes Flink Operator, enables running and managing Flink jobs on K8s
 repository: git@github.com:lyft/flinkk8operator.git
 slack: "#streaming"
