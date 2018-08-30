@@ -1,0 +1,16 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: flinkjob
+  namespace: flink
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  - host: flink.ingress.flyte.us-east-1.k8s.lyft.net
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: sample-job-2-jm
+          servicePort: 8081

@@ -1,0 +1,13 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: flinkjobs.flink.lyft.com
+spec:
+  group: flink.lyft.com
+  names:
+    kind: FlinkJob
+    listKind: FlinkJobList
+    plural: flinkjobs
+    singular: flinkjob
+  scope: Namespaced
+  version: v1alpha1

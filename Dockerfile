@@ -2,3 +2,9 @@
 FROM lyft/go:3cb240800c730cedc01428b7420f87e88c215934 as builder
 COPY . ${GOPATH}/src/github.com/lyft/flinkk8soperator
 WORKDIR ${GOPATH}/src/github.com/lyft/flinkk8soperator
+RUN dep ensure && \
+    rm -f flinkk8soperator.bin && \
+    go build -o flinkk8soperator.bin ./cmd/flinkk8soperator/main.go && \
+    mv ./flinkk8soperator.bin /bin/flinkk8soperator
+
+ENTRYPOINT ["/bin/flinkk8soperator"]

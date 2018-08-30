@@ -1,0 +1,2 @@
+Namespace            Name             Status         CreatedAt                   LastUpdatedAt           Reason          
+.metadata.namespace  .metadata.name   .status.phase .metadata.creationTimestamp .status.last_updated_at .status.reason

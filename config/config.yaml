@@ -1,0 +1,3 @@
+apiVersion: app.example.com/v1alpha1
+kind: FlinkJob
+projectName: flinkk8soperator

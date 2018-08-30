@@ -1,0 +1,11 @@
+apiVersion: flink.lyft.com/v1alpha1
+kind: FlinkJob
+metadata:
+  name: sample-job-2
+  namespace: flink
+spec:
+  image: 173840052742.dkr.ecr.us-east-1.amazonaws.com/sps2iexample:f308668f40afe4b5fcbf08768f3c72770e74ddbb
+  default_parallelism: 1
+  number_task_managers: 2
+  task_manager_config:
+    number_slots: 2
