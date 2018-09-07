@@ -5,10 +5,11 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
-	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
-	"github.com/lyft/flinkk8soperator/pkg/controller/errors"
 	"reflect"
+
+	"github.com/lyft/flinkk8soperator/pkg/controller/errors"
+	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"k8s.io/client-go/tools/record"
 )
 

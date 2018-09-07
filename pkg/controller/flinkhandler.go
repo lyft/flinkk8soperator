@@ -1,16 +1,18 @@
 package controller
 
 import (
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"context"
-	"k8s.io/api/apps/v1"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/tools/record"
+
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	flinkErrors "github.com/lyft/flinkk8soperator/pkg/controller/errors"
+	"github.com/lyft/flinkk8soperator/pkg/controller/helpers"
 	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
+	"k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 )
 
 var foregroundDeletion = metav1.DeletePropagationForeground
@@ -34,9 +36,7 @@ type flinkHandler struct {
 }
 
 func (f *flinkHandler) getJobManagerDeployment(ctx context.Context, job *v1alpha1.FlinkJob) (*v1.Deployment, error) {
-
-	currentDeployment := CreateJobMangerDeployment(job)
-
+	currentDeployment := helpers.FetchJobMangerDeploymentIdentityObj(job)
 	err := sdk.Get(currentDeployment)
 	if err != nil {
 		logger.Warningf(ctx, "Failed to get JobManager deployment, [%v]", err)
@@ -46,8 +46,7 @@ func (f *flinkHandler) getJobManagerDeployment(ctx context.Context, job *v1alpha
 }
 
 func (f *flinkHandler) getJobManagerService(ctx context.Context, job *v1alpha1.FlinkJob) (*coreV1.Service, error) {
-
-	currentService := CreateJobManagerService(job)
+	currentService := helpers.FetchJobManagerServiceGetObj(job)
 	err := sdk.Get(currentService)
 	if err != nil {
 		logger.Warningf(ctx, "Failed to get JobManager service [%v]", err)
@@ -57,8 +56,7 @@ func (f *flinkHandler) getJobManagerService(ctx context.Context, job *v1alpha1.F
 }
 
 func (f *flinkHandler) getTaskManagerDeployment(ctx context.Context, job *v1alpha1.FlinkJob) (*v1.Deployment, error) {
-
-	currentDeployment := CreateTaskMangerDeployment(job)
+	currentDeployment := helpers.FetchTaskMangerDeploymentIdentityObj(job)
 	err := sdk.Get(currentDeployment)
 	if err != nil {
 		logger.Warningf(ctx, "Failed to get TaskManager deployment [%v]", err)
@@ -68,9 +66,7 @@ func (f *flinkHandler) getTaskManagerDeployment(ctx context.Context, job *v1alph
 }
 
 func (f *flinkHandler) deleteJobManagerDeployment(ctx context.Context, job *v1alpha1.FlinkJob) error {
-
-	currentDeployment := CreateJobMangerDeployment(job)
-
+	currentDeployment := helpers.FetchJobMangerDeploymentIdentityObj(job)
 	err := sdk.Delete(currentDeployment, defaultDeleteOptions)
 	if err != nil {
 		logger.Warningf(ctx, "Failed to get JobManager deployment, [%v]", err)
@@ -80,8 +76,7 @@ func (f *flinkHandler) deleteJobManagerDeployment(ctx context.Context, job *v1al
 }
 
 func (f *flinkHandler) deleteJobManagerService(ctx context.Context, job *v1alpha1.FlinkJob) error {
-
-	currentService := CreateJobManagerService(job)
+	currentService := helpers.FetchJobManagerServiceGetObj(job)
 	err := sdk.Delete(currentService, defaultDeleteOptions)
 	if err != nil {
 		logger.Warningf(ctx, "Failed to get JobManager service [%v]", err)
@@ -91,8 +86,7 @@ func (f *flinkHandler) deleteJobManagerService(ctx context.Context, job *v1alpha
 }
 
 func (f *flinkHandler) deleteTaskManagerDeployment(ctx context.Context, job *v1alpha1.FlinkJob) error {
-
-	currentDeployment := CreateTaskMangerDeployment(job)
+	currentDeployment := helpers.FetchTaskMangerDeploymentIdentityObj(job)
 	err := sdk.Delete(currentDeployment, defaultDeleteOptions)
 	if err != nil {
 		logger.Warningf(ctx, "Failed to get TaskManager deployment [%v]", err)
@@ -102,7 +96,7 @@ func (f *flinkHandler) deleteTaskManagerDeployment(ctx context.Context, job *v1a
 }
 
 func (f *flinkHandler) createJobManagerDeployment(ctx context.Context, job *v1alpha1.FlinkJob) (*v1.Deployment, error) {
-	newDeployment := CreateJobMangerDeployment(job)
+	newDeployment := helpers.FetchJobMangerDeploymentCreateObj(job)
 	err := sdk.Create(newDeployment)
 	if err != nil {
 		return nil, err
@@ -115,8 +109,8 @@ func (f *flinkHandler) createJobManagerDeployment(ctx context.Context, job *v1al
 }
 
 func (f *flinkHandler) createJobManagerService(ctx context.Context, job *v1alpha1.FlinkJob) (*coreV1.Service, error) {
-	newService := CreateJobManagerService(job)
-	err := sdk.Create(newService)
+	newServiceSpec := helpers.FetchJobManagerServiceCreateObj(job)
+	err := sdk.Create(newServiceSpec)
 	if err != nil {
 		return nil, err
 		// TODO add what should the reconciliation should look like
@@ -124,11 +118,11 @@ func (f *flinkHandler) createJobManagerService(ctx context.Context, job *v1alpha
 		//	return nil, err
 		//}
 	}
-	return newService, nil
+	return newServiceSpec, nil
 }
 
 func (f *flinkHandler) createTaskManagerDeployment(ctx context.Context, job *v1alpha1.FlinkJob) (*v1.Deployment, error) {
-	newDeployment := CreateTaskMangerDeployment(job)
+	newDeployment := helpers.FetchTaskMangerDeploymentCreateObj(job)
 	err := sdk.Create(newDeployment)
 	if err != nil {
 		return nil, err
@@ -163,7 +157,6 @@ func (f *flinkHandler) create(ctx context.Context, job *v1alpha1.FlinkJob) error
 // Function checks if all the components exist.
 // Returns true, if they exist, false otherwise. Error indicates any error in processing
 func (f *flinkHandler) allComponentsExist(ctx context.Context, job *v1alpha1.FlinkJob) (bool, error) {
-
 	if _, err := f.getJobManagerDeployment(ctx, job); err != nil {
 		if errors.IsNotFound(err) {
 			return false, nil

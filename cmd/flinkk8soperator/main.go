@@ -8,12 +8,13 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/util/k8sutil"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"github.com/lyft/flinkk8soperator/pkg/controller"
-	"time"
 	"flag"
-	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	"time"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/controller"
+	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 const (

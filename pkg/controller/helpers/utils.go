@@ -1,5 +1,4 @@
-package controller
-
+package helpers
 
 func CopyMap(o map[string]string) (r map[string]string) {
 	if o == nil {

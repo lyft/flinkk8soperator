@@ -2,10 +2,11 @@ package logger
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"fmt"
 	"runtime"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Config struct {

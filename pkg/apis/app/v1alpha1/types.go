@@ -1,25 +1,25 @@
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type FlinkJobList struct {
-	metav1.TypeMeta  `json:",inline"`
-	metav1.ListMeta  `json:"metadata"`
-	Items []FlinkJob `json:"items"`
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []FlinkJob `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type FlinkJob struct {
-	metav1.TypeMeta       `json:",inline"`
-	metav1.ObjectMeta     `json:"metadata"`
-	Spec   FlinkJobSpec   `json:"spec"`
-	Status FlinkJobStatus `json:"status,omitempty"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              FlinkJobSpec   `json:"spec"`
+	Status            FlinkJobStatus `json:"status,omitempty"`
 }
 
 // Actual FinkJobSpec.

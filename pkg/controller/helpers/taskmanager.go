@@ -1,11 +1,12 @@
-package controller
+package helpers
 
 import (
+	"fmt"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"k8s.io/api/apps/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreV1 "k8s.io/api/core/v1"
-	"fmt"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 	TaskManagerProcessRole   = "taskmanager"
 )
 
-func CreateTaskManagerPorts(flinkJob *v1alpha1.FlinkJobSpec) []coreV1.ContainerPort {
+func GetTaskManagerPorts(flinkJob *v1alpha1.FlinkJobSpec) []coreV1.ContainerPort {
 	return []coreV1.ContainerPort{
 		containerPort(FlinkRpcPortName, flinkJob.RpcPort, FlinkRpcDefaultPort),
 		containerPort(FlinkBlobPortName, flinkJob.BlobPort, FlinkBlobDefaultPort),
@@ -24,11 +25,11 @@ func CreateTaskManagerPorts(flinkJob *v1alpha1.FlinkJobSpec) []coreV1.ContainerP
 	}
 }
 
-func CreateTaskManagerContainer(job *v1alpha1.FlinkJob) coreV1.Container {
+func FetchTaskManagerContainerObj(job *v1alpha1.FlinkJob) coreV1.Container {
 	var env []coreV1.EnvVar
 
 	tmConfig := job.Spec.TaskManagerConfig
-	ports := CreateTaskManagerPorts(&job.Spec)
+	ports := GetTaskManagerPorts(&job.Spec)
 	if len(tmConfig.Env) != 0 {
 		env = tmConfig.Env
 	}
@@ -58,8 +59,23 @@ func GetTaskManagerName(jobName string) string {
 	return fmt.Sprintf(TaskManagerNameFormat, jobName)
 }
 
-func CreateTaskMangerDeployment(job *v1alpha1.FlinkJob) *v1.Deployment {
-	jmName := GetTaskManagerName(job.Name)
+func FetchTaskMangerDeploymentIdentityObj(job *v1alpha1.FlinkJob) *v1.Deployment {
+	taskName := GetTaskManagerName(job.Name)
+
+	return &v1.Deployment{
+		TypeMeta: metaV1.TypeMeta{
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       Deployment,
+		},
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      taskName,
+			Namespace: job.Namespace,
+		},
+	}
+}
+
+func FetchTaskMangerDeploymentCreateObj(job *v1alpha1.FlinkJob) *v1.Deployment {
+	taskName := GetTaskManagerName(job.Name)
 	podName := fmt.Sprintf(TaskManagerPodNameFormat, job.Name)
 	jmReplicas := job.Spec.NumberTaskManagers
 
@@ -73,10 +89,10 @@ func CreateTaskMangerDeployment(job *v1alpha1.FlinkJob) *v1.Deployment {
 	return &v1.Deployment{
 		TypeMeta: metaV1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "Deployment",
+			Kind:       Deployment,
 		},
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:        jmName,
+			Name:        taskName,
 			Namespace:   job.Namespace,
 			Labels:      job.Labels,
 			Annotations: job.Annotations,
@@ -99,7 +115,7 @@ func CreateTaskMangerDeployment(job *v1alpha1.FlinkJob) *v1.Deployment {
 				},
 				Spec: coreV1.PodSpec{
 					Containers: []coreV1.Container{
-						CreateTaskManagerContainer(job),
+						FetchTaskManagerContainerObj(job),
 					},
 				},
 			},

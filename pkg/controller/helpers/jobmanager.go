@@ -1,12 +1,13 @@
-package controller
+package helpers
 
 import (
+	"fmt"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"k8s.io/api/apps/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"fmt"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -63,14 +64,27 @@ func GetJobManagerServiceEnv(name string) coreV1.EnvVar {
 	}
 }
 
-func CreateJobManagerService(job *v1alpha1.FlinkJob) *coreV1.Service {
+func FetchJobManagerServiceGetObj(job *v1alpha1.FlinkJob) *coreV1.Service {
+	return &coreV1.Service{
+		TypeMeta: metaV1.TypeMeta{
+			APIVersion: coreV1.SchemeGroupVersion.String(),
+			Kind:       Service,
+		},
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      GetJobManagerName(job.Name),
+			Namespace: job.Namespace,
+		},
+	}
+}
+
+func FetchJobManagerServiceCreateObj(job *v1alpha1.FlinkJob) *coreV1.Service {
 	podLabels := CopyMap(job.Labels)
 	podLabels[FlinkProcessRoleKey] = JobManagerProcessRole
 
 	return &coreV1.Service{
 		TypeMeta: metaV1.TypeMeta{
 			APIVersion: coreV1.SchemeGroupVersion.String(),
-			Kind:       "Service",
+			Kind:       Service,
 		},
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      GetJobManagerName(job.Name),
@@ -80,14 +94,14 @@ func CreateJobManagerService(job *v1alpha1.FlinkJob) *coreV1.Service {
 			},
 		},
 		Spec: coreV1.ServiceSpec{
-			Ports:    CreateJobManagerServicePorts(&job.Spec),
+			Ports:    GetJobManagerServicePorts(&job.Spec),
 			Selector: podLabels,
 		},
 	}
 }
 
-func CreateJobManagerServicePorts(flinkJob *v1alpha1.FlinkJobSpec) []coreV1.ServicePort {
-	ports := CreateJobManagerPorts(flinkJob)
+func GetJobManagerServicePorts(flinkJob *v1alpha1.FlinkJobSpec) []coreV1.ServicePort {
+	ports := GetJobManagerPorts(flinkJob)
 	servicePorts := make([]coreV1.ServicePort, 0, len(ports))
 	for _, p := range ports {
 		servicePorts = append(servicePorts, coreV1.ServicePort{
@@ -98,7 +112,7 @@ func CreateJobManagerServicePorts(flinkJob *v1alpha1.FlinkJobSpec) []coreV1.Serv
 	return servicePorts
 }
 
-func CreateJobManagerPorts(flinkJob *v1alpha1.FlinkJobSpec) []coreV1.ContainerPort {
+func GetJobManagerPorts(flinkJob *v1alpha1.FlinkJobSpec) []coreV1.ContainerPort {
 	return []coreV1.ContainerPort{
 		containerPort(FlinkRpcPortName, flinkJob.RpcPort, FlinkRpcDefaultPort),
 		containerPort(FlinkBlobPortName, flinkJob.BlobPort, FlinkBlobDefaultPort),
@@ -112,7 +126,7 @@ func CreateJobManagerContainer(job *v1alpha1.FlinkJob) coreV1.Container {
 	var env []coreV1.EnvVar
 
 	jmConfig := job.Spec.JobManagerConfig
-	ports := CreateJobManagerPorts(&job.Spec)
+	ports := GetJobManagerPorts(&job.Spec)
 	if jmConfig != nil {
 		if jmConfig.Resources != nil {
 			resources = job.Spec.JobManagerConfig.Resources
@@ -147,7 +161,22 @@ func GetJobManagerName(jobName string) string {
 	return fmt.Sprintf(JobManagerNameFormat, jobName)
 }
 
-func CreateJobMangerDeployment(job *v1alpha1.FlinkJob) *v1.Deployment {
+func FetchJobMangerDeploymentIdentityObj(job *v1alpha1.FlinkJob) *v1.Deployment {
+	jmName := GetJobManagerName(job.Name)
+
+	return &v1.Deployment{
+		TypeMeta: metaV1.TypeMeta{
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       Deployment,
+		},
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      jmName,
+			Namespace: job.Namespace,
+		},
+	}
+}
+
+func FetchJobMangerDeploymentCreateObj(job *v1alpha1.FlinkJob) *v1.Deployment {
 	jmName := GetJobManagerName(job.Name)
 	podName := fmt.Sprintf(JobManagerPodNameFormat, job.Name)
 	jmReplicas := JobManagerNumReplicas
@@ -162,7 +191,7 @@ func CreateJobMangerDeployment(job *v1alpha1.FlinkJob) *v1.Deployment {
 	return &v1.Deployment{
 		TypeMeta: metaV1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "Deployment",
+			Kind:       Deployment,
 		},
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        jmName,
