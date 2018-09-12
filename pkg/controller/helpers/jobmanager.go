@@ -64,7 +64,7 @@ func GetJobManagerServiceEnv(name string) coreV1.EnvVar {
 	}
 }
 
-func FetchJobManagerServiceGetObj(job *v1alpha1.FlinkJob) *coreV1.Service {
+func FetchJobManagerServiceIdentityObj(job *v1alpha1.FlinkJob) *coreV1.Service {
 	return &coreV1.Service{
 		TypeMeta: metaV1.TypeMeta{
 			APIVersion: coreV1.SchemeGroupVersion.String(),

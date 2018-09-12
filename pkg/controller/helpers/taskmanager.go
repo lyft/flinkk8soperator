@@ -77,7 +77,7 @@ func FetchTaskMangerDeploymentIdentityObj(job *v1alpha1.FlinkJob) *v1.Deployment
 func FetchTaskMangerDeploymentCreateObj(job *v1alpha1.FlinkJob) *v1.Deployment {
 	taskName := GetTaskManagerName(job.Name)
 	podName := fmt.Sprintf(TaskManagerPodNameFormat, job.Name)
-	jmReplicas := job.Spec.NumberTaskManagers
+	tmReplicas := job.Spec.NumberTaskManagers
 
 	podLabels := CopyMap(job.Labels)
 	podLabels[FlinkProcessRoleKey] = TaskManagerProcessRole
@@ -105,7 +105,7 @@ func FetchTaskMangerDeploymentCreateObj(job *v1alpha1.FlinkJob) *v1.Deployment {
 			Strategy: v1.DeploymentStrategy{
 				Type: v1.RecreateDeploymentStrategyType,
 			},
-			Replicas: &jmReplicas,
+			Replicas: &tmReplicas,
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name:        podName,

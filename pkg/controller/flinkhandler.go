@@ -10,6 +10,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
@@ -46,10 +47,20 @@ func (f *flinkHandler) getJobManagerDeployment(ctx context.Context, job *v1alpha
 }
 
 func (f *flinkHandler) getJobManagerService(ctx context.Context, job *v1alpha1.FlinkJob) (*coreV1.Service, error) {
-	currentService := helpers.FetchJobManagerServiceGetObj(job)
+	currentService := helpers.FetchJobManagerServiceIdentityObj(job)
 	err := sdk.Get(currentService)
 	if err != nil {
 		logger.Warningf(ctx, "Failed to get JobManager service [%v]", err)
+		return nil, err
+	}
+	return currentService, nil
+}
+
+func (f *flinkHandler) getJobManagerIngress(ctx context.Context, job *v1alpha1.FlinkJob) (*v1beta1.Ingress, error) {
+	currentService := helpers.FetchJobManagerIngressIdentityObj(job)
+	err := sdk.Get(currentService)
+	if err != nil {
+		logger.Warningf(ctx, "Failed to get JobManager Ingress [%v]", err)
 		return nil, err
 	}
 	return currentService, nil
@@ -76,10 +87,20 @@ func (f *flinkHandler) deleteJobManagerDeployment(ctx context.Context, job *v1al
 }
 
 func (f *flinkHandler) deleteJobManagerService(ctx context.Context, job *v1alpha1.FlinkJob) error {
-	currentService := helpers.FetchJobManagerServiceGetObj(job)
+	currentService := helpers.FetchJobManagerServiceIdentityObj(job)
 	err := sdk.Delete(currentService, defaultDeleteOptions)
 	if err != nil {
 		logger.Warningf(ctx, "Failed to get JobManager service [%v]", err)
+		return err
+	}
+	return nil
+}
+
+func (f *flinkHandler) deleteJobManagerIngress(ctx context.Context, job *v1alpha1.FlinkJob) error {
+	currentService := helpers.FetchJobManagerIngressIdentityObj(job)
+	err := sdk.Delete(currentService, defaultDeleteOptions)
+	if err != nil {
+		logger.Warningf(ctx, "Failed to get JobManager Ingress [%v]", err)
 		return err
 	}
 	return nil
@@ -113,12 +134,17 @@ func (f *flinkHandler) createJobManagerService(ctx context.Context, job *v1alpha
 	err := sdk.Create(newServiceSpec)
 	if err != nil {
 		return nil, err
-		// TODO add what should the reconciliation should look like
-		//if err := sdk.Update(newDeployment); err != nil {
-		//	return nil, err
-		//}
 	}
 	return newServiceSpec, nil
+}
+
+func (f *flinkHandler) createJobManagerIngress(ctx context.Context, job *v1alpha1.FlinkJob) (*v1beta1.Ingress, error) {
+	newIngressSpec := helpers.FetchJobManagerIngressCreateObj(job)
+	err := sdk.Create(newIngressSpec)
+	if err != nil {
+		return nil, err
+	}
+	return newIngressSpec, nil
 }
 
 func (f *flinkHandler) createTaskManagerDeployment(ctx context.Context, job *v1alpha1.FlinkJob) (*v1.Deployment, error) {
@@ -131,25 +157,39 @@ func (f *flinkHandler) createTaskManagerDeployment(ctx context.Context, job *v1a
 }
 
 func (f *flinkHandler) create(ctx context.Context, job *v1alpha1.FlinkJob) error {
-	logger.Infof(ctx, "Reconciling Job [%v]", job.Name)
+	logger.Infof(ctx, "Creating Flink Job Cluster[%v]", job.Name)
 	if _, err := f.createJobManagerDeployment(ctx, job); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return err
 		}
-		logger.Infof(ctx, "JobManager already exists. Moving on")
+		logger.Infof(ctx, "JobManager Deployment already exists. Moving on")
 	}
+	logger.Infof(ctx, "JobManager Deployment created")
+
 	if _, err := f.createJobManagerService(ctx, job); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return err
 		}
 		logger.Infof(ctx, "JobManagerService already exists. Moving on")
 	}
+	logger.Infof(ctx, "JobManager Service created")
+
+	if _, err := f.createJobManagerIngress(ctx, job); err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return err
+		}
+		logger.Infof(ctx, "JobManagerIngress already exists. Moving on")
+	}
+	logger.Infof(ctx, "JobManager Ingress created")
+
 	if _, err := f.createTaskManagerDeployment(ctx, job); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return err
 		}
-		logger.Infof(ctx, "TaskManagerService already exists. Moving on")
+		logger.Infof(ctx, "TaskManager already exists. Moving on")
 	}
+	logger.Infof(ctx, "TaskManagers created")
+
 	job.Status.TouchResource("Updated FlinkJob")
 	return nil
 }
@@ -167,13 +207,19 @@ func (f *flinkHandler) allComponentsExist(ctx context.Context, job *v1alpha1.Fli
 		if errors.IsNotFound(err) {
 			return false, nil
 		}
-		return false, flinkErrors.WrapErrorf(flinkErrors.CausedByError, err, "Failed to Get Existing Job Manager deployment")
+		return false, flinkErrors.WrapErrorf(flinkErrors.CausedByError, err, "Failed to Get Existing Job Manager Service")
+	}
+	if _, err := f.getJobManagerIngress(ctx, job); err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, flinkErrors.WrapErrorf(flinkErrors.CausedByError, err, "Failed to Get Existing Job Manager Ingress")
 	}
 	if _, err := f.getTaskManagerDeployment(ctx, job); err != nil {
 		if errors.IsNotFound(err) {
 			return false, nil
 		}
-		return false, flinkErrors.WrapErrorf(flinkErrors.CausedByError, err, "Failed to Get Existing Job Manager deployment")
+		return false, flinkErrors.WrapErrorf(flinkErrors.CausedByError, err, "Failed to Get Existing Task Manager deployment")
 	}
 	// All the components Exist
 	return true, nil
@@ -297,6 +343,12 @@ func (f *flinkHandler) StopJob(ctx context.Context, job *v1alpha1.FlinkJob) erro
 			return err
 		}
 		if err := f.deleteJobManagerDeployment(ctx, job); err != nil {
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+		if err := f.deleteJobManagerIngress(ctx, job); err != nil {
 			if errors.IsNotFound(err) {
 				return nil
 			}

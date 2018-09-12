@@ -3,8 +3,6 @@ kind: Ingress
 metadata:
   name: flinkjob
   namespace: flink
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   rules:
   - host: flink.ingress.flyte.us-east-1.k8s.lyft.net

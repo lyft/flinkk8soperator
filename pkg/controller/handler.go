@@ -59,6 +59,7 @@ func (h *Handler) HandleFlinkJob(ctx context.Context, job *v1alpha1.FlinkJob) er
 		// Now that the FlinkJob is accepted start setting it up
 		err := h.flinkHandler.StartJob(ctx, job)
 		if err != nil {
+			logger.Errorf(ctx, "%v", err)
 			if errors.IsReconciliationNeeded(err) {
 				job.Status.UpdatePhase(v1alpha1.FlinkJobCheckpointing, err.Error())
 				logger.Infof(ctx, "New FlinkJob [%s] Updating.", job.Name)

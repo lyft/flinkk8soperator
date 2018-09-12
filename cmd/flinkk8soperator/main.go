@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller"
 	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -25,11 +26,13 @@ const (
 var (
 	resyncPeriod  time.Duration
 	logSourceLine bool
+	cfgFile       string
 )
 
 func init() {
 	flag.DurationVar(&resyncPeriod, ResyncPeriodKey, time.Second*10, "Determines the resync period for all watchers.")
 	flag.BoolVar(&logSourceLine, LogSourceLineKey, false, "Logs source code file and line number.")
+	flag.StringVar(&cfgFile, "config", "", "config file (default is ./flinkk8soperator_config.yaml)")
 }
 
 func printVersion(ctx context.Context) {
@@ -47,11 +50,12 @@ func watch(ctx context.Context, resource, kind, namespace string, resyncPeriod t
 
 	logger.Infof(ctx, "Watching [Resource: %s] [Kind: %s] [Namespace: %s] [SyncPeriod: %v]",
 		resource, kind, watchingNamespace, resyncPeriod)
-	sdk.Watch(resource, kind, namespace, int(resyncPeriod.Seconds()))
+	sdk.Watch(resource, kind, namespace, time.Duration(resyncPeriod.Seconds()))
 }
 
 func main() {
 	flag.Parse()
+	config.Init(cfgFile)
 	ctx := context.Background()
 	printVersion(ctx)
 
