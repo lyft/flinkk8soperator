@@ -30,7 +30,7 @@ var (
 )
 
 func init() {
-	flag.DurationVar(&resyncPeriod, ResyncPeriodKey, time.Second*10, "Determines the resync period for all watchers.")
+	flag.DurationVar(&resyncPeriod, ResyncPeriodKey, time.Second*time.Duration(20), "Determines the resync period for all watchers.")
 	flag.BoolVar(&logSourceLine, LogSourceLineKey, false, "Logs source code file and line number.")
 	flag.StringVar(&cfgFile, "config", "", "config file (default is ./flinkk8soperator_config.yaml)")
 }
@@ -50,7 +50,7 @@ func watch(ctx context.Context, resource, kind, namespace string, resyncPeriod t
 
 	logger.Infof(ctx, "Watching [Resource: %s] [Kind: %s] [Namespace: %s] [SyncPeriod: %v]",
 		resource, kind, watchingNamespace, resyncPeriod)
-	sdk.Watch(resource, kind, namespace, time.Duration(resyncPeriod.Seconds()))
+	sdk.Watch(resource, kind, namespace, resyncPeriod)
 }
 
 func main() {
@@ -68,7 +68,7 @@ func main() {
 
 	resource := v1alpha1.SchemeGroupVersion.String()
 
-	kind := v1alpha1.FlinkJobKind
+	kind := v1alpha1.FlinkApplicationKind
 	namespace, _ := k8sutil.GetWatchNamespace()
 	watch(ctx, resource, kind, namespace, resyncPeriod)
 	sdk.Handle(controller.NewHandler())

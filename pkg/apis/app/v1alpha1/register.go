@@ -12,7 +12,7 @@ const (
 	version   = "v1alpha1"
 	groupName = "flink.lyft.com"
 
-	FlinkJobKind = "FlinkJob"
+	FlinkApplicationKind = "FlinkApplication"
 )
 
 var (
@@ -29,8 +29,8 @@ func init() {
 // addKnownTypes adds the set of types defined in this package to the supplied scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&FlinkJob{},
-		&FlinkJobList{},
+		&FlinkApplication{},
+		&FlinkApplicationList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

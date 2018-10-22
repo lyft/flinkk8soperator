@@ -1,4 +1,4 @@
 apiVersion: "flink.lyft.com/v1alpha1"
-kind: "FlinkJob"
+kind: "FlinkApplication"
 metadata:
-  name: "flinksample"
+  name: "flinkAppsample"

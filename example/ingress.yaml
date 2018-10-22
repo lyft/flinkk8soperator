@@ -1,7 +1,7 @@
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
-  name: flinkjob
+  name: flinkapplication
   namespace: flink
 spec:
   rules:

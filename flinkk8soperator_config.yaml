@@ -1,4 +1,9 @@
 # This is default configuration file.
 # Real configuration when running inside K8s (local or otherwise) lives in a ConfigMap
 # The operator will replace "job" field with the correct flink job name
-ingressUrlFormat: "{{$job}}.ingress.flyte.us-east-1.k8s.lyft.net"
+ingressUrlFormat: "{{$jobCluster}}.ingress.flyte.us-east-1.k8s.lyft.net"
+zookeeperPathRoot: "/streamingplatform"
+flinkSavepointDir: "s3://lyft-modelbuilder/metadata/flinkk8operator/%s/flink/savepoints"
+flinkExternalizedCheckpointDir: "s3://lyft-modelbuilder/metadata/flinkk8operator/%s/flink/externalized-checkpoints"
+flinkCheckpointDir: "s3://lyft-modelbuilder/metadata/flinkk8operator/%s/flink/checkpoints"
+highAvailabilityStorageDir: "s3://lyft-modelbuilder/metadata/flinkk8operator/%s/flink/highavailability"

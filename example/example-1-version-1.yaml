@@ -1,0 +1,23 @@
+apiVersion: flink.lyft.com/v1alpha1
+kind: FlinkApplication
+metadata:
+  name: flink-example-1
+  namespace: flink
+  annotations:
+      iam.amazonaws.com/role: "arn:aws:iam::173840052742:role/modelbuilderagentbatchworker-staging"
+spec:
+  image: 173840052742.dkr.ecr.us-east-1.amazonaws.com/streamingspeeds:11ae1218924428faabd9b64423fa0c332efba6b2
+  parallelism: 2
+  number_task_managers: 2
+  job_manager_config:
+    high_availability: zookeeper
+  task_manager_config:
+    number_slots: 2
+  zookeeper_config:
+    host_addresses:
+      - streamingplatformzk1-staging.lyft.net:2181
+      - streamingplatformzk2-staging.lyft.net:2181
+      - streamingplatformzk3-staging.lyft.net:2181
+      - streamingplatformzk4-staging.lyft.net:2181
+      - streamingplatformzk5-staging.lyft.net:2181
+jar_name: "StateMachineExample.jar"

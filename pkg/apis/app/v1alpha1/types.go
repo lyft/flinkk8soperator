@@ -7,29 +7,30 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type FlinkJobList struct {
+type FlinkApplicationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []FlinkJob `json:"items"`
+	Items           []FlinkApplication `json:"items"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type FlinkJob struct {
+type FlinkApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              FlinkJobSpec   `json:"spec"`
-	Status            FlinkJobStatus `json:"status,omitempty"`
+	Spec              FlinkApplicationSpec   `json:"spec"`
+	Status            FlinkApplicationStatus `json:"status,omitempty"`
+	SavepointInfo     SavepointInfo          `json:"savepoint_info,omitempty"`
+	JobJarName        string                 `json:"jar_name,omitempty"`
 }
 
-// Actual FinkJobSpec.
-// TODO Determine things that can be updated
-type FlinkJobSpec struct {
+type FlinkApplicationSpec struct {
 	Image              string            `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
-	DefaultParallelism int32             `json:"default_parallelism"`
+	Parallelism        int32             `json:"parallelism"`
 	NumberTaskManagers int32             `json:"number_task_managers"`
 	TaskManagerConfig  TaskManagerConfig `json:"task_manager_config,omitempty"`
 	JobManagerConfig   *JobManagerConfig `json:"job_manager_config,omitempty"`
+	ZookeeperConfig    *ZookeeperConfig  `json:"zookeeper_config,omitempty"`
 	RpcPort            *int32            `json:"rpc_port,omitempty"`
 	BlobPort           *int32            `json:"blob_port,omitempty"`
 	QueryPort          *int32            `json:"query_port,omitempty"`
@@ -37,30 +38,41 @@ type FlinkJobSpec struct {
 }
 
 type JobManagerConfig struct {
-	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
-	Env       []v1.EnvVar              `json:"env"`
+	Resources        *v1.ResourceRequirements `json:"resources,omitempty"`
+	Env              []v1.EnvVar              `json:"env"`
+	HighAvailability HighAvailability         `json:"high_availability"`
+}
+
+type ZookeeperConfig struct {
+	HostAddresses []string `json:"host_addresses"`
 }
 
 type TaskManagerConfig struct {
-	Resources v1.ResourceRequirements `json:"resources,omitempty"`
-	Env       []v1.EnvVar             `json:"env"`
+	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
+	Env       []v1.EnvVar              `json:"env"`
 	// TODO Is there a default. Whats the behavior if this is 0
 	NumberSlots int32 `json:"number_slots"`
 }
 
-type FlinkJobStatus struct {
-	Phase         FlinkJobPhase `json:"phase"`
-	StartedAt     *metav1.Time  `json:"started_at,omitempty"`
-	StoppedAt     *metav1.Time  `json:"stopped_at,omitempty"`
-	LastUpdatedAt *metav1.Time  `json:"last_updated_at,omitempty"`
-	Reason        string        `json:"reason,omitempty"`
+type SavepointInfo struct {
+	SavepointLocation string `json:"savepoint_location,omitempty"`
+	TriggerId         string `json:"trigger_id,omitempty"`
 }
 
-func (in *FlinkJobStatus) GetPhase() FlinkJobPhase {
+type FlinkApplicationStatus struct {
+	Phase         FlinkApplicationPhase `json:"phase"`
+	StartedAt     *metav1.Time          `json:"started_at,omitempty"`
+	StoppedAt     *metav1.Time          `json:"stopped_at,omitempty"`
+	LastUpdatedAt *metav1.Time          `json:"last_updated_at,omitempty"`
+	Reason        string                `json:"reason,omitempty"`
+	ActiveJobId   string                `json:"job_id,omitempty"`
+}
+
+func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
 	return in.Phase
 }
 
-func (in *FlinkJobStatus) UpdatePhase(phase FlinkJobPhase, reason string) {
+func (in *FlinkApplicationStatus) UpdatePhase(phase FlinkApplicationPhase, reason string) {
 	now := metav1.Now()
 	if in.StartedAt == nil {
 		in.StartedAt = &now
@@ -73,23 +85,32 @@ func (in *FlinkJobStatus) UpdatePhase(phase FlinkJobPhase, reason string) {
 	in.Phase = phase
 }
 
-func (in *FlinkJobStatus) TouchResource(reason string) {
+func (in *FlinkApplicationStatus) TouchResource(reason string) {
 	now := metav1.Now()
 	in.LastUpdatedAt = &now
 	in.Reason = reason
 }
 
-type FlinkJobPhase string
+type FlinkApplicationPhase string
 
-func (p FlinkJobPhase) IsTerminal() bool {
-	return p == FlinkJobStopped || p == FlinkJobFailed
+func (p FlinkApplicationPhase) IsTerminal() bool {
+	return p == FlinkApplicationStopped || p == FlinkApplicationFailed
 }
 
 const (
-	FlinkJobNew           FlinkJobPhase = ""
-	FlinkJobRunning       FlinkJobPhase = "Running"
-	FlinkJobCheckpointing FlinkJobPhase = "Checkpointing"
-	FlinkJobUpdating      FlinkJobPhase = "Updating"
-	FlinkJobFailed        FlinkJobPhase = "Failed"
-	FlinkJobStopped       FlinkJobPhase = "Stopped"
+	FlinkApplicationNew          FlinkApplicationPhase = ""
+	FlinkClusterStarting         FlinkApplicationPhase = "Starting"
+	FlinkApplicationReady        FlinkApplicationPhase = "Ready"
+	FlinkApplicationRunning      FlinkApplicationPhase = "Running"
+	FlinkApplicationSavepointing FlinkApplicationPhase = "Savepointing"
+	FlinkApplicationUpdating     FlinkApplicationPhase = "Updating"
+	FlinkApplicationFailed       FlinkApplicationPhase = "Failed"
+	FlinkApplicationStopped      FlinkApplicationPhase = "Stopped"
+)
+
+type HighAvailability string
+
+const (
+	None      HighAvailability = ""
+	Zookeeper HighAvailability = "zookeeper"
 )

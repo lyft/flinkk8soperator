@@ -1,16 +1,18 @@
-package helpers
+package flink
 
 import (
 	"regexp"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/config"
+	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-var inputRegex = regexp.MustCompile("{{\\s*[$]job\\s*}}")
+var inputRegex = regexp.MustCompile("{{\\s*[$]jobCluster\\s*}}")
 
 func ReplaceJobUrl(value string, input string) string {
 	return inputRegex.ReplaceAllString(value, input)
@@ -20,22 +22,21 @@ func GetFlinkUIIngressURL(jobName string) string {
 	return ReplaceJobUrl(config.FlinkIngressUrlFormat, jobName)
 }
 
-func FetchJobManagerIngressCreateObj(job *v1alpha1.FlinkJob) *v1beta1.Ingress {
-	jobManagerName := GetJobManagerName(job.Name)
-	podLabels := CopyMap(job.Labels)
-	podLabels[FlinkProcessRoleKey] = JobManagerProcessRole
+func FetchJobManagerIngressCreateObj(app *v1alpha1.FlinkApplication) *v1beta1.Ingress {
+	podLabels := common.DuplicateMap(app.Labels)
+	podLabels = common.CopyMap(podLabels, k8.GetAppLabel(app.Name))
 
 	ingressMeta := v1.ObjectMeta{
-		Name:      jobManagerName,
+		Name:      app.Name,
 		Labels:    podLabels,
-		Namespace: job.Namespace,
+		Namespace: app.Namespace,
 		OwnerReferences: []v1.OwnerReference{
-			*v1.NewControllerRef(job, job.GroupVersionKind()),
+			*v1.NewControllerRef(app, app.GroupVersionKind()),
 		},
 	}
 
 	backend := v1beta1.IngressBackend{
-		ServiceName: jobManagerName,
+		ServiceName: getJobManagerServiceName(*app),
 		ServicePort: intstr.IntOrString{
 			Type:   intstr.Int,
 			IntVal: FlinkUIDefaultPort,
@@ -44,7 +45,7 @@ func FetchJobManagerIngressCreateObj(job *v1alpha1.FlinkJob) *v1beta1.Ingress {
 
 	ingressSpec := v1beta1.IngressSpec{
 		Rules: []v1beta1.IngressRule{{
-			Host: GetFlinkUIIngressURL(job.Name),
+			Host: GetFlinkUIIngressURL(app.Name),
 			IngressRuleValue: v1beta1.IngressRuleValue{
 				HTTP: &v1beta1.HTTPIngressRuleValue{
 					Paths: []v1beta1.HTTPIngressPath{{
@@ -58,23 +59,21 @@ func FetchJobManagerIngressCreateObj(job *v1alpha1.FlinkJob) *v1beta1.Ingress {
 		ObjectMeta: ingressMeta,
 		TypeMeta: v1.TypeMeta{
 			APIVersion: v1beta1.SchemeGroupVersion.String(),
-			Kind:       Ingress,
+			Kind:       k8.Ingress,
 		},
 		Spec: ingressSpec,
 	}
 
 }
 
-func FetchJobManagerIngressIdentityObj(job *v1alpha1.FlinkJob) *v1beta1.Ingress {
-	jmName := GetJobManagerName(job.Name)
-
+func FetchJobManagerIngressIdentityObj(job *v1alpha1.FlinkApplication) *v1beta1.Ingress {
 	return &v1beta1.Ingress{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: v1beta1.SchemeGroupVersion.String(),
-			Kind:       Ingress,
+			Kind:       k8.Ingress,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      jmName,
+			Name:      job.Name,
 			Namespace: job.Namespace,
 		},
 	}
