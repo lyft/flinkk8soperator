@@ -20,7 +20,6 @@ const (
 
 type K8ClusterInterface interface {
 	GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
-	DeleteDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) error
 	IsAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error)
 	CreateK8Object(ctx context.Context, object sdk.Object) error
 	UpdateK8Object(ctx context.Context, object sdk.Object) error
@@ -110,14 +109,6 @@ func (k *K8Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace strin
 		return nil, err
 	}
 	return deploymentList, nil
-}
-
-func (k *K8Cluster) DeleteDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) error {
-	deploymentList, err := k.GetDeploymentsWithLabel(ctx, namespace, labelMap)
-	if err != nil {
-		return err
-	}
-	return k.DeleteDeployments(ctx, *deploymentList)
 }
 
 func (k *K8Cluster) IsAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {

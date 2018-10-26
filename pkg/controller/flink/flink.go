@@ -14,19 +14,46 @@ import (
 
 // Interface to manage Flink Application in Kubernetes
 type FlinkInterface interface {
+	// Creates a Flink cluster with necessary Job Manager, Task Managers and services for UI
 	CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error
+
+	// Deletes a Flink cluster that does not match the spec of the Application if there is one
 	DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication, deleteFrontEnd bool) error
+
+	// Cancels the running/active jobs in the Cluster for the Application after savepoint is created
 	CancelWithSavepoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
+
+	// Starts the Job in the Flink Cluster based on values in the Application
 	StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
+
+	// Savepoint creation is asynchronous.
+	// Polls the status of the Savepoint, using the triggerId
 	GetSavepointStatus(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error)
+
+	// Check if the Flink Kubernetes Cluster is Ready.
+	// Checks if all the pods of task and job managers are ready.
 	IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+
+	// Checks to see if the Flink Cluster is ready to handle API requests
 	IsServiceReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+
+	// Compares the Application Spec with the underlying Flink Cluster.
+	// Return true if the spec does not match the underlying Flink cluster.
 	HasApplicationChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+
+	// Indicates if a new Flink cluster needs to spinned up for the Application
 	IsClusterChangeNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-	IsClusterUpdateNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+
+	// Ensure that correct number of Task managers are running for the Application.
 	CheckAndUpdateTaskManager(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+
+	// Check if the Parallelism of the Application matches the parallelism of the Job running in the cluster
 	IsApplicationParallelismDifferent(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+
+	// Check if multiple Flink clusters are running for the Application
 	IsMultipleClusterPresent(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+
+	// Returns the list of Jobs running on the Flink Cluster for the Application
 	GetJobsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error)
 }
 
@@ -234,7 +261,7 @@ func (f *FlinkController) HasApplicationChanged(ctx context.Context, application
 		return true, nil
 	}
 
-	clusterUpdateNeeded, err := f.IsClusterUpdateNeeded(ctx, application)
+	clusterUpdateNeeded, err := f.isClusterUpdateNeeded(ctx, application)
 	if err != nil {
 		return false, err
 	}
@@ -256,7 +283,7 @@ func (f *FlinkController) IsClusterChangeNeeded(ctx context.Context, application
 	return false, nil
 }
 
-func (f *FlinkController) IsClusterUpdateNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (f *FlinkController) isClusterUpdateNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	currentAppDeployments, err := f.getDeploymentsForApp(ctx, application)
 	if err != nil {
 		return false, err

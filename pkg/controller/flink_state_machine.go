@@ -144,6 +144,9 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 			return err
 		}
 		application.Status.ActiveJobId = jobId
+	} else {
+		application.Status.ActiveJobId = activeJob.JobId
+
 	}
 
 	// Clear the savepoint info
