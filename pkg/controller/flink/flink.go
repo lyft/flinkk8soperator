@@ -44,11 +44,11 @@ type FlinkInterface interface {
 	// Indicates if a new Flink cluster needs to spinned up for the Application
 	IsClusterChangeNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 
-	// Ensure that correct number of Task managers are running for the Application.
-	CheckAndUpdateTaskManager(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+	// Ensure that correct resources are running for the Application.
+	CheckAndUpdateClusterResources(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 
-	// Check if the Parallelism of the Application matches the parallelism of the Job running in the cluster
-	IsApplicationParallelismDifferent(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+	// Check if the Job details in the application has changed corresponding to one running in the cluster
+	HasApplicationJobChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 
 	// Check if multiple Flink clusters are running for the Application
 	IsMultipleClusterPresent(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
@@ -86,34 +86,46 @@ func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
 	return nil
 }
 
-func (f *FlinkController) IsApplicationParallelismDifferent(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (f *FlinkController) HasApplicationJobChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	serviceName := getJobManagerServiceName(*application)
 	jobId, err := f.getJobIdForApplication(ctx, application)
 	if err != nil {
 		return false, err
 	}
 	jobConfig, err := f.flinkClient.GetJobConfig(ctx, serviceName, jobId)
-	if application.Spec.Parallelism != jobConfig.ExecutionConfig.Parallelism {
+	if application.Spec.FlinkJob.Parallelism != jobConfig.ExecutionConfig.Parallelism {
 		return true, nil
 	}
+	// More checks here for job change monitoring.
 	return false, nil
 }
 
-func (f *FlinkController) CheckAndUpdateTaskManager(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (f *FlinkController) CheckAndUpdateClusterResources(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	currentAppDeployments, err := f.getDeploymentsForApp(ctx, application)
 	if err != nil {
 		return false, err
 	}
+	hasUpdated := false
 	taskManagerDeployment := getTaskManagerDeployment(currentAppDeployments.Items, application)
-	if *taskManagerDeployment.Spec.Replicas != application.Spec.NumberTaskManagers {
-		taskManagerDeployment.Spec.Replicas = &application.Spec.NumberTaskManagers
+	if *taskManagerDeployment.Spec.Replicas != application.Spec.TaskManagerConfig.TaskManagerCount {
+		taskManagerDeployment.Spec.Replicas = &application.Spec.TaskManagerConfig.TaskManagerCount
 		err := f.k8Cluster.UpdateK8Object(ctx, taskManagerDeployment)
 		if err != nil {
 			return false, err
 		}
-		return true, nil
+		hasUpdated = true
 	}
-	return false, nil
+
+	jobManagerDeployment := getJobManagerDeployment(currentAppDeployments.Items, application)
+	if *jobManagerDeployment.Spec.Replicas != application.Spec.JobManagerConfig.JobManagerCount {
+		jobManagerDeployment.Spec.Replicas = &application.Spec.JobManagerConfig.JobManagerCount
+		err := f.k8Cluster.UpdateK8Object(ctx, jobManagerDeployment)
+		if err != nil {
+			return false, err
+		}
+		hasUpdated = true
+	}
+	return hasUpdated, nil
 }
 
 func (f *FlinkController) IsMultipleClusterPresent(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
@@ -190,9 +202,13 @@ func (f *FlinkController) StartFlinkJob(ctx context.Context, application *v1alph
 	response, err := f.flinkClient.SubmitJob(
 		ctx,
 		serviceName,
-		application.JobJarName,
-		application.SavepointInfo.SavepointLocation,
-		application.Spec.Parallelism)
+		application.Spec.FlinkJob.JarName,
+		client.SubmitJobRequest{
+			Parallelism:   application.Spec.FlinkJob.Parallelism,
+			SavepointPath: application.Spec.FlinkJob.SavepointInfo.SavepointLocation,
+			EntryClass:    application.Spec.FlinkJob.EntryClass,
+			ProgramArgs:   application.Spec.FlinkJob.ProgramArgs,
+		})
 	if err != nil {
 		return "", err
 	}
@@ -208,7 +224,7 @@ func (f *FlinkController) GetSavepointStatus(ctx context.Context, application *v
 	if err != nil {
 		return nil, err
 	}
-	return f.flinkClient.CheckSavepointStatus(ctx, serviceName, jobId, application.SavepointInfo.TriggerId)
+	return f.flinkClient.CheckSavepointStatus(ctx, serviceName, jobId, application.Spec.FlinkJob.SavepointInfo.TriggerId)
 }
 
 func (f *FlinkController) DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication, deleteFrontEnd bool) error {
@@ -289,8 +305,13 @@ func (f *FlinkController) isClusterUpdateNeeded(ctx context.Context, application
 		return false, err
 	}
 	taskManagerReplicaCount := getTaskManagerReplicaCount(currentAppDeployments.Items, application)
-	if taskManagerReplicaCount != application.Spec.NumberTaskManagers {
+	if taskManagerReplicaCount != application.Spec.TaskManagerConfig.TaskManagerCount {
 		return true, nil
 	}
-	return f.IsApplicationParallelismDifferent(ctx, application)
+
+	jobManagerReplicaCount := getJobManagerReplicaCount(currentAppDeployments.Items, application)
+	if jobManagerReplicaCount != application.Spec.JobManagerConfig.JobManagerCount {
+		return true, nil
+	}
+	return f.HasApplicationJobChanged(ctx, application)
 }

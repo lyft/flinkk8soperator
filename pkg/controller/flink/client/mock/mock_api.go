@@ -7,7 +7,7 @@ import (
 )
 
 type CancelJobWithSavepointFunc func(ctx context.Context, serviceName, jobId string) (string, error)
-type SubmitJobFunc func(ctx context.Context, serviceName, jarId, savepointPath string, parallelism int32) (*client.SubmitJobResponse, error)
+type SubmitJobFunc func(ctx context.Context, serviceName, jarId string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error)
 type CheckSavepointStatusFunc func(ctx context.Context, serviceName, jobId, triggerId string) (*client.SavepointResponse, error)
 type GetJobsFunc func(ctx context.Context, serviceName string) (*client.GetJobsResponse, error)
 type GetClusterOverviewFunc func(ctx context.Context, serviceName string) (*client.ClusterOverviewResponse, error)
@@ -22,18 +22,18 @@ type MockJobManagerClient struct {
 	GetJobConfigFunc           GetJobConfigFunc
 }
 
+func (m *MockJobManagerClient) SubmitJob(ctx context.Context, serviceName, jarId string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
+	if m.SubmitJobFunc != nil {
+		return m.SubmitJobFunc(ctx, serviceName, jarId, submitJobRequest)
+	}
+	return nil, nil
+}
+
 func (m *MockJobManagerClient) CancelJobWithSavepoint(ctx context.Context, serviceName, jobId string) (string, error) {
 	if m.CancelJobWithSavepointFunc != nil {
 		return m.CancelJobWithSavepointFunc(ctx, serviceName, jobId)
 	}
 	return "", nil
-}
-
-func (m *MockJobManagerClient) SubmitJob(ctx context.Context, serviceName, jarId, savepointPath string, parallelism int32) (*client.SubmitJobResponse, error) {
-	if m.SubmitJobFunc != nil {
-		return m.SubmitJobFunc(ctx, serviceName, jarId, savepointPath, parallelism)
-	}
-	return nil, nil
 }
 
 func (m *MockJobManagerClient) CheckSavepointStatus(ctx context.Context, serviceName, jobId, triggerId string) (*client.SavepointResponse, error) {

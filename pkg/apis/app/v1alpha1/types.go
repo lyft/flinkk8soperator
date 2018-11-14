@@ -20,38 +20,43 @@ type FlinkApplication struct {
 	metav1.ObjectMeta `json:"metadata"`
 	Spec              FlinkApplicationSpec   `json:"spec"`
 	Status            FlinkApplicationStatus `json:"status,omitempty"`
-	SavepointInfo     SavepointInfo          `json:"savepoint_info,omitempty"`
-	JobJarName        string                 `json:"jar_name,omitempty"`
 }
 
 type FlinkApplicationSpec struct {
-	Image              string            `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
-	Parallelism        int32             `json:"parallelism"`
-	NumberTaskManagers int32             `json:"number_task_managers"`
-	TaskManagerConfig  TaskManagerConfig `json:"task_manager_config,omitempty"`
-	JobManagerConfig   *JobManagerConfig `json:"job_manager_config,omitempty"`
-	ZookeeperConfig    *ZookeeperConfig  `json:"zookeeper_config,omitempty"`
-	RpcPort            *int32            `json:"rpc_port,omitempty"`
-	BlobPort           *int32            `json:"blob_port,omitempty"`
-	QueryPort          *int32            `json:"query_port,omitempty"`
-	UiPort             *int32            `json:"ui_port,omitempty"`
+	Image             string            `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
+	TaskManagerConfig TaskManagerConfig `json:"task_manager_config,omitempty"`
+	JobManagerConfig  JobManagerConfig  `json:"job_manager_config,omitempty"`
+	FlinkJob          FlinkJobInfo      `json:"flink_job"`
+	DeploymentMode    DeploymentMode    `json:"deployment_mode"`
+	RpcPort           *int32            `json:"rpc_port,omitempty"`
+	BlobPort          *int32            `json:"blob_port,omitempty"`
+	QueryPort         *int32            `json:"query_port,omitempty"`
+	UiPort            *int32            `json:"ui_port,omitempty"`
+}
+
+type FlinkJobInfo struct {
+	JarName       string        `json:"jar_name"`
+	Parallelism   int32         `json:"parallelism"`
+	EntryClass    string        `json:"entry_class,omitempty"`
+	ProgramArgs   string        `json:"program_args,omitempty"`
+	SavepointInfo SavepointInfo `json:"savepoint_info,omitempty"`
 }
 
 type JobManagerConfig struct {
-	Resources        *v1.ResourceRequirements `json:"resources,omitempty"`
-	Env              []v1.EnvVar              `json:"env"`
-	HighAvailability HighAvailability         `json:"high_availability"`
-}
-
-type ZookeeperConfig struct {
-	HostAddresses []string `json:"host_addresses"`
+	Resources       *v1.ResourceRequirements `json:"resources,omitempty"`
+	Environment     EnvironmentConfig        `json:"env_config"`
+	JobManagerCount int32                    `json:"job_manager_count"`
 }
 
 type TaskManagerConfig struct {
-	Resources *v1.ResourceRequirements `json:"resources,omitempty"`
-	Env       []v1.EnvVar              `json:"env"`
-	// TODO Is there a default. Whats the behavior if this is 0
-	NumberSlots int32 `json:"number_slots"`
+	Resources        *v1.ResourceRequirements `json:"resources,omitempty"`
+	Environment      EnvironmentConfig        `json:"env_config"`
+	TaskManagerCount int32                    `json:"task_manager_count"`
+}
+
+type EnvironmentConfig struct {
+	EnvFrom []v1.EnvFromSource `json:"envFrom,omitempty"`
+	Env     []v1.EnvVar        `json:"env,omitempty"`
 }
 
 type SavepointInfo struct {
@@ -98,19 +103,19 @@ func (p FlinkApplicationPhase) IsTerminal() bool {
 }
 
 const (
-	FlinkApplicationNew          FlinkApplicationPhase = ""
-	FlinkClusterStarting         FlinkApplicationPhase = "Starting"
-	FlinkApplicationReady        FlinkApplicationPhase = "Ready"
-	FlinkApplicationRunning      FlinkApplicationPhase = "Running"
-	FlinkApplicationSavepointing FlinkApplicationPhase = "Savepointing"
-	FlinkApplicationUpdating     FlinkApplicationPhase = "Updating"
-	FlinkApplicationFailed       FlinkApplicationPhase = "Failed"
-	FlinkApplicationStopped      FlinkApplicationPhase = "Stopped"
+	FlinkApplicationNew             FlinkApplicationPhase = ""
+	FlinkApplicationClusterStarting FlinkApplicationPhase = "Starting"
+	FlinkApplicationReady           FlinkApplicationPhase = "Ready"
+	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
+	FlinkApplicationSavepointing    FlinkApplicationPhase = "Savepointing"
+	FlinkApplicationUpdating        FlinkApplicationPhase = "Updating"
+	FlinkApplicationFailed          FlinkApplicationPhase = "Failed"
+	FlinkApplicationStopped         FlinkApplicationPhase = "Stopped"
 )
 
-type HighAvailability string
+type DeploymentMode string
 
 const (
-	None      HighAvailability = ""
-	Zookeeper HighAvailability = "zookeeper"
+	DeploymentModeSingle DeploymentMode = "Single"
+	DeploymentModeDual   DeploymentMode = "Dual"
 )

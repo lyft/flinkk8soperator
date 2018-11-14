@@ -10,7 +10,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8_err "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -20,7 +20,6 @@ const (
 	TaskManagerPodNameFormat = "%s-%s-tm-pod"
 	TaskManagerContainerName = "taskmanager"
 	TaskManagerArg           = "taskmanager"
-	TaskManagerProcessRole   = "taskmanager"
 )
 
 type FlinkTaskManagerControllerInterface interface {
@@ -55,24 +54,33 @@ func (t *FlinkTaskManagerController) CreateIfNotExist(ctx context.Context, appli
 	}
 	err = t.k8Cluster.CreateK8Object(ctx, taskManagerDeployment)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !k8_err.IsAlreadyExists(err) {
 			return err
 		}
 	}
 	return nil
 }
 
-func getTaskManagerDeployment(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) *v1.Deployment {
-	taskDeploymentName := getTaskManagerName(*application)
+func getDeploymentWithName(deployments []v1.Deployment, name string) *v1.Deployment {
 	if len(deployments) == 0 {
 		return nil
 	}
 	for _, deployment := range deployments {
-		if deployment.Name == taskDeploymentName {
+		if deployment.Name == name {
 			return &deployment
 		}
 	}
 	return nil
+}
+
+func getTaskManagerDeployment(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) *v1.Deployment {
+	tmDeploymentName := getTaskManagerName(*application)
+	return getDeploymentWithName(deployments, tmDeploymentName)
+}
+
+func getJobManagerDeployment(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) *v1.Deployment {
+	jmDeploymentName := getJobManagerName(application)
+	return getDeploymentWithName(deployments, jmDeploymentName)
 }
 
 func getTaskManagerReplicaCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
@@ -80,8 +88,15 @@ func getTaskManagerReplicaCount(deployments []v1.Deployment, application *v1alph
 	if taskManagerDeployment == nil {
 		return 0
 	}
-
 	return *taskManagerDeployment.Spec.Replicas
+}
+
+func getJobManagerReplicaCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
+	jobManagerDeployment := getJobManagerDeployment(deployments, application)
+	if jobManagerDeployment == nil {
+		return 0
+	}
+	return *jobManagerDeployment.Spec.Replicas
 }
 
 func GetTaskManagerPorts(flinkJob *v1alpha1.FlinkApplicationSpec) []coreV1.ContainerPort {
@@ -93,31 +108,26 @@ func GetTaskManagerPorts(flinkJob *v1alpha1.FlinkApplicationSpec) []coreV1.Conta
 }
 
 func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV1.Container, error) {
-	var env []coreV1.EnvVar
-
 	tmConfig := application.Spec.TaskManagerConfig
 	ports := GetTaskManagerPorts(&application.Spec)
-	if len(tmConfig.Env) != 0 {
-		env = tmConfig.Env
-	}
-
-	containerEnv, err := GetFlinkContainerEnv(*application)
-	if err != nil {
-		return nil, err
-	}
-	env = append(env, containerEnv...)
-
-	resources := application.Spec.TaskManagerConfig.Resources
+	resources := tmConfig.Resources
 	if resources == nil {
 		resources = &TaskManagerDefaultResources
 	}
+	operatorEnv, err := GetFlinkContainerEnv(*application)
+	if err != nil {
+		return nil, err
+	}
+	operatorEnv = append(operatorEnv, tmConfig.Environment.Env...)
+
 	return &coreV1.Container{
-		Name:      TaskManagerContainerName,
+		Name:      getFlinkContainerName(TaskManagerContainerName),
 		Image:     application.Spec.Image,
 		Resources: *resources,
 		Args:      []string{TaskManagerArg},
 		Ports:     ports,
-		Env:       env,
+		Env:       operatorEnv,
+		EnvFrom:   tmConfig.Environment.EnvFrom,
 	}, nil
 }
 
@@ -136,7 +146,6 @@ func getTaskManagerName(application v1alpha1.FlinkApplication) string {
 func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Deployment, error) {
 	taskName := getTaskManagerName(*app)
 	podName := getTaskManagerPodName(*app)
-	tmReplicas := app.Spec.NumberTaskManagers
 
 	commonLabels := getCommonAppLabels(*app)
 	labels := common.CopyMap(app.Labels, commonLabels)
@@ -169,7 +178,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Dep
 			Strategy: v1.DeploymentStrategy{
 				Type: v1.RecreateDeploymentStrategyType,
 			},
-			Replicas: &tmReplicas,
+			Replicas: &app.Spec.TaskManagerConfig.TaskManagerCount,
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name:        podName,

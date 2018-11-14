@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-staging-ha-config
+data:
+  HIGH_AVAILABILITY: zookeeper
+  ZOOKEEPER_QUORUM: streamingplatformzk1-staging.lyft.net:2181,streamingplatformzk2-staging.lyft.net:2181,streamingplatformzk3-staging.lyft.net:2181,streamingplatformzk4-staging.lyft.net:2181,streamingplatformzk5-staging.lyft.net:2181
+  ZOOKEEPER_PATH_ROOT: /streamingplatform
+  JOB_MANAGER_HEAP_MB: "1384"
+  TASK_MANAGER_SLOTS: "16"
+  TASK_MANAGER_HEAP_MB: "1384"

@@ -14,39 +14,39 @@ type FlinkHandlerInterface interface {
 }
 
 // State Machine Transition for Flink Application:
-//+--------------------------------------------------------------------------------------------------------------------+
-//|                                                                                                                    |
-//|                +---------+                                                                                         |
-//|                |         |                                                                                         |
-//|                |         |                                                                                         |
-//|                |Updating |                                                                                         |
-//|                |         <-----+--------------------------------------------+                                      |
-//|                |         |                                                  |                                      |
-//|                |         |                                                  |                                      |
-//|                +----^----+                                                  |                                      |
-//|                     |                                                       |                                      |
-//|                     |                                                       |                                      |
-//|      +----+----+    |    +----------+          +----------+           +-----+-----+          +----------+          |
-//|      |         |    |    |          |          |          |           |           |          |          |          |
-//|      |         |    |    |          |          |          |           |           |          |			|          |
-//|      |   New   +---------> Starting +----------> Ready    +----------->  Running  +---------->  Failed  |          |
-//|      |         |    |    |          |          |          |           |           |          |          |          |
-//|      |         |    |    |          <-----+    |          |           |           |          |          |          |
-//|      |         |    |    |          |     |    |          |           |           |          |          |          |
-//|      +---------+    |    +----------+     |    +-----^----+           +-----+-----+          +----------+          |
-//|                     |         |           |          |                                                             |
-//|                     |         |           |          |                                                             |
-//|                     |         |           |          |                                                             |
-//|                     |   +-----v-----+     |          |                                                             |
-//|                     |   |           +------          |                                                             |
-//|                     +--->Savepointing                |                                                             |
-//|                         |           +----------------+                                                             |
-//|                         |           |    																		   |
-//|                         |           |																			   |
-//|                         +-----------+																			   |
-//|																													   |
-//|																													   |
-//+--------------------------------------------------------------------------------------------------------------------+
+//+-----------------------------------------------------------------------------------------------------------------+
+//|                                                                                                                 |
+//|                +---------+                                                                                      |
+//|                |         |                                                                                      |
+//|                |         |                                                                                      |
+//|                |Updating |                                                                                      |
+//|                |         <-----+--------------------------------------------+                                   |
+//|                |         |                                                  |                                   |
+//|                |         |                                                  |                                   |
+//|                +----^----+                                                  |                                   |
+//|                     |                                                       |                                   |
+//|                     |                                                       |                                   |
+//|      +---------+    |    +----------+          +----------+           +-----+-----+          +----------+       |
+//|      |         |    |    |          |          |          |           |           |          |          |       |
+//|      |         |    |    |          |          |          |           |           |          |          |       |
+//|      |   New   +---------> Starting +----------> Ready    +----------->  Running  +---------->  Failed  |       |
+//|      |         |    |    |          |          |          |           |           |          |          |       |
+//|      |         |    |    |          <-----+    |          |           |           |          |          |       |
+//|      |         |    |    |          |     |    |          |           |           |          |          |       |
+//|      +----^----+    |    +----------+     |    +-----^----+           +-----+-----+          +----------+       |
+//|           |         |         |           |          |                                                          |
+//|           |         |         |           |          |                                                          |
+//|           |         |         |           |          |                                                          |
+//|           |         |   +-----v-----+     |          |                                                          |
+//|           |         |   |           +------          |                                                          |
+//|           |         +--->Savepointing                |                                                          |
+//|           +-------------+           +----------------+                                                          |
+//|                         |           |                                                                           |
+//|                         |           |                                                                           |
+//|                         +-----------+                                                                           |
+//|                                                                                                                 |
+//|                                                                                                                 |
+//+-----------------------------------------------------------------------------------------------------------------+
 type FlinkStateMachine struct {
 	flinkController flink.FlinkInterface
 	k8Cluster       k8.K8ClusterInterface
@@ -62,7 +62,7 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.Fl
 	case v1alpha1.FlinkApplicationNew:
 		// In this state, we need a new flink cluster to be created or existing cluster to be updated
 		return s.handleNewOrCreating(ctx, application)
-	case v1alpha1.FlinkClusterStarting:
+	case v1alpha1.FlinkApplicationClusterStarting:
 		return s.handleClusterStarting(ctx, application)
 	case v1alpha1.FlinkApplicationRunning:
 		return s.handleApplicationRunning(ctx, application)
@@ -87,7 +87,7 @@ func (s *FlinkStateMachine) handleNewOrCreating(ctx context.Context, application
 	if err != nil {
 		return err
 	}
-	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkClusterStarting)
+	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationClusterStarting)
 }
 
 func (s *FlinkStateMachine) cancelWithSavepointAndTransitionState(ctx context.Context, application *v1alpha1.FlinkApplication) error {
@@ -95,7 +95,7 @@ func (s *FlinkStateMachine) cancelWithSavepointAndTransitionState(ctx context.Co
 	if err != nil {
 		return err
 	}
-	application.SavepointInfo.TriggerId = triggerId
+	application.Spec.FlinkJob.SavepointInfo.TriggerId = triggerId
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationSavepointing)
 }
 
@@ -150,7 +150,7 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 	}
 
 	// Clear the savepoint info
-	application.SavepointInfo = v1alpha1.SavepointInfo{}
+	application.Spec.FlinkJob.SavepointInfo = v1alpha1.SavepointInfo{}
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationRunning)
 }
 
@@ -161,6 +161,8 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	if err != nil {
 		return err
 	}
+	// If application has changed, we can perform all the updates here itself.
+	// Pushing the state machine to Updating helps in monitoring and debuggability.
 	if hasAppChanged {
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationUpdating)
 	}
@@ -177,7 +179,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 	if savepointStatusResponse.Operation.Location == "" &&
 		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
-		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkClusterStarting)
+		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationClusterStarting)
 	}
 
 	if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
@@ -185,7 +187,11 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		if err != nil {
 			return nil
 		}
-		application.SavepointInfo.SavepointLocation = savepointStatusResponse.Operation.Location
+		application.Spec.FlinkJob.SavepointInfo.SavepointLocation = savepointStatusResponse.Operation.Location
+		// In single deployment mode, after the cluster is deleted, no extra cluster exists
+		if application.Spec.DeploymentMode == v1alpha1.DeploymentModeSingle {
+			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationNew)
+		}
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationReady)
 	}
 	return nil
@@ -201,18 +207,20 @@ func (s *FlinkStateMachine) handleApplicationUpdating(ctx context.Context, appli
 		return err
 	}
 	if isClusterChangeNeeded {
-		err := s.flinkController.CreateCluster(ctx, application)
-		if err != nil {
-			return err
+		if application.Spec.DeploymentMode == v1alpha1.DeploymentModeDual {
+			err := s.flinkController.CreateCluster(ctx, application)
+			if err != nil {
+				return err
+			}
 		}
-		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkClusterStarting)
+		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationClusterStarting)
 	}
 
-	_, err = s.flinkController.CheckAndUpdateTaskManager(ctx, application)
+	_, err = s.flinkController.CheckAndUpdateClusterResources(ctx, application)
 	if err != nil {
 		return err
 	}
-	differentParallelism, err := s.flinkController.IsApplicationParallelismDifferent(ctx, application)
+	differentParallelism, err := s.flinkController.HasApplicationJobChanged(ctx, application)
 	if err != nil {
 		return err
 	}
@@ -220,7 +228,7 @@ func (s *FlinkStateMachine) handleApplicationUpdating(ctx context.Context, appli
 	if differentParallelism {
 		return s.cancelWithSavepointAndTransitionState(ctx, application)
 	}
-	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkClusterStarting)
+	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationClusterStarting)
 }
 
 func (s *FlinkStateMachine) handleApplicationFailed(ctx context.Context, application *v1alpha1.FlinkApplication) error {

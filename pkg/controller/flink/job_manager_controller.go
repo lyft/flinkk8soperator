@@ -10,27 +10,25 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8_err "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
-	JobManagerNameFormat                = "%s-%s-jm"
-	JobManagerPodNameFormat             = "%s-%s-jm-pod"
-	JobManagerContainerName             = "jobmanager"
-	JobManagerArg                       = "jobmanager"
-	JobManagerNumReplicas               = int32(2)
-	JobManagerServiceNameFormat         = "%s-jm"
-	JobManagerServiceEnvVar             = "JOB_MANAGER_RPC_ADDRESS"
-	JobManagerReadinessPath             = "/config"
-	JobManagerReadinessInitialDelaySec  = 10
-	JobManagerReadinessTimeoutSec       = 1
-	JobManagerReadinessSuccessThreshold = 1
-	JobManagerReadinessFailureThreshold = 2
-	JobManagerReadinessPeriodSec        = 5
-	AppFrontEndKey                      = "frontend"
+	JobManagerNameFormat                  = "%s-%s-jm"
+	JobManagerPodNameFormat               = "%s-%s-jm-pod"
+	JobManagerContainerName               = "jobmanager"
+	JobManagerArg                         = "jobmanager"
+	JobManagerServiceNameFormat           = "%s-jm"
+	JobManagerReadinessPath               = "/config"
+	JobManagerReadinessInitialDelaySec    = 10
+	JobManagerReadinessTimeoutSec         = 1
+	JobManagerReadinessSuccessThreshold   = 1
+	JobManagerReadinessFailureThreshold   = 2
+	JobManagerReadinessPeriodSec          = 5
+	AppFrontEndKey                        = "frontend"
 )
 
 const (
@@ -65,7 +63,7 @@ func (j *FlinkJobManagerController) CreateIfNotExist(ctx context.Context, applic
 	}
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerDeployment)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !k8_err.IsAlreadyExists(err) {
 			return err
 		}
 	}
@@ -73,14 +71,14 @@ func (j *FlinkJobManagerController) CreateIfNotExist(ctx context.Context, applic
 	jobManagerService := FetchJobManagerServiceCreateObj(application)
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerService)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !k8_err.IsAlreadyExists(err) {
 			return err
 		}
 	}
 	jobManagerIngress := FetchJobManagerIngressCreateObj(application)
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerIngress)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !k8_err.IsAlreadyExists(err) {
 			return err
 		}
 	}
@@ -156,38 +154,27 @@ func getJobManagerPorts(flinkJob *v1alpha1.FlinkApplicationSpec) []coreV1.Contai
 }
 
 func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV1.Container, error) {
-	var resources *coreV1.ResourceRequirements
-	if application.Spec.JobManagerConfig != nil {
-		resources = application.Spec.JobManagerConfig.Resources
-	}
+	jmConfig := application.Spec.JobManagerConfig
+	resources := jmConfig.Resources
 	if resources == nil {
 		resources = &JobManagerDefaultResources
 	}
-	var env []coreV1.EnvVar
-	jmConfig := application.Spec.JobManagerConfig
-	ports := getJobManagerPorts(&application.Spec)
-	if jmConfig != nil {
-		if jmConfig.Resources != nil {
-			resources = application.Spec.JobManagerConfig.Resources
-		}
-		if len(jmConfig.Env) != 0 {
-			env = jmConfig.Env
-		}
 
-	}
-	containerEnv, err := GetFlinkContainerEnv(*application)
+	ports := getJobManagerPorts(&application.Spec)
+	operatorEnv, err := GetFlinkContainerEnv(*application)
 	if err != nil {
 		return nil, err
 	}
-	env = append(env, containerEnv...)
+	operatorEnv = append(operatorEnv, jmConfig.Environment.Env...)
 
 	return &coreV1.Container{
-		Name:      JobManagerContainerName,
+		Name:      getFlinkContainerName(JobManagerContainerName),
 		Image:     application.Spec.Image,
 		Resources: *resources,
 		Args:      []string{JobManagerArg},
 		Ports:     ports,
-		Env:       env,
+		Env:       operatorEnv,
+		EnvFrom:   jmConfig.Environment.EnvFrom,
 		ReadinessProbe: &coreV1.Probe{
 			Handler: coreV1.Handler{
 				HTTPGet: &coreV1.HTTPGetAction{
@@ -207,7 +194,6 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV
 func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Deployment, error) {
 	jmName := getJobManagerName(app)
 	podName := getJobManagerPodName(app)
-	jmReplicas := JobManagerNumReplicas
 
 	podLabels := common.DuplicateMap(app.Labels)
 	podLabels[AppFrontEndKey] = getJobManagerServiceName(*app)
@@ -241,7 +227,7 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 			Strategy: v1.DeploymentStrategy{
 				Type: v1.RecreateDeploymentStrategyType,
 			},
-			Replicas: &jmReplicas,
+			Replicas: &app.Spec.JobManagerConfig.JobManagerCount,
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name:        podName,

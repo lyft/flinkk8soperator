@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-staging-config
+data:
+  JOB_MANAGER_HEAP_MB: "1384"
+  TASK_MANAGER_SLOTS: "16"
+  TASK_MANAGER_HEAP_MB: "1384"

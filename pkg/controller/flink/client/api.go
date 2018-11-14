@@ -26,7 +26,7 @@ const port = 80
 
 type FlinkAPIInterface interface {
 	CancelJobWithSavepoint(ctx context.Context, serviceName, jobId string) (string, error)
-	SubmitJob(ctx context.Context, serviceName, jarId, savepointPath string, parallelism int32) (*SubmitJobResponse, error)
+	SubmitJob(ctx context.Context, serviceName, jarId string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error)
 	CheckSavepointStatus(ctx context.Context, serviceName, jobId, triggerId string) (*SavepointResponse, error)
 	GetJobs(ctx context.Context, serviceName string) (*GetJobsResponse, error)
 	GetClusterOverview(ctx context.Context, serviceName string) (*ClusterOverviewResponse, error)
@@ -122,15 +122,10 @@ func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, serv
 	return cancelJobResponse.TriggerId, nil
 }
 
-func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, serviceName, jarId, savepointPath string, parallelism int32) (*SubmitJobResponse, error) {
+func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, serviceName, jarId string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error) {
 	url := c.getUrlFromServiceName(serviceName)
 	path := fmt.Sprintf(submitJobUrl, jarId)
 	url = url + path
-
-	submitJobRequest := SubmitJobRequest{
-		SavepointPath: savepointPath,
-		Parallelism:   parallelism,
-	}
 
 	response, err := c.executeRequest(ctx, httpPost, url, submitJobRequest)
 	if err != nil {

@@ -151,7 +151,7 @@ func TestFlinkApplicationNeededNeedUpdate(t *testing.T) {
 	flinkApp.Name = appName
 	flinkApp.Namespace = namespaceVal
 	flinkApp.Spec.Image = testImage
-	flinkApp.Spec.NumberTaskManagers = numberOfTaskManagers + 1
+	flinkApp.Spec.TaskManagerConfig.TaskManagerCount = numberOfTaskManagers + 1
 	result, err := flinkControllerForTest.HasApplicationChanged(
 		context.Background(), &flinkApp,
 	)
@@ -181,7 +181,7 @@ func TestFlinkApplicationParallelismChanged(t *testing.T) {
 		}, nil
 	}
 	flinkApp := v1alpha1.FlinkApplication{}
-	flinkApp.Spec.Parallelism = 2
+	flinkApp.Spec.FlinkJob.Parallelism = 2
 	flinkApp.Status.ActiveJobId = "job1"
 	result, err := flinkControllerForTest.HasApplicationChanged(
 		context.Background(), &flinkApp,

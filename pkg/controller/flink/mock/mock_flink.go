@@ -17,26 +17,26 @@ type IsServiceReadyFunc func(ctx context.Context, application *v1alpha1.FlinkApp
 type HasApplicationChangedFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type IsClusterChangeNeededFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type IsClusterUpdateNeededFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-type CheckAndUpdateTaskManagerFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-type IsApplicationParallelismDifferentFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+type CheckAndUpdateClusterResourcesFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+type HasApplicationJobChangedFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type IsMultipleClusterPresentFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type GetJobsForApplicationFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error)
 
 type MockFlinkController struct {
-	CreateClusterFunc                     CreateClusterFunc
-	DeleteOldClusterFunc                  DeleteOldClusterFunc
-	CancelWithSavepointFunc               CancelWithSavepointFunc
-	StartFlinkJobFunc                     StartFlinkJobFunc
-	GetSavepointStatusFunc                GetSavepointStatusFunc
-	IsClusterReadyFunc                    IsClusterReadyFunc
-	IsServiceReadyFunc                    IsServiceReadyFunc
-	HasApplicationChangedFunc             HasApplicationChangedFunc
-	IsClusterChangeNeededFunc             IsClusterChangeNeededFunc
-	IsClusterUpdateNeededFunc             IsClusterUpdateNeededFunc
-	CheckAndUpdateTaskManagerFunc         CheckAndUpdateTaskManagerFunc
-	IsApplicationParallelismDifferentFunc IsApplicationParallelismDifferentFunc
-	IsMultipleClusterPresentFunc          IsMultipleClusterPresentFunc
-	GetJobsForApplicationFunc             GetJobsForApplicationFunc
+	CreateClusterFunc                  CreateClusterFunc
+	DeleteOldClusterFunc               DeleteOldClusterFunc
+	CancelWithSavepointFunc            CancelWithSavepointFunc
+	StartFlinkJobFunc                  StartFlinkJobFunc
+	GetSavepointStatusFunc             GetSavepointStatusFunc
+	IsClusterReadyFunc                 IsClusterReadyFunc
+	IsServiceReadyFunc                 IsServiceReadyFunc
+	HasApplicationChangedFunc          HasApplicationChangedFunc
+	IsClusterChangeNeededFunc          IsClusterChangeNeededFunc
+	IsClusterUpdateNeededFunc          IsClusterUpdateNeededFunc
+	CheckAndUpdateClusterResourcesFunc CheckAndUpdateClusterResourcesFunc
+	HasApplicationJobChangedFunc       HasApplicationJobChangedFunc
+	IsMultipleClusterPresentFunc       IsMultipleClusterPresentFunc
+	GetJobsForApplicationFunc          GetJobsForApplicationFunc
 }
 
 func (m *MockFlinkController) CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error {
@@ -109,16 +109,16 @@ func (m *MockFlinkController) IsClusterUpdateNeeded(ctx context.Context, applica
 	return false, nil
 }
 
-func (m *MockFlinkController) CheckAndUpdateTaskManager(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	if m.CheckAndUpdateTaskManagerFunc != nil {
-		return m.CheckAndUpdateTaskManagerFunc(ctx, application)
+func (m *MockFlinkController) CheckAndUpdateClusterResources(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	if m.CheckAndUpdateClusterResourcesFunc != nil {
+		return m.CheckAndUpdateClusterResourcesFunc(ctx, application)
 	}
 	return false, nil
 }
 
-func (m *MockFlinkController) IsApplicationParallelismDifferent(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	if m.IsApplicationParallelismDifferentFunc != nil {
-		return m.IsApplicationParallelismDifferentFunc(ctx, application)
+func (m *MockFlinkController) HasApplicationJobChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	if m.HasApplicationJobChangedFunc != nil {
+		return m.HasApplicationJobChangedFunc(ctx, application)
 	}
 	return false, nil
 }
