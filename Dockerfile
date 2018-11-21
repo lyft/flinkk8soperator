@@ -7,4 +7,5 @@ RUN dep ensure && \
     go build -o flinkk8soperator.bin ./cmd/flinkk8soperator/main.go && \
     mv ./flinkk8soperator.bin /bin/flinkk8soperator
 
+WORKDIR /etc/flinkk8soperator/config
 ENTRYPOINT ["/bin/flinkk8soperator"]

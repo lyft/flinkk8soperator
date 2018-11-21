@@ -132,11 +132,11 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 	if !isReady {
 		return nil
 	}
+	// Check that there are no jobs running before starting the job
 	jobs, err := s.flinkController.GetJobsForApplication(ctx, application)
 	if err != nil {
 		return err
 	}
-
 	activeJob := flink.GetActiveFlinkJob(jobs)
 	if activeJob == nil {
 		jobId, err := s.flinkController.StartFlinkJob(ctx, application)
@@ -157,6 +157,17 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 // Check if the application is Running.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
 func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+	jobs, err := s.flinkController.GetJobsForApplication(ctx, application)
+	if err != nil {
+		return err
+	}
+	// The jobid in Flink can change if there is a Job manager failover.
+	// The Operator needs to update it's state with the right value.
+	// In the Running state, there must be a job already kickedoff in the cluster.
+	activeJob := flink.GetActiveFlinkJob(jobs)
+	if activeJob != nil {
+		application.Status.ActiveJobId = activeJob.JobId
+	}
 	hasAppChanged, err := s.flinkController.HasApplicationChanged(ctx, application)
 	if err != nil {
 		return err
@@ -213,7 +224,7 @@ func (s *FlinkStateMachine) handleApplicationUpdating(ctx context.Context, appli
 				return err
 			}
 		}
-		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationClusterStarting)
+		return s.cancelWithSavepointAndTransitionState(ctx, application)
 	}
 
 	_, err = s.flinkController.CheckAndUpdateClusterResources(ctx, application)

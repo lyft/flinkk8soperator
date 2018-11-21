@@ -436,19 +436,51 @@ func TestHandleApplicationUpdatingImageChanged(t *testing.T) {
 	}
 
 	mockFlinkController.CreateClusterFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) error {
-		assert.Equal(t, v1alpha1.FlinkApplicationUpdating, application.Status.Phase)
+		assert.False(t, true)
 		return nil
 	}
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
 		application := object.(*v1alpha1.FlinkApplication)
-		assert.Equal(t, v1alpha1.FlinkApplicationClusterStarting, application.Status.Phase)
+		assert.Equal(t, v1alpha1.FlinkApplicationSavepointing, application.Status.Phase)
 		updateInvoked = true
 		return nil
 	}
 	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{
 		Status: v1alpha1.FlinkApplicationStatus{
 			Phase: v1alpha1.FlinkApplicationUpdating,
+		},
+	})
+	assert.True(t, updateInvoked)
+	assert.Nil(t, err)
+}
+
+
+func TestHandleApplicationUpdatingImageChangedDualMode(t *testing.T) {
+	updateInvoked := false
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.MockFlinkController)
+	mockFlinkController.IsClusterChangeNeededFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+		return true, nil
+	}
+
+	mockFlinkController.CreateClusterFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+		assert.Equal(t, v1alpha1.FlinkApplicationUpdating, application.Status.Phase)
+		return nil
+	}
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+		application := object.(*v1alpha1.FlinkApplication)
+		assert.Equal(t, v1alpha1.FlinkApplicationSavepointing, application.Status.Phase)
+		updateInvoked = true
+		return nil
+	}
+	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{
+		Status: v1alpha1.FlinkApplicationStatus{
+			Phase: v1alpha1.FlinkApplicationUpdating,
+		},
+		Spec: v1alpha1.FlinkApplicationSpec{
+			DeploymentMode: v1alpha1.DeploymentModeDual,
 		},
 	})
 	assert.True(t, updateInvoked)

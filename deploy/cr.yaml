@@ -1,4 +1,0 @@
-apiVersion: "flink.lyft.com/v1alpha1"
-kind: "FlinkApplication"
-metadata:
-  name: "flinkAppsample"

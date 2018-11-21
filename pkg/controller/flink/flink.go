@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"errors"
-	"fmt"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
@@ -164,16 +163,8 @@ func (f *FlinkController) getJobIdForApplication(ctx context.Context, applicatio
 	if application.Status.ActiveJobId != "" {
 		return application.Status.ActiveJobId, nil
 	}
-	// The logic below is not needed but just a safety net if job id is not persisted in the CRD
-	jobs, err := f.GetJobsForApplication(ctx, application)
-	if err != nil {
-		return "", err
-	}
-	activeJob := GetActiveFlinkJob(jobs)
-	if activeJob == nil {
-		return "", errors.New(fmt.Sprintf("invalid jobs %v", jobs))
-	}
-	return activeJob.JobId, nil
+
+	return "", errors.New("active job id not available")
 }
 
 func (f *FlinkController) CancelWithSavepoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {

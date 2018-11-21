@@ -1,0 +1,56 @@
+apiVersion: flink.lyft.com/v1alpha1
+kind: FlinkApplication
+metadata:
+  name: flink-speeds-working
+  namespace: flink
+  annotations:
+      iam.amazonaws.com/role: "arn:aws:iam::173840052742:role/streamingspeeds-staging-iad"
+spec:
+  image: 173840052742.dkr.ecr.us-east-1.amazonaws.com/streamingspeeds:fdec74a5cb3b5d2a9cae793aba98350fca39eba2
+  job_manager_config:
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "4"
+    job_manager_count: 2
+    env_config:
+      env:
+        - name: CREDENTIALS_CONFLUENT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: confluent-cloud
+              key: api_key
+        - name: CREDENTIALS_CONFLUENT_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: confluent-cloud
+              key: api_secret
+      envFrom:
+        - configMapRef:
+            name: flink-staging-ha-config
+  task_manager_config:
+    resources:
+      requests:
+        memory: "9Gi"
+        cpu: "8"
+    task_manager_count: 6
+    env_config:
+      env:
+        - name: CREDENTIALS_CONFLUENT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: confluent-cloud
+              key: api_key
+        - name: CREDENTIALS_CONFLUENT_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: confluent-cloud
+              key: api_secret
+      envFrom:
+        - configMapRef:
+            name: flink-staging-ha-config
+  flink_job:
+    jar_name: "streamingspeeds-1.0.0-SNAPSHOT.jar"
+    parallelism: 130
+    entry_class: "com.lyft.streamingspeeds.StreamingSpeedsClient"
+  deployment_mode: Single
