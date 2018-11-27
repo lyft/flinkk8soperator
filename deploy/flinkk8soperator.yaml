@@ -1,0 +1,150 @@
+# Create a ClusterRole for flytepropeller
+# https://kubernetes.io/docs/admin/authorization/rbac/
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: flinkk8soperator
+rules:
+#Allow RO access to PODS
+ - apiGroups:
+    - ""
+   resources:
+    - pods
+   verbs:
+    - get
+    - list
+    - watch
+#Allow Event recording access
+ - apiGroups:
+    - ""
+   resources:
+    - events
+   verbs:
+    - create
+    - update
+    - delete
+    - patch
+#Allow Access All plugin objects
+ - apiGroups:
+    - "*"
+   resources:
+    - "*"
+   verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - delete
+    - patch
+#Allow Access to CRD
+ - apiGroups:
+   - apiextensions.k8s.io
+   resources:
+   - customresourcedefinitions
+   verbs:
+   - get
+   - list
+   - watch
+   - create
+   - delete
+   - update
+#Allow Access to all resources under flink.lyft.com
+ - apiGroups:
+   - flink.lyft.com
+   resources:
+   - flinkapplications
+   verbs:
+   - get
+   - list
+   - watch
+   - create
+   - update
+   - delete
+   - patch
+---
+# Create a Service Account for flinkk8soperator
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flinkk8soperator
+  namespace: flinkoperator
+---
+# Create a binding from Role -> ServiceAccount
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: flinkk8soperator
+  namespace: flinkoperator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: flinkk8soperator
+subjects:
+- kind: ServiceAccount
+  name: flinkk8soperator
+  namespace: flinkoperator
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: flink-operator-config
+  namespace: flinkoperator
+data:
+  # this will need to be templatized
+  staging: |-
+    ingressUrlFormat: "{{$jobCluster}}.ingress.flinkstaging.us-east-1.k8s.lyft.net"
+    storageDirEnvName: "STORAGE_URI"
+    storageDirPrefix: "s3://streamingplatform-staging/flinkk8operator/%s"
+    containerNameFormat: "%s-unknown"
+
+---
+
+# Create the actual deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flinkk8soperator
+  namespace: flinkoperator
+  labels:
+    app: flinkk8soperator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flinkk8soperator
+  template:
+    metadata:
+      labels:
+        app: flinkk8soperator
+        app.kubernetes.io/name: flinkk8soperator
+        app.kubernetes.io/version: 0.0.1
+    spec:
+      serviceAccountName: flinkk8soperator
+      volumes:
+      - name: config-volume
+        configMap:
+          name: flink-operator-config
+          items:
+          - key: staging
+            path: flinkk8soperator_config.yaml
+      containers:
+      - name: flinkk8soperator
+        image: 173840052742.dkr.ecr.us-east-1.amazonaws.com/flinkk8soperator:1b5d0975a86d1f96bc144f2693d8a61bd6cca7f6
+        env:
+        - name: OPERATOR_NAME
+          value: flinkk8soperator
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 10254
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "4"
+          limits:
+            memory: "8G"
+            cpu: "8"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/flinkk8soperator/config

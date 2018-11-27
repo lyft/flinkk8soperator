@@ -1,10 +1,16 @@
+# This file needs to be removed before we open source.
 apiVersion: flink.lyft.com/v1alpha1
 kind: FlinkApplication
 metadata:
-  name: flink-speeds-working
+  name: flink-speeds-working-stats
   namespace: flink
   annotations:
-      iam.amazonaws.com/role: "arn:aws:iam::173840052742:role/streamingspeeds-staging-iad"
+    iam.amazonaws.com/role: "arn:aws:iam::173840052742:role/streamingspeeds-staging-iad"
+    lyft.net/statsd-inject: "required"
+  labels:
+    app: "flink-speeds-working-stats"
+    environment: "staging"
+    version: fdec74a5cb3b5d2a9cae793aba98350fca39eba2
 spec:
   image: 173840052742.dkr.ecr.us-east-1.amazonaws.com/streamingspeeds:fdec74a5cb3b5d2a9cae793aba98350fca39eba2
   job_manager_config:
@@ -54,3 +60,16 @@ spec:
     parallelism: 130
     entry_class: "com.lyft.streamingspeeds.StreamingSpeedsClient"
   deployment_mode: Single
+---
+# This config map is required for getting Lyft sidecars working for stats, envoy
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: flink-speeds-working-stats-staging-fdec74a5cb3b5d2a9cae793aba98350fca39eba2
+  namespace: flink
+data:
+  SERVICE: "flink-speeds-working-stats"
+  SERVICE_INSTANCE: "staging"
+  EC2_AVAILABILITY_ZONE: "us-east-1a"
+  EC2_REGION: "us-east-1"
+  EC2_REGION_SHORTNAME: "iad"
