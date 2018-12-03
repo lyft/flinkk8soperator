@@ -1,9 +1,9 @@
 name: flinkk8soperator
 description: Kubernetes Flink Operator, enables running and managing Flink jobs on K8s
 repository: git@github.com:lyft/flinkk8soperator.git
-slack: "#streaming"
-team_email: streaming@lyft.com
-pagerduty_escalation_policy: Streaming
+slack: "#streaming-compute"
+team_email: streaming-compute@lyft.com
+pagerduty_escalation_policy: Streaming Compute
 containers:
   - name: interactive
     command: /bin/bash
