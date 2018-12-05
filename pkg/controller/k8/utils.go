@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	AppKey         = "App"
-	ImageKey       = "ImageKey"
+	AppKey         = "app"
+	ImageKey       = "imageKey"
 	ImageKeyLength = 5
 )
 

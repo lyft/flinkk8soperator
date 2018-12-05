@@ -29,7 +29,7 @@ func TestFlinkIsClusterReady(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	namespaceVal := "flink"
 	labelMapVal := map[string]string{
-		"ImageKey": testImageKey,
+		"imageKey": testImageKey,
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.IsAllPodsRunningFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
@@ -51,7 +51,7 @@ func TestFlinkIsClusterChangeNeeded(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	namespaceVal := "flink"
 	labelMapVal := map[string]string{
-		"ImageKey": testImageKey,
+		"imageKey": testImageKey,
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
@@ -81,7 +81,7 @@ func TestFlinkIsClusterChangeNotNeeded(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	namespaceVal := "flink"
 	labelMapVal := map[string]string{
-		"ImageKey": testImageKey,
+		"imageKey": testImageKey,
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
@@ -103,7 +103,7 @@ func TestFlinkApplicationChanged(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	namespaceVal := "flink"
 	labelMapVal := map[string]string{
-		"ImageKey": testImageKey,
+		"imageKey": testImageKey,
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
@@ -129,7 +129,7 @@ func TestFlinkApplicationNeededNeedUpdate(t *testing.T) {
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, namespaceVal, namespace)
-		if val, ok := labelMap["ImageKey"]; ok {
+		if val, ok := labelMap["imageKey"]; ok {
 			assert.Equal(t, testImageKey, val)
 		}
 		if val, ok := labelMap["App"]; ok {

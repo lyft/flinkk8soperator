@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	AppName                          = "app"
+	AppName                          = "APP_NAME"
 	ContainerNameFormat              = "containerNameFormat"
 	StorageDirPrefixKey              = "storageDirPrefix"
 	StorageDirEnvName                = "storageDirEnvName"
