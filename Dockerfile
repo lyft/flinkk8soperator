@@ -1,5 +1,5 @@
 # Uses Docker multistage build https://docs.docker.com/develop/develop-images/multistage-build/#use-multi-stage-builds
-FROM lyft/go:44541065de99c1282f10ce372b04fac55c43e6cd as builder
+FROM lyft/go:0f7246bbe05e19b76a957e4e025e0819c32ac4b6 as builder
 COPY . ${GOPATH}/src/github.com/lyft/flinkk8soperator
 WORKDIR ${GOPATH}/src/github.com/lyft/flinkk8soperator
 RUN dep ensure && \
