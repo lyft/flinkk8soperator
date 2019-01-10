@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"regexp"
-
 	"github.com/go-resty/resty"
-	"github.com/lyft/flinkk8soperator/pkg/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	"regexp"
+	"github.com/lyft/flinkk8soperator/pkg/config"
 )
 
 const submitJobUrl = "/jars/%s/run"

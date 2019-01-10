@@ -177,7 +177,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Dep
 			Strategy: v1.DeploymentStrategy{
 				Type: v1.RecreateDeploymentStrategyType,
 			},
-			Replicas: &app.Spec.TaskManagerConfig.TaskManagerCount,
+			Replicas: &app.Spec.TaskManagerConfig.Replicas,
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name:        podName,

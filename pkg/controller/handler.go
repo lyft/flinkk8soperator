@@ -16,12 +16,16 @@ import (
 func NewHandler() sdk.Handler {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(logger.InfofNoCtx)
+	flinkHandler := NewFlinkStateMachine()
+	if flinkHandler == nil {
+		panic("unable to create flink handler")
+	}
 	//eventBroadcaster.StartRecordingToSink(&corev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
 	//recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 	// TODO implement event sink logic
 	return &Handler{
 		recorder:     nil,
-		flinkHandler: NewFlinkStateMachine(),
+		flinkHandler: flinkHandler,
 	}
 }
 

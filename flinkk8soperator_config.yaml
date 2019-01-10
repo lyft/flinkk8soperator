@@ -5,3 +5,4 @@ ingressUrlFormat: "{{$jobCluster}}.ingress.flyte.us-east-1.k8s.lyft.net"
 storageDirEnvName: "STORAGE_URI"
 storageDirPrefix: "s3://lyft-modelbuilder/metadata/flinkk8operator/%s"
 containerNameFormat: "%s-unknown"
+statemachineStalenessDuration: 10m

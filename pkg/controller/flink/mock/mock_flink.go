@@ -5,10 +5,11 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
+	"k8s.io/api/apps/v1"
 )
 
 type CreateClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) error
-type DeleteOldClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, deleteFrontEnd bool) error
+type DeleteOldClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type CancelWithSavepointFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 type StartFlinkJobFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 type GetSavepointStatusFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error)
@@ -19,8 +20,8 @@ type IsClusterChangeNeededFunc func(ctx context.Context, application *v1alpha1.F
 type IsClusterUpdateNeededFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type CheckAndUpdateClusterResourcesFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type HasApplicationJobChangedFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-type IsMultipleClusterPresentFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type GetJobsForApplicationFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error)
+type GetCurrentAndOldDeploymentsForAppFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error)
 
 type MockFlinkController struct {
 	CreateClusterFunc                  CreateClusterFunc
@@ -35,20 +36,27 @@ type MockFlinkController struct {
 	IsClusterUpdateNeededFunc          IsClusterUpdateNeededFunc
 	CheckAndUpdateClusterResourcesFunc CheckAndUpdateClusterResourcesFunc
 	HasApplicationJobChangedFunc       HasApplicationJobChangedFunc
-	IsMultipleClusterPresentFunc       IsMultipleClusterPresentFunc
 	GetJobsForApplicationFunc          GetJobsForApplicationFunc
+	GetCurrentAndOldDeploymentsForAppFunc GetCurrentAndOldDeploymentsForAppFunc
+}
+
+func (m *MockFlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error) {
+	if m.GetCurrentAndOldDeploymentsForAppFunc != nil {
+		return m.GetCurrentAndOldDeploymentsForAppFunc(ctx, application)
+	}
+	return nil, nil, nil
+}
+
+func (m *MockFlinkController) DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	if m.DeleteOldClusterFunc != nil {
+		return m.DeleteOldClusterFunc(ctx, application)
+	}
+	return false, nil
 }
 
 func (m *MockFlinkController) CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	if m.CreateClusterFunc != nil {
 		return m.CreateClusterFunc(ctx, application)
-	}
-	return nil
-}
-
-func (m *MockFlinkController) DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication, deleteFrontEnd bool) error {
-	if m.DeleteOldClusterFunc != nil {
-		return m.DeleteOldClusterFunc(ctx, application, deleteFrontEnd)
 	}
 	return nil
 }
@@ -119,13 +127,6 @@ func (m *MockFlinkController) CheckAndUpdateClusterResources(ctx context.Context
 func (m *MockFlinkController) HasApplicationJobChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	if m.HasApplicationJobChangedFunc != nil {
 		return m.HasApplicationJobChangedFunc(ctx, application)
-	}
-	return false, nil
-}
-
-func (m *MockFlinkController) IsMultipleClusterPresent(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	if m.IsMultipleClusterPresentFunc != nil {
-		return m.IsMultipleClusterPresentFunc(ctx, application)
 	}
 	return false, nil
 }

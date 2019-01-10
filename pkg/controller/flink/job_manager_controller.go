@@ -21,6 +21,7 @@ const (
 	JobManagerContainerName             = "jobmanager"
 	JobManagerArg                       = "jobmanager"
 	JobManagerServiceNameFormat         = "%s-jm"
+	JobManagerExternalServiceNameFormat = "%s-jm.%s"
 	JobManagerReadinessPath             = "/config"
 	JobManagerReadinessInitialDelaySec  = 10
 	JobManagerReadinessTimeoutSec       = 1
@@ -49,6 +50,10 @@ func NewFlinkJobManagerController() FlinkJobManagerControllerInterface {
 	return &FlinkJobManagerController{
 		k8Cluster: k8.NewK8Cluster(),
 	}
+}
+
+func GetJobManagerExternalServiceName(app v1alpha1.FlinkApplication) string {
+	return fmt.Sprintf(JobManagerExternalServiceNameFormat, app.Name, app.Namespace)
 }
 
 type FlinkJobManagerController struct {
@@ -110,7 +115,7 @@ func getJobManagerName(application *v1alpha1.FlinkApplication) string {
 
 func FetchJobManagerServiceCreateObj(app *v1alpha1.FlinkApplication) *coreV1.Service {
 	jmServiceName := getJobManagerServiceName(*app)
-	serviceLabels := common.DuplicateMap(app.Labels)
+	serviceLabels := map[string]string{}
 
 	serviceLabels[AppFrontEndKey] = jmServiceName
 	return &coreV1.Service{
@@ -228,7 +233,7 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 			Strategy: v1.DeploymentStrategy{
 				Type: v1.RecreateDeploymentStrategyType,
 			},
-			Replicas: &app.Spec.JobManagerConfig.JobManagerCount,
+			Replicas: &app.Spec.JobManagerConfig.Replicas,
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name:        podName,

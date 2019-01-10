@@ -17,6 +17,7 @@ const (
 	FlinkJobFailed     FlinkJobStatus = "FAILED"
 	FlinkJobCancelling FlinkJobStatus = "CANCELLING"
 	FlinkJobCanceled   FlinkJobStatus = "CANCELED"
+	FlinkJobFinished   FlinkJobStatus = "FINISHED"
 )
 
 type CancelJobRequest struct {

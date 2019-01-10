@@ -25,34 +25,34 @@ type FlinkApplication struct {
 type FlinkApplicationSpec struct {
 	Image             string            `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
 	ImagePullPolicy   v1.PullPolicy     `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
-	TaskManagerConfig TaskManagerConfig `json:"task_manager_config,omitempty"`
-	JobManagerConfig  JobManagerConfig  `json:"job_manager_config,omitempty"`
-	FlinkJob          FlinkJobInfo      `json:"flink_job"`
-	DeploymentMode    DeploymentMode    `json:"deployment_mode"`
-	RpcPort           *int32            `json:"rpc_port,omitempty"`
-	BlobPort          *int32            `json:"blob_port,omitempty"`
-	QueryPort         *int32            `json:"query_port,omitempty"`
-	UiPort            *int32            `json:"ui_port,omitempty"`
+	TaskManagerConfig TaskManagerConfig `json:"taskManagerConfig,omitempty"`
+	JobManagerConfig  JobManagerConfig  `json:"jobManagerConfig,omitempty"`
+	FlinkJob          FlinkJobInfo      `json:"flinkJob"`
+	DeploymentMode    DeploymentMode    `json:"deploymentMode"`
+	RpcPort           *int32            `json:"rpcPort,omitempty"`
+	BlobPort          *int32            `json:"blobPort,omitempty"`
+	QueryPort         *int32            `json:"queryPort,omitempty"`
+	UiPort            *int32            `json:"uiPort,omitempty"`
 }
 
 type FlinkJobInfo struct {
-	JarName       string        `json:"jar_name"`
+	JarName       string        `json:"jarName"`
 	Parallelism   int32         `json:"parallelism"`
-	EntryClass    string        `json:"entry_class,omitempty"`
-	ProgramArgs   string        `json:"program_args,omitempty"`
-	SavepointInfo SavepointInfo `json:"savepoint_info,omitempty"`
+	EntryClass    string        `json:"entryClass,omitempty"`
+	ProgramArgs   string        `json:"programArgs,omitempty"`
+	SavepointInfo SavepointInfo `json:"savepointInfo,omitempty"`
 }
 
 type JobManagerConfig struct {
-	Resources       *v1.ResourceRequirements `json:"resources,omitempty"`
-	Environment     EnvironmentConfig        `json:"env_config"`
-	JobManagerCount int32                    `json:"job_manager_count"`
+	Resources   *v1.ResourceRequirements `json:"resources,omitempty"`
+	Environment EnvironmentConfig        `json:"envConfig"`
+	Replicas    int32                    `json:"replicas"`
 }
 
 type TaskManagerConfig struct {
-	Resources        *v1.ResourceRequirements `json:"resources,omitempty"`
-	Environment      EnvironmentConfig        `json:"env_config"`
-	TaskManagerCount int32                    `json:"task_manager_count"`
+	Resources   *v1.ResourceRequirements `json:"resources,omitempty"`
+	Environment EnvironmentConfig        `json:"envConfig"`
+	Replicas    int32                    `json:"replicas"`
 }
 
 type EnvironmentConfig struct {
@@ -61,17 +61,17 @@ type EnvironmentConfig struct {
 }
 
 type SavepointInfo struct {
-	SavepointLocation string `json:"savepoint_location,omitempty"`
-	TriggerId         string `json:"trigger_id,omitempty"`
+	SavepointLocation string `json:"savepointLocation,omitempty"`
+	TriggerId         string `json:"triggerId,omitempty"`
 }
 
 type FlinkApplicationStatus struct {
 	Phase         FlinkApplicationPhase `json:"phase"`
-	StartedAt     *metav1.Time          `json:"started_at,omitempty"`
-	StoppedAt     *metav1.Time          `json:"stopped_at,omitempty"`
-	LastUpdatedAt *metav1.Time          `json:"last_updated_at,omitempty"`
+	StartedAt     *metav1.Time          `json:"startedAt,omitempty"`
+	StoppedAt     *metav1.Time          `json:"stoppedAt,omitempty"`
+	LastUpdatedAt *metav1.Time          `json:"lastUpdatedAt,omitempty"`
 	Reason        string                `json:"reason,omitempty"`
-	ActiveJobId   string                `json:"job_id,omitempty"`
+	JobId         string                `json:"jobId,omitempty"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
@@ -100,7 +100,7 @@ func (in *FlinkApplicationStatus) TouchResource(reason string) {
 type FlinkApplicationPhase string
 
 func (p FlinkApplicationPhase) IsTerminal() bool {
-	return p == FlinkApplicationStopped || p == FlinkApplicationFailed
+	return p == FlinkApplicationCompleted || p == FlinkApplicationFailed
 }
 
 const (
@@ -111,7 +111,7 @@ const (
 	FlinkApplicationSavepointing    FlinkApplicationPhase = "Savepointing"
 	FlinkApplicationUpdating        FlinkApplicationPhase = "Updating"
 	FlinkApplicationFailed          FlinkApplicationPhase = "Failed"
-	FlinkApplicationStopped         FlinkApplicationPhase = "Stopped"
+	FlinkApplicationCompleted       FlinkApplicationPhase = "Completed"
 )
 
 type DeploymentMode string

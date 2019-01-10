@@ -98,7 +98,7 @@ data:
     storageDirEnvName: "STORAGE_URI"
     storageDirPrefix: "s3://streamingplatform-staging/flinkk8operator/%s"
     containerNameFormat: "%s-unknown"
-
+    statemachineStalenessDuration: 10m
 ---
 
 # Create the actual deployment
