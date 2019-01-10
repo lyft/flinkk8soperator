@@ -2,8 +2,8 @@ package flink
 
 import (
 	"context"
-
 	"errors"
+	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
@@ -100,6 +100,8 @@ func (f *FlinkController) HasApplicationJobChanged(ctx context.Context, applicat
 }
 
 func (f *FlinkController) CheckAndUpdateClusterResources(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	logger.Infof(ctx, "Checking and updating cluster resources: %s", application)
+
 	currentAppDeployments, err := f.getDeploymentsForApp(ctx, application)
 	if err != nil {
 		return false, err
@@ -244,6 +246,7 @@ func (f *FlinkController) IsServiceReady(ctx context.Context, application *v1alp
 	serviceName := getJobManagerServiceName(*application)
 	_, err := f.flinkClient.GetClusterOverview(ctx, serviceName)
 	if err != nil {
+		logger.Infof(ctx, "Failed to start application %s: %s", application.Name, err)
 		return false, err
 	}
 	return true, nil

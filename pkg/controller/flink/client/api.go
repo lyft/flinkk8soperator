@@ -21,8 +21,9 @@ const getOverviewUrl = "/overview"
 const httpGet = "GET"
 const httpPost = "POST"
 const retryCount = 3
+const proxyUrl = "http://localhost:%d/api/v1/namespaces/default/services/%s-jm:8081/proxy"
 
-const port = 80
+const port = 8081
 
 type FlinkAPIInterface interface {
 	CancelJobWithSavepoint(ctx context.Context, serviceName, jobId string) (string, error)
@@ -94,13 +95,12 @@ func (c *FlinkJobManagerClient) executeRequest(
 
 var inputRegex = regexp.MustCompile("{{\\s*[$]jobCluster\\s*}}")
 
-func getIngressHack(serviceName string) string {
-	appName := serviceName[:len(serviceName)-3]
-	return inputRegex.ReplaceAllString(config.FlinkIngressUrlFormat, appName)
-}
-
 func (c *FlinkJobManagerClient) getUrlFromServiceName(serviceName string) string {
-	return fmt.Sprintf("http://%s:%d", getIngressHack(serviceName), port)
+	if config.UseProxy {
+		return fmt.Sprintf(proxyUrl, config.ProxyPort, serviceName[:len(serviceName)-3])
+	} else {
+		return fmt.Sprintf("http://%s:%d", serviceName, port)
+	}
 }
 
 func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, serviceName, jobId string) (string, error) {
@@ -135,6 +135,7 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, serviceName, jarI
 	if err = json.Unmarshal(response, &submitJobResponse); err != nil {
 		return nil, err
 	}
+
 	return &submitJobResponse, nil
 }
 

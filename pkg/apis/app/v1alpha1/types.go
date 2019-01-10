@@ -24,6 +24,7 @@ type FlinkApplication struct {
 
 type FlinkApplicationSpec struct {
 	Image             string            `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
+	ImagePullPolicy   v1.PullPolicy     `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
 	TaskManagerConfig TaskManagerConfig `json:"task_manager_config,omitempty"`
 	JobManagerConfig  JobManagerConfig  `json:"job_manager_config,omitempty"`
 	FlinkJob          FlinkJobInfo      `json:"flink_job"`

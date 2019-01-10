@@ -1,0 +1,59 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: flink-operator-config
+data:
+  # this will need to be templatized
+  development: |-
+    storageDirEnvName: "STORAGE_URI"
+    storageDirPrefix: "file:///tmp/%s"
+    containerNameFormat: "%s-unknown"
+---
+
+# Create the actual deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flinkk8soperator
+  namespace: default
+  labels:
+    app: flinkk8soperator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flinkk8soperator
+  template:
+    metadata:
+      labels:
+        app: flinkk8soperator
+        app.kubernetes.io/name: flinkk8soperator
+        app.kubernetes.io/version: 0.0.1
+    spec:
+      volumes:
+      - name: config-volume
+        configMap:
+          name: flink-operator-config
+          items:
+          - key: development
+            path: flinkk8soperator_config.yaml
+      containers:
+      - name: flinkk8soperator
+        image: flinkk8soperator
+        env:
+        - name: OPERATOR_NAME
+          value: flinkk8soperator
+        imagePullPolicy: Never
+        ports:
+          - containerPort: 10254
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "1"
+          limits:
+            memory: "8G"
+            cpu: "8"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/flinkk8soperator/config

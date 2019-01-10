@@ -8,6 +8,8 @@ import (
 
 var (
 	FlinkIngressUrlFormat string
+	UseProxy              bool
+	ProxyPort             int
 )
 
 func Init(cfgFile string) {
@@ -16,6 +18,10 @@ func Init(cfgFile string) {
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("/etc/flinkk8soperator/config")
 	viper.AddConfigPath("$GOPATH/src/github.com/lyft/flinkk8soperator")
+
+	viper.SetDefault("useKubectlProxy", false)
+	viper.SetDefault("proxyPort", 8001)
+
 	if cfgFile != "" {
 		// Override the above if a specific one was given.  Must happen after
 		fmt.Printf("Overriding the configuration file with %v\n", cfgFile)
@@ -36,4 +42,7 @@ func Init(cfgFile string) {
 
 	// The url regex is used to create custom ingress endpoint for each flink cluster
 	FlinkIngressUrlFormat = viper.GetString("ingressUrlFormat")
+
+	UseProxy = viper.GetBool("useKubectlProxy")
+	ProxyPort = viper.GetInt("proxyPort")
 }

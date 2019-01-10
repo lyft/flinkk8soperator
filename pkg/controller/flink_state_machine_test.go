@@ -455,7 +455,6 @@ func TestHandleApplicationUpdatingImageChanged(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-
 func TestHandleApplicationUpdatingImageChangedDualMode(t *testing.T) {
 	updateInvoked := false
 	stateMachineForTest := getTestStateMachine()

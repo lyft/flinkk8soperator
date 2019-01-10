@@ -2,11 +2,11 @@ package controller
 
 import (
 	"context"
-
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
+	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
 )
 
 type FlinkHandlerInterface interface {
@@ -58,6 +58,7 @@ func (s *FlinkStateMachine) updateApplicationPhase(ctx context.Context, applicat
 }
 
 func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+	logger.Infof(ctx, "Handling state %s for application %s", application.Status.Phase, application.Name)
 	switch application.Status.Phase {
 	case v1alpha1.FlinkApplicationNew:
 		// In this state, we need a new flink cluster to be created or existing cluster to be updated

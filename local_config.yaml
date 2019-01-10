@@ -1,0 +1,9 @@
+# This is default configuration file.
+# Real configuration when running inside K8s (local or otherwise) lives in a ConfigMap
+# The operator will replace "job" field with the correct flink job name
+# ingressUrlFormat: "{{$jobCluster}}.ingress.flyte.us-east-1.k8s.lyft.net"
+useKubectlProxy: true
+proxyPort: 8001
+storageDirEnvName: "STORAGE_URI"
+storageDirPrefix: "file:///tmp/%s"
+containerNameFormat: "%s-unknown"

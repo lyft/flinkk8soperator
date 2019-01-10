@@ -1,9 +1,8 @@
 package flink
 
 import (
-	"fmt"
-
 	"context"
+	"fmt"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
@@ -17,18 +16,18 @@ import (
 )
 
 const (
-	JobManagerNameFormat                  = "%s-%s-jm"
-	JobManagerPodNameFormat               = "%s-%s-jm-pod"
-	JobManagerContainerName               = "jobmanager"
-	JobManagerArg                         = "jobmanager"
-	JobManagerServiceNameFormat           = "%s-jm"
-	JobManagerReadinessPath               = "/config"
-	JobManagerReadinessInitialDelaySec    = 10
-	JobManagerReadinessTimeoutSec         = 1
-	JobManagerReadinessSuccessThreshold   = 1
-	JobManagerReadinessFailureThreshold   = 2
-	JobManagerReadinessPeriodSec          = 5
-	AppFrontEndKey                        = "frontend"
+	JobManagerNameFormat                = "%s-%s-jm"
+	JobManagerPodNameFormat             = "%s-%s-jm-pod"
+	JobManagerContainerName             = "jobmanager"
+	JobManagerArg                       = "jobmanager"
+	JobManagerServiceNameFormat         = "%s-jm"
+	JobManagerReadinessPath             = "/config"
+	JobManagerReadinessInitialDelaySec  = 10
+	JobManagerReadinessTimeoutSec       = 1
+	JobManagerReadinessSuccessThreshold = 1
+	JobManagerReadinessFailureThreshold = 2
+	JobManagerReadinessPeriodSec        = 5
+	AppFrontEndKey                      = "frontend"
 )
 
 const (
@@ -82,6 +81,7 @@ func (j *FlinkJobManagerController) CreateIfNotExist(ctx context.Context, applic
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -168,13 +168,14 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV
 	operatorEnv = append(operatorEnv, jmConfig.Environment.Env...)
 
 	return &coreV1.Container{
-		Name:      getFlinkContainerName(JobManagerContainerName),
-		Image:     application.Spec.Image,
-		Resources: *resources,
-		Args:      []string{JobManagerArg},
-		Ports:     ports,
-		Env:       operatorEnv,
-		EnvFrom:   jmConfig.Environment.EnvFrom,
+		Name:            getFlinkContainerName(JobManagerContainerName),
+		Image:           application.Spec.Image,
+		ImagePullPolicy: application.Spec.ImagePullPolicy,
+		Resources:       *resources,
+		Args:            []string{JobManagerArg},
+		Ports:           ports,
+		Env:             operatorEnv,
+		EnvFrom:         jmConfig.Environment.EnvFrom,
 		ReadinessProbe: &coreV1.Probe{
 			Handler: coreV1.Handler{
 				HTTPGet: &coreV1.HTTPGetAction{

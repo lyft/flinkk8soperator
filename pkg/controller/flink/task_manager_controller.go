@@ -1,10 +1,8 @@
 package flink
 
 import (
-	"fmt"
-
 	"context"
-
+	"fmt"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
@@ -121,13 +119,14 @@ func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) (*core
 	operatorEnv = append(operatorEnv, tmConfig.Environment.Env...)
 
 	return &coreV1.Container{
-		Name:      getFlinkContainerName(TaskManagerContainerName),
-		Image:     application.Spec.Image,
-		Resources: *resources,
-		Args:      []string{TaskManagerArg},
-		Ports:     ports,
-		Env:       operatorEnv,
-		EnvFrom:   tmConfig.Environment.EnvFrom,
+		Name:            getFlinkContainerName(TaskManagerContainerName),
+		Image:           application.Spec.Image,
+		ImagePullPolicy: application.Spec.ImagePullPolicy,
+		Resources:       *resources,
+		Args:            []string{TaskManagerArg},
+		Ports:           ports,
+		Env:             operatorEnv,
+		EnvFrom:         tmConfig.Environment.EnvFrom,
 	}, nil
 }
 

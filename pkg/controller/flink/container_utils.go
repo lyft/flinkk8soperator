@@ -25,6 +25,7 @@ const (
 	AwsMetadataServiceTimeout        = "5"
 	AwsMetadataServiceNumAttempts    = "20"
 )
+
 func getFlinkContainerName(containerName string) string {
 	if c := viper.GetString(ContainerNameFormat); c != "" {
 		return fmt.Sprintf(c, containerName)
