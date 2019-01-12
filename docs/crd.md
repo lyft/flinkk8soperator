@@ -21,7 +21,7 @@ Below is the list of fields in the custom resource and their description
     * **Environment** `type:EnvironmentConfig`
       Configuration for setting environment variables in the task manager.
 
-    * **Count** `type:int32 required=true`
+    * **Replicas** `type:int32 required=true`
       Number of task managers for the flink cluster
 
   * **JobManagerConfig** `type:JobManagerConfig required=true`
@@ -34,7 +34,7 @@ Below is the list of fields in the custom resource and their description
     * **Environment** `type:EnvironmentConfig`
       Configuration for setting environment variables in the job manager.
 
-    * **Count** `type:int32 required=true`
+    * **Replicas** `type:int32 required=true`
       Number of job managers for the flink cluster. If multiple job managers are provided, the user has to ensure that
       correct environment variables are set for High availability mode.
 

@@ -18,7 +18,7 @@ spec:
       requests:
         memory: "4Gi"
         cpu: "4"
-    count: 2
+    replicas: 2
     envConfig:
       env:
         - name: CREDENTIALS_CONFLUENT_API_KEY
@@ -39,7 +39,7 @@ spec:
       requests:
         memory: "9Gi"
         cpu: "8"
-    count: 6
+    replicas: 6
     envConfig:
       env:
         - name: CREDENTIALS_CONFLUENT_API_KEY
