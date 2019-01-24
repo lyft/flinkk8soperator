@@ -33,6 +33,7 @@ type FlinkApplicationSpec struct {
 	BlobPort          *int32            `json:"blobPort,omitempty"`
 	QueryPort         *int32            `json:"queryPort,omitempty"`
 	UiPort            *int32            `json:"uiPort,omitempty"`
+	MetricsQueryPort  *int32            `json:"metricsQueryPort,omitempty"`
 }
 
 type FlinkJobInfo struct {

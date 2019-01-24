@@ -19,7 +19,9 @@ const (
 	StorageDirEnvName                = "storageDirEnvName"
 	ClusterId                        = "CLUSTER_ID"
 	FlinkRpcPort                     = "FLINK_RPC_PORT"
+	FlinkMetricsQueryPort            = "FLINK_METRICS_QUERY_PORT"
 	JobManagerServiceEnvVar          = "JOB_MANAGER_SERVICE"
+	TaskManagerHostname              = "TASKMANAGER_HOSTNAME"
 	AwsMetadataServiceTimeoutKey     = "AWS_METADATA_SERVICE_TIMEOUT"
 	AwsMetadataServiceNumAttemptsKey = "AWS_METADATA_SERVICE_NUM_ATTEMPTS"
 	AwsMetadataServiceTimeout        = "5"
@@ -109,6 +111,18 @@ func getFlinkEnv(app v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 		{
 			Name:  FlinkRpcPort,
 			Value: strconv.Itoa(FlinkRpcDefaultPort),
+		},
+		{
+			Name:  FlinkMetricsQueryPort,
+			Value: strconv.Itoa(FlinkMetricsQueryDefaultPort),
+		},
+		{
+			Name: TaskManagerHostname,
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
 		},
 	}...)
 	return env, nil

@@ -102,6 +102,7 @@ func GetTaskManagerPorts(flinkJob *v1alpha1.FlinkApplicationSpec) []coreV1.Conta
 		containerPort(FlinkRpcPortName, flinkJob.RpcPort, FlinkRpcDefaultPort),
 		containerPort(FlinkBlobPortName, flinkJob.BlobPort, FlinkBlobDefaultPort),
 		containerPort(FlinkQueryPortName, flinkJob.QueryPort, FlinkQueryDefaultPort),
+		containerPort(FlinkInternalMetricPortName, flinkJob.MetricsQueryPort, FlinkMetricsQueryDefaultPort),
 	}
 }
 

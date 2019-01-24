@@ -32,14 +32,16 @@ const (
 )
 
 const (
-	FlinkRpcPortName      = "rpc"
-	FlinkQueryPortName    = "query"
-	FlinkBlobPortName     = "blob"
-	FlinkUIPortName       = "ui"
-	FlinkRpcDefaultPort   = 6123
-	FlinkQueryDefaultPort = 6124
-	FlinkBlobDefaultPort  = 6125
-	FlinkUIDefaultPort    = 8081
+	FlinkRpcPortName             = "rpc"
+	FlinkQueryPortName           = "query"
+	FlinkBlobPortName            = "blob"
+	FlinkUIPortName              = "ui"
+	FlinkInternalMetricPortName  = "metrics"
+	FlinkRpcDefaultPort          = 6123
+	FlinkQueryDefaultPort        = 6124
+	FlinkBlobDefaultPort         = 6125
+	FlinkUIDefaultPort           = 8081
+	FlinkMetricsQueryDefaultPort = 50101
 )
 
 type FlinkJobManagerControllerInterface interface {
@@ -155,6 +157,7 @@ func getJobManagerPorts(flinkJob *v1alpha1.FlinkApplicationSpec) []coreV1.Contai
 		containerPort(FlinkBlobPortName, flinkJob.BlobPort, FlinkBlobDefaultPort),
 		containerPort(FlinkQueryPortName, flinkJob.QueryPort, FlinkQueryDefaultPort),
 		containerPort(FlinkUIPortName, flinkJob.UiPort, FlinkUIDefaultPort),
+		containerPort(FlinkInternalMetricPortName, flinkJob.MetricsQueryPort, FlinkMetricsQueryDefaultPort),
 	}
 }
 
