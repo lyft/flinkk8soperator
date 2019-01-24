@@ -7,3 +7,4 @@ proxyPort: 8001
 storageDirEnvName: "STORAGE_URI"
 storageDirPrefix: "file:///tmp/%s"
 containerNameFormat: "%s-unknown"
+statemachineStalenessDuration: 2m

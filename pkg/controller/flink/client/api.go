@@ -8,7 +8,6 @@ import (
 	"github.com/go-resty/resty"
 	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
 	"regexp"
-	"github.com/lyft/flinkk8soperator/pkg/config"
 )
 
 const submitJobUrl = "/jars/%s/run"
@@ -20,25 +19,21 @@ const getOverviewUrl = "/overview"
 const httpGet = "GET"
 const httpPost = "POST"
 const retryCount = 3
-const proxyUrl = "http://localhost:%d/api/v1/namespaces/default/services/%s-jm:8081/proxy"
-
-const port = 8081
 
 type FlinkAPIInterface interface {
-	CancelJobWithSavepoint(ctx context.Context, serviceName, jobId string) (string, error)
-	SubmitJob(ctx context.Context, serviceName, jarId string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error)
-	CheckSavepointStatus(ctx context.Context, serviceName, jobId, triggerId string) (*SavepointResponse, error)
-	GetJobs(ctx context.Context, serviceName string) (*GetJobsResponse, error)
-	GetClusterOverview(ctx context.Context, serviceName string) (*ClusterOverviewResponse, error)
-	GetJobConfig(ctx context.Context, serviceName, jobId string) (*JobConfigResponse, error)
+	CancelJobWithSavepoint(ctx context.Context, url string, jobId string) (string, error)
+	SubmitJob(ctx context.Context, url string, jarId string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error)
+	CheckSavepointStatus(ctx context.Context, url string, jobId, triggerId string) (*SavepointResponse, error)
+	GetJobs(ctx context.Context, url string) (*GetJobsResponse, error)
+	GetClusterOverview(ctx context.Context, url string) (*ClusterOverviewResponse, error)
+	GetJobConfig(ctx context.Context, url string, jobId string) (*JobConfigResponse, error)
 }
 
 type FlinkJobManagerClient struct {
 	client *resty.Client
 }
 
-func (c *FlinkJobManagerClient) GetJobConfig(ctx context.Context, serviceName, jobId string) (*JobConfigResponse, error) {
-	url := c.getUrlFromServiceName(serviceName)
+func (c *FlinkJobManagerClient) GetJobConfig(ctx context.Context, url, jobId string) (*JobConfigResponse, error) {
 	path := fmt.Sprintf(getJobConfigUrl, jobId)
 	url = url + path
 
@@ -54,8 +49,7 @@ func (c *FlinkJobManagerClient) GetJobConfig(ctx context.Context, serviceName, j
 	return &jobPlanResponse, nil
 }
 
-func (c *FlinkJobManagerClient) GetClusterOverview(ctx context.Context, serviceName string) (*ClusterOverviewResponse, error) {
-	url := c.getUrlFromServiceName(serviceName)
+func (c *FlinkJobManagerClient) GetClusterOverview(ctx context.Context, url string) (*ClusterOverviewResponse, error) {
 	url = url + getOverviewUrl
 	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
@@ -94,16 +88,7 @@ func (c *FlinkJobManagerClient) executeRequest(
 
 var inputRegex = regexp.MustCompile("{{\\s*[$]jobCluster\\s*}}")
 
-func (c *FlinkJobManagerClient) getUrlFromServiceName(serviceName string) string {
-	if config.UseProxy {
-		return fmt.Sprintf(proxyUrl, config.ProxyPort, serviceName[:len(serviceName)-3])
-	} else {
-		return fmt.Sprintf("http://%s:%d", serviceName, port)
-	}
-}
-
-func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, serviceName, jobId string) (string, error) {
-	url := c.getUrlFromServiceName(serviceName)
+func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobId string) (string, error) {
 	path := fmt.Sprintf(cancelJobUrl, jobId)
 
 	url = url + path
@@ -121,8 +106,7 @@ func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, serv
 	return cancelJobResponse.TriggerId, nil
 }
 
-func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, serviceName, jarId string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error) {
-	url := c.getUrlFromServiceName(serviceName)
+func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarId string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error) {
 	path := fmt.Sprintf(submitJobUrl, jarId)
 	url = url + path
 
@@ -138,8 +122,7 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, serviceName, jarI
 	return &submitJobResponse, nil
 }
 
-func (c *FlinkJobManagerClient) CheckSavepointStatus(ctx context.Context, serviceName, jobId, triggerId string) (*SavepointResponse, error) {
-	url := c.getUrlFromServiceName(serviceName)
+func (c *FlinkJobManagerClient) CheckSavepointStatus(ctx context.Context, url string, jobId, triggerId string) (*SavepointResponse, error) {
 	path := fmt.Sprintf(checkSavepointStatusUrl, jobId, triggerId)
 	url = url + path
 
@@ -155,8 +138,7 @@ func (c *FlinkJobManagerClient) CheckSavepointStatus(ctx context.Context, servic
 	return &savepointResponse, nil
 }
 
-func (c *FlinkJobManagerClient) GetJobs(ctx context.Context, serviceName string) (*GetJobsResponse, error) {
-	url := c.getUrlFromServiceName(serviceName)
+func (c *FlinkJobManagerClient) GetJobs(ctx context.Context, url string) (*GetJobsResponse, error) {
 	url = url + getJobsUrl
 	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {

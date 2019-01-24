@@ -3,6 +3,8 @@ package flink
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/lyft/flinkk8soperator/pkg/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
@@ -10,6 +12,9 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"k8s.io/api/apps/v1"
 )
+
+const proxyUrl = "http://localhost:%d/api/v1/namespaces/%s/services/%s-jm:8081/proxy"
+const port = 8081
 
 // Interface to manage Flink Application in Kubernetes
 type FlinkInterface interface {
@@ -72,6 +77,14 @@ type FlinkController struct {
 	flinkClient      client.FlinkAPIInterface
 }
 
+func getUrlFromApp(application *v1alpha1.FlinkApplication) string {
+	if config.UseProxy {
+		return fmt.Sprintf(proxyUrl, config.ProxyPort, application.Namespace, application.Name)
+	} else {
+		return fmt.Sprintf("http://%s:%d", GetJobManagerExternalServiceName(application), port)
+	}
+}
+
 func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
 	if len(jobs) == 0 {
 		return nil
@@ -86,12 +99,11 @@ func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
 }
 
 func (f *FlinkController) HasApplicationJobChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	serviceName := GetJobManagerExternalServiceName(*application)
 	jobId, err := f.getJobIdForApplication(ctx, application)
 	if err != nil {
 		return false, err
 	}
-	jobConfig, err := f.flinkClient.GetJobConfig(ctx, serviceName, jobId)
+	jobConfig, err := f.flinkClient.GetJobConfig(ctx, getUrlFromApp(application), jobId)
 	if application.Spec.FlinkJob.Parallelism != jobConfig.ExecutionConfig.Parallelism {
 		return true, nil
 	}
@@ -151,8 +163,7 @@ func (f *FlinkController) getDeploymentsForImage(ctx context.Context, applicatio
 }
 
 func (f *FlinkController) GetJobsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error) {
-	serviceName := GetJobManagerExternalServiceName(*application)
-	jobResponse, err := f.flinkClient.GetJobs(ctx, serviceName)
+	jobResponse, err := f.flinkClient.GetJobs(ctx, getUrlFromApp(application))
 	if err != nil {
 		return nil, err
 	}
@@ -170,12 +181,11 @@ func (f *FlinkController) getJobIdForApplication(ctx context.Context, applicatio
 }
 
 func (f *FlinkController) CancelWithSavepoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
-	serviceName := GetJobManagerExternalServiceName(*application)
 	jobId, err := f.getJobIdForApplication(ctx, application)
 	if err != nil {
 		return "", err
 	}
-	return f.flinkClient.CancelJobWithSavepoint(ctx, serviceName, jobId)
+	return f.flinkClient.CancelJobWithSavepoint(ctx, getUrlFromApp(application), jobId)
 }
 
 func (f *FlinkController) CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error {
@@ -191,10 +201,9 @@ func (f *FlinkController) CreateCluster(ctx context.Context, application *v1alph
 }
 
 func (f *FlinkController) StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
-	serviceName := GetJobManagerExternalServiceName(*application)
 	response, err := f.flinkClient.SubmitJob(
 		ctx,
-		serviceName,
+		getUrlFromApp(application),
 		application.Spec.FlinkJob.JarName,
 		client.SubmitJobRequest{
 			Parallelism:   application.Spec.FlinkJob.Parallelism,
@@ -212,12 +221,11 @@ func (f *FlinkController) StartFlinkJob(ctx context.Context, application *v1alph
 }
 
 func (f *FlinkController) GetSavepointStatus(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error) {
-	serviceName := GetJobManagerExternalServiceName(*application)
 	jobId, err := f.getJobIdForApplication(ctx, application)
 	if err != nil {
 		return nil, err
 	}
-	return f.flinkClient.CheckSavepointStatus(ctx, serviceName, jobId, application.Spec.FlinkJob.SavepointInfo.TriggerId)
+	return f.flinkClient.CheckSavepointStatus(ctx, getUrlFromApp(application), jobId, application.Spec.FlinkJob.SavepointInfo.TriggerId)
 }
 
 func (f *FlinkController) DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
@@ -243,8 +251,7 @@ func (f *FlinkController) IsClusterReady(ctx context.Context, application *v1alp
 }
 
 func (f *FlinkController) IsServiceReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	serviceName := GetJobManagerExternalServiceName(*application)
-	_, err := f.flinkClient.GetClusterOverview(ctx, serviceName)
+	_, err := f.flinkClient.GetClusterOverview(ctx, getUrlFromApp(application))
 	if err != nil {
 		logger.Infof(ctx, "Failed to start application %s: %s", application.Name, err)
 		return false, err

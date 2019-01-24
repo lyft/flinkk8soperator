@@ -24,19 +24,19 @@ type GetJobsForApplicationFunc func(ctx context.Context, application *v1alpha1.F
 type GetCurrentAndOldDeploymentsForAppFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error)
 
 type MockFlinkController struct {
-	CreateClusterFunc                  CreateClusterFunc
-	DeleteOldClusterFunc               DeleteOldClusterFunc
-	CancelWithSavepointFunc            CancelWithSavepointFunc
-	StartFlinkJobFunc                  StartFlinkJobFunc
-	GetSavepointStatusFunc             GetSavepointStatusFunc
-	IsClusterReadyFunc                 IsClusterReadyFunc
-	IsServiceReadyFunc                 IsServiceReadyFunc
-	HasApplicationChangedFunc          HasApplicationChangedFunc
-	IsClusterChangeNeededFunc          IsClusterChangeNeededFunc
-	IsClusterUpdateNeededFunc          IsClusterUpdateNeededFunc
-	CheckAndUpdateClusterResourcesFunc CheckAndUpdateClusterResourcesFunc
-	HasApplicationJobChangedFunc       HasApplicationJobChangedFunc
-	GetJobsForApplicationFunc          GetJobsForApplicationFunc
+	CreateClusterFunc                     CreateClusterFunc
+	DeleteOldClusterFunc                  DeleteOldClusterFunc
+	CancelWithSavepointFunc               CancelWithSavepointFunc
+	StartFlinkJobFunc                     StartFlinkJobFunc
+	GetSavepointStatusFunc                GetSavepointStatusFunc
+	IsClusterReadyFunc                    IsClusterReadyFunc
+	IsServiceReadyFunc                    IsServiceReadyFunc
+	HasApplicationChangedFunc             HasApplicationChangedFunc
+	IsClusterChangeNeededFunc             IsClusterChangeNeededFunc
+	IsClusterUpdateNeededFunc             IsClusterUpdateNeededFunc
+	CheckAndUpdateClusterResourcesFunc    CheckAndUpdateClusterResourcesFunc
+	HasApplicationJobChangedFunc          HasApplicationJobChangedFunc
+	GetJobsForApplicationFunc             GetJobsForApplicationFunc
 	GetCurrentAndOldDeploymentsForAppFunc GetCurrentAndOldDeploymentsForAppFunc
 }
 

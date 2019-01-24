@@ -13,10 +13,10 @@ import (
 	k8mock "github.com/lyft/flinkk8soperator/pkg/controller/k8/mock"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/util/clock"
-	"time"
 	"k8s.io/api/apps/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
+	"time"
 )
 
 func getTestStateMachine() FlinkStateMachine {
@@ -594,7 +594,7 @@ func TestIsApplicationStuck(t *testing.T) {
 	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 	app := &v1alpha1.FlinkApplication{
 		Status: v1alpha1.FlinkApplicationStatus{
-			Phase: v1alpha1.FlinkApplicationUpdating,
+			Phase:         v1alpha1.FlinkApplicationUpdating,
 			LastUpdatedAt: &lastUpdated,
 		},
 	}
@@ -619,7 +619,7 @@ func TestIsApplicationNotStuck(t *testing.T) {
 	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 	isStuck := stateMachineForTest.isApplicationStuck(context.Background(), &v1alpha1.FlinkApplication{
 		Status: v1alpha1.FlinkApplicationStatus{
-			Phase: v1alpha1.FlinkApplicationUpdating,
+			Phase:         v1alpha1.FlinkApplicationUpdating,
 			LastUpdatedAt: &lastUpdated,
 		},
 	})

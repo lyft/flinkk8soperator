@@ -52,7 +52,7 @@ func NewFlinkJobManagerController() FlinkJobManagerControllerInterface {
 	}
 }
 
-func GetJobManagerExternalServiceName(app v1alpha1.FlinkApplication) string {
+func GetJobManagerExternalServiceName(app *v1alpha1.FlinkApplication) string {
 	return fmt.Sprintf(JobManagerExternalServiceNameFormat, app.Name, app.Namespace)
 }
 
