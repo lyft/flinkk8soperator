@@ -110,3 +110,9 @@ tags
 .idea
 vendor
 bin
+
+
+.idea/
+.DS_Store
+
+vendor/
