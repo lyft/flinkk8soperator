@@ -3,7 +3,11 @@ Docker Build and Push
 
 Provides a ``make docker_build`` target that builds your image locally.
 
-Provides a ``make dockerhub_push`` target that pushes your final image to Dockerhub with the tag ``<IMAGE>:<GIT COMMIT SHA>``, and pushes your builder image to Dockerhub with the tag ``<IMAGE>:<GIT COMMIT SHA>-builder``.
+Provides a ``make dockerhub_push`` target that pushes your final image to Dockerhub.
+
+The Dockerhub image will tagged ``<REPOSITORY>:<GIT COMMIT SHA>``
+
+If git head has a git tag, the Dockerhub image will also be tagged ``<IMAGE>:<GIT_TAG>``.
 
 **To Enable:**
 
