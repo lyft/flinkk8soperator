@@ -9,13 +9,13 @@ import (
 
 func TestReplaceJobUrl(t *testing.T) {
 	assert.Equal(t,
-		"ABC.ingress.flyte.us-east-1.k8s.lyft.net",
-		ReplaceJobUrl("{{$jobCluster}}.ingress.flyte.us-east-1.k8s.lyft.net", "ABC"))
+		"ABC.lyft.xyz",
+		ReplaceJobUrl("{{$jobCluster}}.lyft.xyz", "ABC"))
 }
 
 func TestGetFlinkUIIngressURL(t *testing.T) {
 	config.Init("")
 	assert.Equal(t,
-		"ABC.ingress.flyte.us-east-1.k8s.lyft.net",
+		"ABC.lyft.xyz",
 		GetFlinkUIIngressURL("ABC"))
 }

@@ -34,6 +34,8 @@ type FlinkApplicationSpec struct {
 	QueryPort         *int32            `json:"queryPort,omitempty"`
 	UiPort            *int32            `json:"uiPort,omitempty"`
 	MetricsQueryPort  *int32            `json:"metricsQueryPort,omitempty"`
+	Volumes           []v1.Volume       `json:"volumes,omitempty"`
+	VolumeMounts      []v1.VolumeMount  `json:"volumeMounts,omitempty"`
 }
 
 type FlinkJobInfo struct {

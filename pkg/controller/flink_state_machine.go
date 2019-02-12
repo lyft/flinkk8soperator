@@ -312,6 +312,6 @@ func NewFlinkStateMachine() FlinkHandlerInterface {
 		k8Cluster:                     k8.NewK8Cluster(),
 		flinkController:               flink.NewFlinkController(),
 		statemachineStalenessDuration: statemachineStalenessDuration,
-		clock:                         clock.RealClock{},
+		clock: clock.RealClock{},
 	}
 }

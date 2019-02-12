@@ -122,6 +122,8 @@ spec:
         app.kubernetes.io/version: 0.0.1
     spec:
       serviceAccountName: flinkk8soperator
+      imagePullSecrets:
+      - name: dockerhub
       volumes:
       - name: config-volume
         configMap:
@@ -131,7 +133,7 @@ spec:
             path: flinkk8soperator_config.yaml
       containers:
       - name: flinkk8soperator
-        image: 173840052742.dkr.ecr.us-east-1.amazonaws.com/flinkk8soperator:1b5d0975a86d1f96bc144f2693d8a61bd6cca7f6
+        image: docker.io/lyft/flinkk8soperator:cc9fb97cb92a595fda75fbcbe7118dd9633e7cba
         env:
         - name: OPERATOR_NAME
           value: flinkk8soperator

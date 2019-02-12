@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/lyft/flinkk8soperator/pkg/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
 

@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 
+	"strconv"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/spf13/viper"
 	"k8s.io/api/core/v1"
-	"strconv"
 )
 
 const (

@@ -3,6 +3,7 @@ package flink
 import (
 	"context"
 	"fmt"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
@@ -128,6 +129,7 @@ func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) (*core
 		Ports:           ports,
 		Env:             operatorEnv,
 		EnvFrom:         tmConfig.Environment.EnvFrom,
+		VolumeMounts:    application.Spec.VolumeMounts,
 	}, nil
 }
 
@@ -190,6 +192,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Dep
 					Containers: []coreV1.Container{
 						*taskContainer,
 					},
+					Volumes: app.Spec.Volumes,
 				},
 			},
 		},

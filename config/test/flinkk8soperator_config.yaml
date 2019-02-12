@@ -1,7 +1,7 @@
-# This is default configuration file.
+# This is a default configuration file for test.
 # Real configuration when running inside K8s (local or otherwise) lives in a ConfigMap
 # The operator will replace "job" field with the correct flink job name
-ingressUrlFormat: "{{$jobCluster}}.ingress.flyte.us-east-1.k8s.lyft.net"
+ingressUrlFormat: "{{$jobCluster}}.lyft.xyz"
 storageDirEnvName: "STORAGE_URI"
 storageDirPrefix: "s3://lyft-modelbuilder/metadata/flinkk8operator/%s"
 containerNameFormat: "%s-unknown"

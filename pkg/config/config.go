@@ -14,7 +14,7 @@ var (
 
 func Init(cfgFile string) {
 	viper.SetConfigType("yaml")
-	viper.SetConfigName("flinkk8soperator_config") // name of config file (without extension)
+	viper.SetConfigName("config/test/flinkk8soperator_config") // name of config file (without extension)
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("/etc/flinkk8soperator/config")
 	viper.AddConfigPath("$GOPATH/src/github.com/lyft/flinkk8soperator")

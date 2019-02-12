@@ -184,6 +184,7 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV
 		Ports:           ports,
 		Env:             operatorEnv,
 		EnvFrom:         jmConfig.Environment.EnvFrom,
+		VolumeMounts:    application.Spec.VolumeMounts,
 		ReadinessProbe: &coreV1.Probe{
 			Handler: coreV1.Handler{
 				HTTPGet: &coreV1.HTTPGetAction{
@@ -248,6 +249,7 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 					Containers: []coreV1.Container{
 						*jobManagerContainer,
 					},
+					Volumes: app.Spec.Volumes,
 				},
 			},
 		},

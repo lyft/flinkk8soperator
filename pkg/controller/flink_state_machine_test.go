@@ -7,6 +7,8 @@ import (
 
 	"errors"
 
+	"time"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/mock"
@@ -16,14 +18,13 @@ import (
 	"k8s.io/api/apps/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
-	"time"
 )
 
 func getTestStateMachine() FlinkStateMachine {
 	return FlinkStateMachine{
-		flinkController:               &mock.MockFlinkController{},
-		k8Cluster:                     &k8mock.MockK8Cluster{},
-		clock:                         &clock.FakeClock{},
+		flinkController: &mock.MockFlinkController{},
+		k8Cluster:       &k8mock.MockK8Cluster{},
+		clock:           &clock.FakeClock{},
 		statemachineStalenessDuration: 5 * time.Minute,
 	}
 }
