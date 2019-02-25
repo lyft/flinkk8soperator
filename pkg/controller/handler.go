@@ -8,9 +8,11 @@ import (
 	"reflect"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/errors"
-	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	"github.com/lyft/flytestdlib/logger"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"k8s.io/client-go/tools/record"
+	"github.com/lyft/flytestdlib/contextutils"
+	"fmt"
 )
 
 func NewHandler() sdk.Handler {
@@ -43,6 +45,9 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 			logger.Infof(ctx, "Flink Job deleted, we will let the owner references cascade downstream")
 			return nil
 		}
+		ctx = contextutils.WithNamespace(ctx, o.Namespace)
+		ctx = contextutils.WithAppName(ctx, o.Name)
+		ctx = contextutils.WithPhase(ctx, fmt.Sprintf("%s", o.Status.Phase))
 		err := h.flinkHandler.Handle(ctx, o)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to Handle Flink Job: %v", err)

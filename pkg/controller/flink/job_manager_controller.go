@@ -7,6 +7,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
+	"github.com/lyft/flytestdlib/logger"
 	"k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	k8_err "k8s.io/apimachinery/pkg/api/errors"
@@ -70,23 +71,29 @@ func (j *FlinkJobManagerController) CreateIfNotExist(ctx context.Context, applic
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerDeployment)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
+			logger.Infof(ctx, "Jobmanager deployment already exists")
 			return err
 		}
+		logger.Errorf(ctx, "Jobmanager deployment creation failed %v", err)
 	}
 
 	jobManagerService := FetchJobManagerServiceCreateObj(application)
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerService)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
+			logger.Infof(ctx, "Jobmanager service already exists")
 			return err
 		}
+		logger.Errorf(ctx, "Jobmanager service creation failed %v", err)
 	}
 	jobManagerIngress := FetchJobManagerIngressCreateObj(application)
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerIngress)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
+			logger.Infof(ctx, "Jobmanager ingress already exists")
 			return err
 		}
+		logger.Errorf(ctx, "Jobmanager ingress creation failed %v", err)
 	}
 
 	return nil

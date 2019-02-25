@@ -7,6 +7,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
+	"github.com/lyft/flytestdlib/logger"
 	"k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	k8_err "k8s.io/apimachinery/pkg/api/errors"
@@ -54,8 +55,10 @@ func (t *FlinkTaskManagerController) CreateIfNotExist(ctx context.Context, appli
 	err = t.k8Cluster.CreateK8Object(ctx, taskManagerDeployment)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
+			logger.Infof(ctx, "Taskmanager deployment already exists")
 			return err
 		}
+		logger.Errorf(ctx, "Taskmanager deployment creation failed %v", err)
 	}
 	return nil
 }

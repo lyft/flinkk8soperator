@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/lyft/flinkk8soperator/pkg/config"
-	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	"github.com/lyft/flytestdlib/logger"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
@@ -125,6 +125,7 @@ func (f *FlinkController) CheckAndUpdateClusterResources(ctx context.Context, ap
 		taskManagerDeployment.Spec.Replicas = &application.Spec.TaskManagerConfig.Replicas
 		err := f.k8Cluster.UpdateK8Object(ctx, taskManagerDeployment)
 		if err != nil {
+			logger.Errorf(ctx, "Taskmanager deployment update failed %v", err)
 			return false, err
 		}
 		hasUpdated = true
@@ -135,6 +136,7 @@ func (f *FlinkController) CheckAndUpdateClusterResources(ctx context.Context, ap
 		jobManagerDeployment.Spec.Replicas = &application.Spec.JobManagerConfig.Replicas
 		err := f.k8Cluster.UpdateK8Object(ctx, jobManagerDeployment)
 		if err != nil {
+			logger.Errorf(ctx, "Jobmanager deployment update failed %v", err)
 			return false, err
 		}
 		hasUpdated = true
@@ -192,10 +194,12 @@ func (f *FlinkController) CancelWithSavepoint(ctx context.Context, application *
 func (f *FlinkController) CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	err := f.flinkJobManager.CreateIfNotExist(ctx, application)
 	if err != nil {
+		logger.Errorf(ctx, "Job manager cluster creation did not succeed %v", err)
 		return err
 	}
 	err = f.FlinkTaskManager.CreateIfNotExist(ctx, application)
 	if err != nil {
+		logger.Errorf(ctx, "Task manager cluster creation did not succeed %v", err)
 		return err
 	}
 	return nil
@@ -216,6 +220,7 @@ func (f *FlinkController) StartFlinkJob(ctx context.Context, application *v1alph
 		return "", err
 	}
 	if response.JobId == "" {
+		logger.Errorf(ctx, "Job id in the submit job response was empty")
 		return "", errors.New("unable to submit job: invalid job id")
 	}
 	return response.JobId, nil
@@ -235,6 +240,7 @@ func (f *FlinkController) DeleteOldCluster(ctx context.Context, application *v1a
 		return false, err
 	}
 	if len(oldDeployments) == 0 {
+		logger.Infof(ctx, "No old deployments found for the cluster to delete")
 		return true, nil
 	}
 	err = f.k8Cluster.DeleteDeployments(ctx, v1.DeploymentList{
@@ -254,7 +260,7 @@ func (f *FlinkController) IsClusterReady(ctx context.Context, application *v1alp
 func (f *FlinkController) IsServiceReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	_, err := f.flinkClient.GetClusterOverview(ctx, getUrlFromApp(application))
 	if err != nil {
-		logger.Infof(ctx, "Failed to start application %s: %s", application.Name, err)
+		logger.Infof(ctx, "Error response indicating flink API is not ready to handle request %v", err)
 		return false, err
 	}
 	return true, nil
@@ -276,6 +282,7 @@ func (f *FlinkController) HasApplicationChanged(ctx context.Context, application
 		return false, err
 	}
 	if clusterChangeNeeded {
+		logger.Infof(ctx, "Flink cluster for the application needs to be changed")
 		return true, nil
 	}
 
@@ -285,6 +292,7 @@ func (f *FlinkController) HasApplicationChanged(ctx context.Context, application
 	}
 
 	if clusterUpdateNeeded {
+		logger.Infof(ctx, "Flink cluster for the application needs to be updated")
 		return true, nil
 	}
 	return false, nil
@@ -296,6 +304,7 @@ func (f *FlinkController) IsClusterChangeNeeded(ctx context.Context, application
 		return false, err
 	}
 	if len(currentDeployments.Items) == 0 {
+		logger.Infof(ctx, "No deployments found matching the current application spec")
 		return true, nil
 	}
 	return false, nil

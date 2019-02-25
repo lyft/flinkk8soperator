@@ -14,7 +14,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller"
-	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	"github.com/lyft/flytestdlib/logger"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 

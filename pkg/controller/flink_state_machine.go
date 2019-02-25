@@ -8,7 +8,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
-	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	"github.com/lyft/flytestdlib/logger"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
@@ -77,6 +77,7 @@ func (s *FlinkStateMachine) isApplicationStuck(ctx context.Context, application 
 		application.Status.Phase != v1alpha1.FlinkApplicationRunning {
 		elapsedTime := s.clock.Since(appLastUpdated.Time)
 		if elapsedTime > s.statemachineStalenessDuration {
+			logger.Errorf(ctx, "Flink Application stuck for %v", elapsedTime)
 			return true
 		}
 	}
@@ -87,7 +88,7 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.Fl
 	if s.isApplicationStuck(ctx, application) {
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
 	}
-	logger.Infof(ctx, "Handling state %s for application %s", application.Status.Phase, application.Name)
+	logger.Infof(ctx, "Handling state %s for application", application.Status.Phase)
 	switch application.Status.Phase {
 	case v1alpha1.FlinkApplicationNew:
 		// In this state, we need a new flink cluster to be created or existing cluster to be updated
@@ -115,8 +116,10 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.Fl
 func (s *FlinkStateMachine) handleNewOrCreating(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
+		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
 		return err
 	}
+	logger.Infof(ctx, "New cluster created")
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationClusterStarting)
 }
 
@@ -125,6 +128,7 @@ func (s *FlinkStateMachine) cancelWithSavepointAndTransitionState(ctx context.Co
 	if err != nil {
 		return err
 	}
+	logger.Infof(ctx, "Flink job cancelled with savepoint, trigger id: %s", triggerId)
 	application.Spec.FlinkJob.SavepointInfo.TriggerId = triggerId
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationSavepointing)
 }
@@ -144,11 +148,13 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 		// Return and check and proceed state in the next callback
 		return nil
 	}
+	logger.Infof(ctx, "Flink cluster has started successfully")
 	_, oldDeployments, err := s.flinkController.GetCurrentAndOldDeploymentsForApp(ctx, application)
 	if err != nil {
 		return err
 	}
 	if len(oldDeployments) > 0 {
+		logger.Infof(ctx, "Deployment for an older version of the application detected")
 		return s.cancelWithSavepointAndTransitionState(ctx, application)
 	}
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationReady)
@@ -162,6 +168,7 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 	if !isReady {
 		return nil
 	}
+	logger.Infof(ctx, "Flink cluster is ready to start the job")
 	// Check that there are no jobs running before starting the job
 	jobs, err := s.flinkController.GetJobsForApplication(ctx, application)
 	if err != nil {
@@ -169,14 +176,16 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 	}
 	activeJob := flink.GetActiveFlinkJob(jobs)
 	if activeJob == nil {
+		logger.Infof(ctx, "No active job found for the application %v", jobs)
 		jobId, err := s.flinkController.StartFlinkJob(ctx, application)
 		if err != nil {
 			return err
 		}
+		logger.Infof(ctx, "New flink job submitted successfully, jobId: %s", jobId)
 		application.Status.JobId = jobId
 	} else {
+		logger.Infof(ctx, "Active job found for the application, job info: %v", activeJob)
 		application.Status.JobId = activeJob.JobId
-
 	}
 
 	// Clear the savepoint info
@@ -202,6 +211,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationCompleted)
 		}
 	}
+	logger.Infof(ctx, "Application running with job %v", activeJob)
 	hasAppChanged, err := s.flinkController.HasApplicationChanged(ctx, application)
 	if err != nil {
 		return err
@@ -209,6 +219,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	// If application has changed, we can perform all the updates here itself.
 	// Pushing the state machine to Updating helps in monitoring and debuggability.
 	if hasAppChanged {
+		logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationUpdating)
 	}
 	return nil
@@ -229,6 +240,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	}
 
 	if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
+		logger.Infof(ctx, "Application savepoint operation succeeded %v", savepointStatusResponse)
 		isDeleted, err := s.flinkController.DeleteOldCluster(ctx, application)
 		if err != nil {
 			return err
@@ -256,6 +268,7 @@ func (s *FlinkStateMachine) handleApplicationUpdating(ctx context.Context, appli
 		return err
 	}
 	if isClusterChangeNeeded {
+		logger.Infof(ctx, "Flink cluster for the application requires modification")
 		if application.Spec.DeploymentMode == v1alpha1.DeploymentModeDual {
 			err := s.flinkController.CreateCluster(ctx, application)
 			if err != nil {
@@ -267,6 +280,7 @@ func (s *FlinkStateMachine) handleApplicationUpdating(ctx context.Context, appli
 
 	_, err = s.flinkController.CheckAndUpdateClusterResources(ctx, application)
 	if err != nil {
+		logger.Errorf(ctx, "Flink cluster modification failed %v", err)
 		return err
 	}
 	hasAppJobChanged, err := s.flinkController.HasApplicationJobChanged(ctx, application)
@@ -275,6 +289,7 @@ func (s *FlinkStateMachine) handleApplicationUpdating(ctx context.Context, appli
 	}
 
 	if hasAppJobChanged {
+		logger.Infof(ctx, "Flink application job has changed. Cancelling with savepoint")
 		return s.cancelWithSavepointAndTransitionState(ctx, application)
 	}
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationClusterStarting)
@@ -290,12 +305,13 @@ func (s *FlinkStateMachine) handleApplicationFailed(ctx context.Context, applica
 	if err != nil {
 		return err
 	}
-	// If current deployments is zero, it indicates that image changed after the state was set to failed.
+	// If current deployments is zero, it indicates that image changed.
 	if len(currentDeployments) == 0 {
 		isDeleted, err := s.flinkController.DeleteOldCluster(ctx, application)
 		if err != nil {
 			return err
 		}
+		logger.Infof(ctx, "Deleting the existing flink cluster for the application")
 		if isDeleted {
 			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationNew)
 		}

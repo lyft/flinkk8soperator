@@ -3,7 +3,7 @@ package k8
 import (
 	"context"
 
-	"github.com/lyft/flinkk8soperator/pkg/controller/logger"
+	"github.com/lyft/flytestdlib/logger"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
@@ -46,7 +46,7 @@ func (k *K8Cluster) GetPodsWithLabel(ctx context.Context, namespace string, labe
 	}
 	err := sdk.List(namespace, podList, sdk.WithListOptions(options))
 	if err != nil {
-		logger.Warningf(ctx, "Failed to list pods [%v]", err)
+		logger.Warnf(ctx, "Failed to list pods %v", err)
 		return nil, err
 	}
 	return podList, nil
@@ -66,7 +66,7 @@ func (k *K8Cluster) GetDeployment(ctx context.Context, namespace string, name st
 
 	err := sdk.Get(deployment)
 	if err != nil {
-		logger.Warningf(ctx, "Failed to get deployment [%v]", err)
+		logger.Warnf(ctx, "Failed to get deployment %v", err)
 		return nil, err
 	}
 	return deployment, nil
@@ -86,7 +86,7 @@ func (k *K8Cluster) GetService(ctx context.Context, namespace string, name strin
 
 	err := sdk.Get(service)
 	if err != nil {
-		logger.Warningf(ctx, "Failed to get service [%v]", err)
+		logger.Warnf(ctx, "Failed to get service %v", err)
 		return nil, err
 	}
 	return service, nil
@@ -105,7 +105,7 @@ func (k *K8Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace strin
 	}
 	err := sdk.List(namespace, deploymentList, sdk.WithListOptions(options))
 	if err != nil {
-		logger.Errorf(ctx, "Failed to list deployments [%v]", err)
+		logger.Warnf(ctx, "Failed to list deployments %v", err)
 		return nil, err
 	}
 	return deploymentList, nil
@@ -114,9 +114,11 @@ func (k *K8Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace strin
 func (k *K8Cluster) IsAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
 	podList, err := k.GetPodsWithLabel(ctx, namespace, labelMap)
 	if err != nil {
+		logger.Warnf(ctx, "Failed to get pods for label map %v", labelMap)
 		return false, err
 	}
 	if podList == nil || len(podList.Items) == 0 {
+		logger.Infof(ctx, "No pods present for label map %v", labelMap)
 		return false, nil
 	}
 
@@ -140,7 +142,7 @@ func (k *K8Cluster) DeleteDeployments(ctx context.Context, deploymentList v1.Dep
 	for _, item := range deploymentList.Items {
 		err := sdk.Delete(&item)
 		if err != nil {
-			logger.Errorf(ctx, "Failed to delete deployment [%v]", err)
+			logger.Errorf(ctx, "Failed to delete deployment %v", err)
 			return err
 		}
 	}
