@@ -22,9 +22,9 @@ import (
 
 func getTestStateMachine() FlinkStateMachine {
 	return FlinkStateMachine{
-		flinkController: &mock.MockFlinkController{},
-		k8Cluster:       &k8mock.MockK8Cluster{},
-		clock:           &clock.FakeClock{},
+		flinkController:               &mock.MockFlinkController{},
+		k8Cluster:                     &k8mock.MockK8Cluster{},
+		clock:                         &clock.FakeClock{},
 		statemachineStalenessDuration: 5 * time.Minute,
 	}
 }

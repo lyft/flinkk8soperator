@@ -7,12 +7,12 @@ import (
 
 	"reflect"
 
+	"fmt"
 	"github.com/lyft/flinkk8soperator/pkg/controller/errors"
+	"github.com/lyft/flytestdlib/contextutils"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"k8s.io/client-go/tools/record"
-	"github.com/lyft/flytestdlib/contextutils"
-	"fmt"
 )
 
 func NewHandler() sdk.Handler {

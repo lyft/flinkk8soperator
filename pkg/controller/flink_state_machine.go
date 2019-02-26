@@ -236,6 +236,8 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	if savepointStatusResponse.Operation.Location == "" &&
 		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
 		// Savepointing failed
+		// TODO: this should probably be a kubernetes message
+		logger.Infof(ctx, "savepoint failed: %v", savepointStatusResponse.Operation.FailureCause.StackTrace)
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
 	}
 
@@ -288,21 +290,7 @@ func (s *FlinkStateMachine) handleApplicationUpdating(ctx context.Context, appli
 // cluster.
 // Dual mode does not apply during the failed state.
 func (s *FlinkStateMachine) handleApplicationFailed(ctx context.Context, application *v1alpha1.FlinkApplication) error {
-	currentDeployments, _, err := s.flinkController.GetCurrentAndOldDeploymentsForApp(ctx, application)
-	if err != nil {
-		return err
-	}
-	// If current deployments is zero, it indicates that image changed.
-	if len(currentDeployments) == 0 {
-		isDeleted, err := s.flinkController.DeleteOldCluster(ctx, application)
-		if err != nil {
-			return err
-		}
-		logger.Infof(ctx, "Deleting the existing flink cluster for the application")
-		if isDeleted {
-			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationNew)
-		}
-	}
+	// TODO: allow recovering from externalized checkpoints (STRMCMP-252)
 	return nil
 }
 
@@ -315,6 +303,6 @@ func NewFlinkStateMachine() FlinkHandlerInterface {
 		k8Cluster:                     k8.NewK8Cluster(),
 		flinkController:               flink.NewFlinkController(),
 		statemachineStalenessDuration: statemachineStalenessDuration,
-		clock: clock.RealClock{},
+		clock:                         clock.RealClock{},
 	}
 }

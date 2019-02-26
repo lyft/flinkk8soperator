@@ -42,7 +42,13 @@ type SavepointStatusResponse struct {
 }
 
 type SavepointOperationResponse struct {
-	Location string `json:"location"`
+	Location     string       `json:"location"`
+	FailureCause FailureCause `json"failure-cause"`
+}
+
+type FailureCause struct {
+	Class      string `json:"class"`
+	StackTrace string `json:"stack-trace"`
 }
 
 type CancelJobResponse struct {
