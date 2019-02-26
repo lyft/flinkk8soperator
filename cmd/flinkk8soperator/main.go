@@ -67,7 +67,6 @@ func main() {
 	}
 
 	resource := v1alpha1.SchemeGroupVersion.String()
-
 	kind := v1alpha1.FlinkApplicationKind
 	namespace, _ := k8sutil.GetWatchNamespace()
 	watch(ctx, resource, kind, namespace, resyncPeriod)

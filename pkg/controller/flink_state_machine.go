@@ -263,33 +263,20 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 // (1) Bring up a new cluster, cancel the current job with savepoint, and restart the new job from the savepoint
 // (2) Update configuration in the existing cluster.
 func (s *FlinkStateMachine) handleApplicationUpdating(ctx context.Context, application *v1alpha1.FlinkApplication) error {
-	isClusterChangeNeeded, err := s.flinkController.IsClusterChangeNeeded(ctx, application)
+	hasApplicationChanged, err := s.flinkController.HasApplicationChanged(ctx, application)
 	if err != nil {
 		return err
 	}
-	if isClusterChangeNeeded {
+
+	if hasApplicationChanged {
 		logger.Infof(ctx, "Flink cluster for the application requires modification")
 		if application.Spec.DeploymentMode == v1alpha1.DeploymentModeDual {
+			logger.Infof(ctx, "Creating a new flink cluster for application as dual mode is enabled")
 			err := s.flinkController.CreateCluster(ctx, application)
 			if err != nil {
 				return err
 			}
 		}
-		return s.cancelWithSavepointAndTransitionState(ctx, application)
-	}
-
-	_, err = s.flinkController.CheckAndUpdateClusterResources(ctx, application)
-	if err != nil {
-		logger.Errorf(ctx, "Flink cluster modification failed %v", err)
-		return err
-	}
-	hasAppJobChanged, err := s.flinkController.HasApplicationJobChanged(ctx, application)
-	if err != nil {
-		return err
-	}
-
-	if hasAppJobChanged {
-		logger.Infof(ctx, "Flink application job has changed. Cancelling with savepoint")
 		return s.cancelWithSavepointAndTransitionState(ctx, application)
 	}
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationClusterStarting)
