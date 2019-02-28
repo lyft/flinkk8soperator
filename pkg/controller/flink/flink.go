@@ -120,9 +120,12 @@ func (f *FlinkController) CheckAndUpdateClusterResources(ctx context.Context, ap
 		return false, err
 	}
 	hasUpdated := false
+
+	replicas := computeTaskManagerReplicas(application)
+
 	taskManagerDeployment := getTaskManagerDeployment(currentAppDeployments.Items, application)
-	if *taskManagerDeployment.Spec.Replicas != application.Spec.TaskManagerConfig.Replicas {
-		taskManagerDeployment.Spec.Replicas = &application.Spec.TaskManagerConfig.Replicas
+	if *taskManagerDeployment.Spec.Replicas != replicas {
+		taskManagerDeployment.Spec.Replicas = &replicas
 		err := f.k8Cluster.UpdateK8Object(ctx, taskManagerDeployment)
 		if err != nil {
 			logger.Errorf(ctx, "Taskmanager deployment update failed %v", err)
@@ -315,8 +318,9 @@ func (f *FlinkController) isClusterUpdateNeeded(ctx context.Context, application
 	if err != nil {
 		return false, err
 	}
+	replicasNeeded := computeTaskManagerReplicas(application)
 	taskManagerReplicaCount := getTaskManagerReplicaCount(currentAppDeployments.Items, application)
-	if taskManagerReplicaCount != application.Spec.TaskManagerConfig.Replicas {
+	if taskManagerReplicaCount != replicasNeeded {
 		return true, nil
 	}
 

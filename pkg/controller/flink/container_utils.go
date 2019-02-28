@@ -140,6 +140,10 @@ func getFlinkEnv(app v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 			Value: strconv.Itoa(FlinkMetricsQueryDefaultPort),
 		},
 		{
+			Name:  TaskManagerSlots,
+			Value: strconv.Itoa(getTaskmanagerSlots(&app)),
+		},
+		{
 			Name: TaskManagerHostname,
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{

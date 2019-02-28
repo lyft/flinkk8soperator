@@ -56,7 +56,7 @@ type JobManagerConfig struct {
 type TaskManagerConfig struct {
 	Resources   *v1.ResourceRequirements `json:"resources,omitempty"`
 	Environment EnvironmentConfig        `json:"envConfig"`
-	Replicas    int32                    `json:"replicas"`
+	TaskSlots   *int32                   `json:"taskSlots,omitempty"`
 }
 
 type EnvironmentConfig struct {

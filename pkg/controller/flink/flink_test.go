@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
-	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	clientMock "github.com/lyft/flinkk8soperator/pkg/controller/flink/client/mock"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/mock"
 	k8mock "github.com/lyft/flinkk8soperator/pkg/controller/k8/mock"
@@ -151,7 +150,9 @@ func TestFlinkApplicationNeededNeedUpdate(t *testing.T) {
 	flinkApp.Name = appName
 	flinkApp.Namespace = namespaceVal
 	flinkApp.Spec.Image = testImage
-	flinkApp.Spec.TaskManagerConfig.Replicas = numberOfTaskManagers + 1
+	taskSlots := int32(2)
+	flinkApp.Spec.TaskManagerConfig.TaskSlots = &taskSlots
+	flinkApp.Spec.FlinkJob.Parallelism = taskSlots*numberOfTaskManagers + 1
 	result, err := flinkControllerForTest.HasApplicationChanged(
 		context.Background(), &flinkApp,
 	)
@@ -160,7 +161,6 @@ func TestFlinkApplicationNeededNeedUpdate(t *testing.T) {
 }
 
 func TestFlinkApplicationParallelismChanged(t *testing.T) {
-	getJobConfigInvoked := false
 	flinkControllerForTest := getTestFlinkController()
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
@@ -171,22 +171,12 @@ func TestFlinkApplicationParallelismChanged(t *testing.T) {
 			},
 		}, nil
 	}
-	mockFlinkClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockFlinkClient.GetJobConfigFunc = func(ctx context.Context, serviceName, jobId string) (*client.JobConfigResponse, error) {
-		getJobConfigInvoked = true
-		return &client.JobConfigResponse{
-			ExecutionConfig: client.JobExecutionConfig{
-				Parallelism: 3,
-			},
-		}, nil
-	}
 	flinkApp := v1alpha1.FlinkApplication{}
 	flinkApp.Spec.FlinkJob.Parallelism = 2
 	flinkApp.Status.JobId = "job1"
 	result, err := flinkControllerForTest.HasApplicationChanged(
 		context.Background(), &flinkApp,
 	)
-	assert.True(t, getJobConfigInvoked)
 	assert.True(t, result)
 	assert.Nil(t, err)
 }

@@ -3,6 +3,7 @@ package flink
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
@@ -20,6 +21,8 @@ const (
 	TaskManagerPodNameFormat = "%s-%s-tm-pod"
 	TaskManagerContainerName = "taskmanager"
 	TaskManagerArg           = "taskmanager"
+	TaskManagerSlots         = "TASK_MANAGER_SLOTS"
+	TaskManagerDefaultSlots  = 16
 )
 
 type FlinkTaskManagerControllerInterface interface {
@@ -61,6 +64,14 @@ func (t *FlinkTaskManagerController) CreateIfNotExist(ctx context.Context, appli
 		logger.Errorf(ctx, "Taskmanager deployment creation failed %v", err)
 	}
 	return nil
+}
+
+func getTaskmanagerSlots(application *v1alpha1.FlinkApplication) int {
+	if application.Spec.TaskManagerConfig.TaskSlots != nil {
+		return int(*application.Spec.TaskManagerConfig.TaskSlots)
+	} else {
+		return TaskManagerDefaultSlots
+	}
 }
 
 func getDeploymentWithName(deployments []v1.Deployment, name string) *v1.Deployment {
@@ -148,6 +159,12 @@ func getTaskManagerName(application v1alpha1.FlinkApplication) string {
 	return fmt.Sprintf(TaskManagerNameFormat, applicationName, imageKey)
 }
 
+func computeTaskManagerReplicas(application *v1alpha1.FlinkApplication) int32 {
+	slots := getTaskmanagerSlots(application)
+	parallelism := application.Spec.FlinkJob.Parallelism
+	return int32(math.Ceil(float64(parallelism) / float64(slots)))
+}
+
 func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Deployment, error) {
 	taskName := getTaskManagerName(*app)
 	podName := getTaskManagerPodName(*app)
@@ -164,6 +181,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Dep
 		return nil, err
 	}
 
+	replicas := computeTaskManagerReplicas(app)
 	return &v1.Deployment{
 		TypeMeta: metaV1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
@@ -183,7 +201,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Dep
 			Strategy: v1.DeploymentStrategy{
 				Type: v1.RecreateDeploymentStrategyType,
 			},
-			Replicas: &app.Spec.TaskManagerConfig.Replicas,
+			Replicas: &replicas,
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name:        podName,
