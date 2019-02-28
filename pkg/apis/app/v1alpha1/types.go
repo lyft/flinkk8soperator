@@ -23,19 +23,20 @@ type FlinkApplication struct {
 }
 
 type FlinkApplicationSpec struct {
-	Image             string            `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
-	ImagePullPolicy   v1.PullPolicy     `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
-	TaskManagerConfig TaskManagerConfig `json:"taskManagerConfig,omitempty"`
-	JobManagerConfig  JobManagerConfig  `json:"jobManagerConfig,omitempty"`
-	FlinkJob          FlinkJobInfo      `json:"flinkJob"`
-	DeploymentMode    DeploymentMode    `json:"deploymentMode"`
-	RpcPort           *int32            `json:"rpcPort,omitempty"`
-	BlobPort          *int32            `json:"blobPort,omitempty"`
-	QueryPort         *int32            `json:"queryPort,omitempty"`
-	UiPort            *int32            `json:"uiPort,omitempty"`
-	MetricsQueryPort  *int32            `json:"metricsQueryPort,omitempty"`
-	Volumes           []v1.Volume       `json:"volumes,omitempty"`
-	VolumeMounts      []v1.VolumeMount  `json:"volumeMounts,omitempty"`
+	Image             string                 `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
+	ImagePullPolicy   v1.PullPolicy          `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
+	FlinkConfig       map[string]interface{} `json:"flinkConfig,omitempty"`
+	TaskManagerConfig TaskManagerConfig      `json:"taskManagerConfig,omitempty"`
+	JobManagerConfig  JobManagerConfig       `json:"jobManagerConfig,omitempty"`
+	FlinkJob          FlinkJobInfo           `json:"flinkJob"`
+	DeploymentMode    DeploymentMode         `json:"deploymentMode"`
+	RpcPort           *int32                 `json:"rpcPort,omitempty"`
+	BlobPort          *int32                 `json:"blobPort,omitempty"`
+	QueryPort         *int32                 `json:"queryPort,omitempty"`
+	UiPort            *int32                 `json:"uiPort,omitempty"`
+	MetricsQueryPort  *int32                 `json:"metricsQueryPort,omitempty"`
+	Volumes           []v1.Volume            `json:"volumes,omitempty"`
+	VolumeMounts      []v1.VolumeMount       `json:"volumeMounts,omitempty"`
 }
 
 type FlinkJobInfo struct {

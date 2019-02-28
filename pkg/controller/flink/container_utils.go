@@ -1,8 +1,9 @@
 package flink
 
 import (
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 
 	"strconv"
 
@@ -23,6 +24,7 @@ const (
 	FlinkMetricsQueryPort            = "FLINK_METRICS_QUERY_PORT"
 	JobManagerServiceEnvVar          = "JOB_MANAGER_SERVICE"
 	TaskManagerHostname              = "TASKMANAGER_HOSTNAME"
+	FlinkConfigOverrides             = "FLINK_CONFIG_OVERRIDES"
 	AwsMetadataServiceTimeoutKey     = "AWS_METADATA_SERVICE_TIMEOUT"
 	AwsMetadataServiceNumAttemptsKey = "AWS_METADATA_SERVICE_NUM_ATTEMPTS"
 	AwsMetadataServiceTimeout        = "5"
@@ -86,6 +88,20 @@ func GetAWSServiceEnv() []v1.EnvVar {
 	}
 }
 
+// Renders the flink configuration overrides stored in FlinkApplication.FlinkConfig into a
+// YAML string suitable for interpolating into flink-conf.yaml.
+func renderFlinkConfigOverrides(app v1alpha1.FlinkApplication) (string, error) {
+	if app.Spec.FlinkConfig == nil {
+		return "", nil
+	} else {
+		b, err := yaml.Marshal(app.Spec.FlinkConfig)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+}
+
 func getFlinkEnv(app v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 	env := []v1.EnvVar{}
 	appName := app.Name
@@ -100,6 +116,12 @@ func getFlinkEnv(app v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 			})
 		}
 	}
+
+	configOverrides, err := renderFlinkConfigOverrides(app)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to serialize flink configuration")
+	}
+
 	env = append(env, []v1.EnvVar{
 		{
 			Name:  JobManagerServiceEnvVar,
@@ -124,6 +146,10 @@ func getFlinkEnv(app v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 					FieldPath: "status.podIP",
 				},
 			},
+		},
+		{
+			Name:  FlinkConfigOverrides,
+			Value: configOverrides,
 		},
 	}...)
 	return env, nil
