@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"fmt"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,7 +26,7 @@ type FlinkApplication struct {
 type FlinkApplicationSpec struct {
 	Image             string                 `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
 	ImagePullPolicy   v1.PullPolicy          `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
-	FlinkConfig       map[string]interface{} `json:"flinkConfig,omitempty"`
+	FlinkConfig       FlinkConfig            `json:"flinkConfig"`
 	TaskManagerConfig TaskManagerConfig      `json:"taskManagerConfig,omitempty"`
 	JobManagerConfig  JobManagerConfig       `json:"jobManagerConfig,omitempty"`
 	FlinkJob          FlinkJobInfo           `json:"flinkJob"`
@@ -37,6 +38,51 @@ type FlinkApplicationSpec struct {
 	MetricsQueryPort  *int32                 `json:"metricsQueryPort,omitempty"`
 	Volumes           []v1.Volume            `json:"volumes,omitempty"`
 	VolumeMounts      []v1.VolumeMount       `json:"volumeMounts,omitempty"`
+}
+
+type FlinkConfig map[string]interface{}
+
+// Workaround for https://github.com/kubernetes-sigs/kubebuilder/issues/528
+func (in *FlinkConfig) DeepCopyInto(out *FlinkConfig) {
+	if in == nil {
+		*out = nil
+	} else {
+		*out = make(map[string]interface{}, len(*in))
+		for k, v := range *in {
+			(*out)[k] = deepCopyJSONValue(v)
+		}
+	}
+}
+
+func deepCopyJSONValue(x interface{}) interface{} {
+	switch x := x.(type) {
+	case map[string]interface{}:
+		clone := make(map[string]interface{}, len(x))
+		for k, v := range x {
+			clone[k] = deepCopyJSONValue(v)
+		}
+		return clone
+	case []interface{}:
+		clone := make([]interface{}, len(x))
+		for i, v := range x {
+			clone[i] = deepCopyJSONValue(v)
+		}
+		return clone
+	case string, int, uint, int32, uint32, int64, uint64, bool, float32, float64, nil:
+		return x
+	default:
+		panic(fmt.Errorf("cannot deep copy %T", x))
+	}
+}
+
+
+func (in *FlinkConfig) DeepCopy() *FlinkConfig {
+	if in == nil {
+		return nil
+	}
+	out := new(FlinkConfig)
+	in.DeepCopyInto(out)
+	return out
 }
 
 type FlinkJobInfo struct {

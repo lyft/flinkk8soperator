@@ -5,7 +5,7 @@
 
 # Using go1.10.4
 FROM golang:1.10.4-alpine3.8 as builder
-RUN apk add git openssh-client make curl
+RUN apk add git openssh-client make curl bash
 
 # COPY only the dep files for efficient caching
 COPY Gopkg.* /go/src/github.com/lyft/flinkk8soperator/
