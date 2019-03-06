@@ -33,16 +33,11 @@ const (
 )
 
 const (
-	FlinkRpcPortName             = "rpc"
-	FlinkQueryPortName           = "query"
-	FlinkBlobPortName            = "blob"
-	FlinkUIPortName              = "ui"
-	FlinkInternalMetricPortName  = "metrics"
-	FlinkRpcDefaultPort          = 6123
-	FlinkQueryDefaultPort        = 6124
-	FlinkBlobDefaultPort         = 6125
-	FlinkUIDefaultPort           = 8081
-	FlinkMetricsQueryDefaultPort = 50101
+	FlinkRpcPortName            = "rpc"
+	FlinkQueryPortName          = "query"
+	FlinkBlobPortName           = "blob"
+	FlinkUIPortName             = "ui"
+	FlinkInternalMetricPortName = "metrics"
 )
 
 type FlinkJobManagerControllerInterface interface {
@@ -123,7 +118,7 @@ func getJobManagerName(application *v1alpha1.FlinkApplication) string {
 }
 
 func FetchJobManagerServiceCreateObj(app *v1alpha1.FlinkApplication) *coreV1.Service {
-	jmServiceName := getJobManagerServiceName(*app)
+	jmServiceName := getJobManagerServiceName(app)
 	serviceLabels := map[string]string{}
 
 	serviceLabels[AppFrontEndKey] = jmServiceName
@@ -140,14 +135,14 @@ func FetchJobManagerServiceCreateObj(app *v1alpha1.FlinkApplication) *coreV1.Ser
 			},
 		},
 		Spec: coreV1.ServiceSpec{
-			Ports:    getJobManagerServicePorts(&app.Spec),
+			Ports:    getJobManagerServicePorts(app),
 			Selector: serviceLabels,
 		},
 	}
 }
 
-func getJobManagerServicePorts(flinkJob *v1alpha1.FlinkApplicationSpec) []coreV1.ServicePort {
-	ports := getJobManagerPorts(flinkJob)
+func getJobManagerServicePorts(app *v1alpha1.FlinkApplication) []coreV1.ServicePort {
+	ports := getJobManagerPorts(app)
 	servicePorts := make([]coreV1.ServicePort, 0, len(ports))
 	for _, p := range ports {
 		servicePorts = append(servicePorts, coreV1.ServicePort{
@@ -158,13 +153,28 @@ func getJobManagerServicePorts(flinkJob *v1alpha1.FlinkApplicationSpec) []coreV1
 	return servicePorts
 }
 
-func getJobManagerPorts(flinkJob *v1alpha1.FlinkApplicationSpec) []coreV1.ContainerPort {
+func getJobManagerPorts(app *v1alpha1.FlinkApplication) []coreV1.ContainerPort {
 	return []coreV1.ContainerPort{
-		containerPort(FlinkRpcPortName, flinkJob.RpcPort, FlinkRpcDefaultPort),
-		containerPort(FlinkBlobPortName, flinkJob.BlobPort, FlinkBlobDefaultPort),
-		containerPort(FlinkQueryPortName, flinkJob.QueryPort, FlinkQueryDefaultPort),
-		containerPort(FlinkUIPortName, flinkJob.UiPort, FlinkUIDefaultPort),
-		containerPort(FlinkInternalMetricPortName, flinkJob.MetricsQueryPort, FlinkMetricsQueryDefaultPort),
+		{
+			Name:          FlinkRpcPortName,
+			ContainerPort: getRpcPort(app),
+		},
+		{
+			Name:          FlinkBlobPortName,
+			ContainerPort: getBlobPort(app),
+		},
+		{
+			Name:          FlinkQueryPortName,
+			ContainerPort: getQueryPort(app),
+		},
+		{
+			Name:          FlinkUIPortName,
+			ContainerPort: getUiPort(app),
+		},
+		{
+			Name:          FlinkInternalMetricPortName,
+			ContainerPort: getInternalMetricsQueryPort(app),
+		},
 	}
 }
 
@@ -175,8 +185,8 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV
 		resources = &JobManagerDefaultResources
 	}
 
-	ports := getJobManagerPorts(&application.Spec)
-	operatorEnv, err := GetFlinkContainerEnv(*application)
+	ports := getJobManagerPorts(application)
+	operatorEnv, err := GetFlinkContainerEnv(application)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +206,7 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV
 			Handler: coreV1.Handler{
 				HTTPGet: &coreV1.HTTPGetAction{
 					Path: JobManagerReadinessPath,
-					Port: intstr.FromInt(FlinkUIDefaultPort),
+					Port: intstr.FromInt(int(getUiPort(application))),
 				},
 			},
 			InitialDelaySeconds: JobManagerReadinessInitialDelaySec,
@@ -213,8 +223,8 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 	podName := getJobManagerPodName(app)
 
 	podLabels := common.DuplicateMap(app.Labels)
-	podLabels[AppFrontEndKey] = getJobManagerServiceName(*app)
-	commonLabels := getCommonAppLabels(*app)
+	podLabels[AppFrontEndKey] = getJobManagerServiceName(app)
+	commonLabels := getCommonAppLabels(app)
 	podLabels = common.CopyMap(podLabels, commonLabels)
 	podSelector := &metaV1.LabelSelector{
 		MatchLabels: podLabels,

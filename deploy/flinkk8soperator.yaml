@@ -95,8 +95,6 @@ data:
   # this will need to be templatized
   staging: |-
     ingressUrlFormat: "{{$jobCluster}}.ingress.flinkstaging.us-east-1.k8s.lyft.net"
-    storageDirEnvName: "STORAGE_URI"
-    storageDirPrefix: "s3://streamingplatform-staging/flinkk8operator/%s"
     containerNameFormat: "%s-unknown"
     statemachineStalenessDuration: 10m
 ---

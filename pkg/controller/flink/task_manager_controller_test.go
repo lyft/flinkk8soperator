@@ -6,16 +6,6 @@ import (
 	"testing"
 )
 
-func TestGetTaskSlots(t *testing.T) {
-	app1 := v1alpha1.FlinkApplication{}
-	assert.Equal(t, TaskManagerDefaultSlots, getTaskmanagerSlots(&app1))
-
-	app2 := v1alpha1.FlinkApplication{}
-	taskSlots := int32(4)
-	app2.Spec.TaskManagerConfig.TaskSlots = &taskSlots
-	assert.Equal(t, 4, getTaskmanagerSlots(&app2))
-}
-
 func TestComputeTaskManagerReplicas(t *testing.T) {
 	app := v1alpha1.FlinkApplication{}
 	taskSlots := int32(4)

@@ -17,12 +17,11 @@ import (
 )
 
 const (
-	TaskManagerNameFormat    = "%s-%s-tm"
-	TaskManagerPodNameFormat = "%s-%s-tm-pod"
-	TaskManagerContainerName = "taskmanager"
-	TaskManagerArg           = "taskmanager"
-	TaskManagerSlots         = "TASK_MANAGER_SLOTS"
-	TaskManagerDefaultSlots  = 16
+	TaskManagerNameFormat     = "%s-%s-tm"
+	TaskManagerPodNameFormat  = "%s-%s-tm-pod"
+	TaskManagerContainerName  = "taskmanager"
+	TaskManagerArg            = "taskmanager"
+	TaskManagerHostnameEnvVar = "TASKMANAGER_HOSTNAME"
 )
 
 type FlinkTaskManagerControllerInterface interface {
@@ -66,14 +65,6 @@ func (t *FlinkTaskManagerController) CreateIfNotExist(ctx context.Context, appli
 	return nil
 }
 
-func getTaskmanagerSlots(application *v1alpha1.FlinkApplication) int {
-	if application.Spec.TaskManagerConfig.TaskSlots != nil {
-		return int(*application.Spec.TaskManagerConfig.TaskSlots)
-	} else {
-		return TaskManagerDefaultSlots
-	}
-}
-
 func getDeploymentWithName(deployments []v1.Deployment, name string) *v1.Deployment {
 	if len(deployments) == 0 {
 		return nil
@@ -112,23 +103,45 @@ func getJobManagerReplicaCount(deployments []v1.Deployment, application *v1alpha
 	return *jobManagerDeployment.Spec.Replicas
 }
 
-func GetTaskManagerPorts(flinkJob *v1alpha1.FlinkApplicationSpec) []coreV1.ContainerPort {
+func GetTaskManagerPorts(app *v1alpha1.FlinkApplication) []coreV1.ContainerPort {
 	return []coreV1.ContainerPort{
-		containerPort(FlinkRpcPortName, flinkJob.RpcPort, FlinkRpcDefaultPort),
-		containerPort(FlinkBlobPortName, flinkJob.BlobPort, FlinkBlobDefaultPort),
-		containerPort(FlinkQueryPortName, flinkJob.QueryPort, FlinkQueryDefaultPort),
-		containerPort(FlinkInternalMetricPortName, flinkJob.MetricsQueryPort, FlinkMetricsQueryDefaultPort),
+		{
+			Name:          FlinkRpcPortName,
+			ContainerPort: getRpcPort(app),
+		},
+		{
+			Name:          FlinkBlobPortName,
+			ContainerPort: getBlobPort(app),
+		},
+		{
+			Name:          FlinkQueryPortName,
+			ContainerPort: getQueryPort(app),
+		},
+		{
+			Name:          FlinkInternalMetricPortName,
+			ContainerPort: getInternalMetricsQueryPort(app),
+		},
 	}
 }
 
 func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV1.Container, error) {
 	tmConfig := application.Spec.TaskManagerConfig
-	ports := GetTaskManagerPorts(&application.Spec)
+	ports := GetTaskManagerPorts(application)
 	resources := tmConfig.Resources
 	if resources == nil {
 		resources = &TaskManagerDefaultResources
 	}
-	operatorEnv, err := GetFlinkContainerEnv(*application)
+	operatorEnv, err := GetFlinkContainerEnv(application)
+
+	operatorEnv = append(operatorEnv, coreV1.EnvVar{
+		Name: TaskManagerHostnameEnvVar,
+		ValueFrom: &coreV1.EnvVarSource{
+			FieldRef: &coreV1.ObjectFieldSelector{
+				FieldPath: "status.podIP",
+			},
+		},
+	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +182,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Dep
 	taskName := getTaskManagerName(*app)
 	podName := getTaskManagerPodName(*app)
 
-	commonLabels := getCommonAppLabels(*app)
+	commonLabels := getCommonAppLabels(app)
 	labels := common.CopyMap(app.Labels, commonLabels)
 
 	podSelector := &metaV1.LabelSelector{

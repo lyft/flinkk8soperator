@@ -6,8 +6,6 @@ metadata:
 data:
   # this will need to be templatized
   development: |-
-    storageDirEnvName: "STORAGE_URI"
-    storageDirPrefix: "file:///tmp/%s"
     containerNameFormat: "%s-unknown"
 ---
 

@@ -4,7 +4,5 @@
 # ingressUrlFormat: "{{$jobCluster}}.ingress.flyte.us-east-1.k8s.lyft.net"
 useKubectlProxy: true
 proxyPort: 8001
-storageDirEnvName: "STORAGE_URI"
-storageDirPrefix: "file:///tmp/%s"
 containerNameFormat: "%s-unknown"
 statemachineStalenessDuration: 2m
