@@ -11,6 +11,8 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
+	"github.com/lyft/flytestdlib/promutils"
+	"github.com/lyft/flytestdlib/promutils/labeled"
 	"k8s.io/api/apps/v1"
 )
 
@@ -62,13 +64,32 @@ type FlinkInterface interface {
 	GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error)
 }
 
-func NewFlinkController() FlinkInterface {
+func NewFlinkController(scope promutils.Scope) FlinkInterface {
+	metrics := newFlinkControllerMetrics(scope)
 	return &FlinkController{
 		k8Cluster:        k8.NewK8Cluster(),
-		flinkJobManager:  NewFlinkJobManagerController(),
-		FlinkTaskManager: NewFlinkTaskManagerController(),
-		flinkClient:      client.NewFlinkJobManagerClient(),
+		flinkJobManager:  NewFlinkJobManagerController(scope),
+		FlinkTaskManager: NewFlinkTaskManagerController(scope),
+		flinkClient:      client.NewFlinkJobManagerClient(scope),
+		metrics:          metrics,
 	}
+}
+
+func newFlinkControllerMetrics(scope promutils.Scope) *flinkControllerMetrics {
+	flinkControllerScope := scope.NewSubScope("flink_controller")
+	return &flinkControllerMetrics{
+		scope:                       scope,
+		deleteClusterSuccessCounter: labeled.NewCounter("delete_cluster_success", "Flink cluster deleted successfully", flinkControllerScope),
+		deleteClusterFailedCounter:  labeled.NewCounter("delete_cluster_failure", "Flink cluster deletion failed", flinkControllerScope),
+		applicationChangedCounter:   labeled.NewCounter("app_changed_counter", "Flink application has changed", flinkControllerScope),
+	}
+}
+
+type flinkControllerMetrics struct {
+	scope                       promutils.Scope
+	deleteClusterSuccessCounter labeled.Counter
+	deleteClusterFailedCounter  labeled.Counter
+	applicationChangedCounter   labeled.Counter
 }
 
 type FlinkController struct {
@@ -76,6 +97,7 @@ type FlinkController struct {
 	flinkJobManager  FlinkJobManagerControllerInterface
 	FlinkTaskManager FlinkTaskManagerControllerInterface
 	flinkClient      client.FlinkAPIInterface
+	metrics          *flinkControllerMetrics
 }
 
 func getUrlFromApp(application *v1alpha1.FlinkApplication) string {
@@ -250,8 +272,10 @@ func (f *FlinkController) DeleteOldCluster(ctx context.Context, application *v1a
 		Items: oldDeployments,
 	})
 	if err != nil {
+		f.metrics.deleteClusterFailedCounter.Inc(ctx)
 		return false, err
 	}
+	f.metrics.deleteClusterSuccessCounter.Inc(ctx)
 	return true, nil
 }
 
@@ -286,6 +310,7 @@ func (f *FlinkController) HasApplicationChanged(ctx context.Context, application
 	}
 	if clusterChangeNeeded {
 		logger.Infof(ctx, "Flink cluster for the application needs to be changed")
+		f.metrics.applicationChangedCounter.Inc(ctx)
 		return true, nil
 	}
 
@@ -296,6 +321,7 @@ func (f *FlinkController) HasApplicationChanged(ctx context.Context, application
 
 	if clusterUpdateNeeded {
 		logger.Infof(ctx, "Flink cluster for the application needs to be updated")
+		f.metrics.applicationChangedCounter.Inc(ctx)
 		return true, nil
 	}
 	return false, nil

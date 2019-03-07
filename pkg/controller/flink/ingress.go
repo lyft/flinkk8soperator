@@ -65,16 +65,3 @@ func FetchJobManagerIngressCreateObj(app *v1alpha1.FlinkApplication) *v1beta1.In
 	}
 
 }
-
-func FetchJobManagerIngressIdentityObj(job *v1alpha1.FlinkApplication) *v1beta1.Ingress {
-	return &v1beta1.Ingress{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: v1beta1.SchemeGroupVersion.String(),
-			Kind:       k8.Ingress,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:      job.Name,
-			Namespace: job.Namespace,
-		},
-	}
-}

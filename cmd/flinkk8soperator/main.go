@@ -16,6 +16,9 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller"
 	"github.com/lyft/flytestdlib/logger"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"github.com/lyft/flytestdlib/promutils"
+	"github.com/lyft/flytestdlib/promutils/labeled"
+	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 )
 
 const (
@@ -70,6 +73,8 @@ func main() {
 	kind := v1alpha1.FlinkApplicationKind
 	namespace, _ := k8sutil.GetWatchNamespace()
 	watch(ctx, resource, kind, namespace, resyncPeriod)
-	sdk.Handle(controller.NewHandler())
+	operatorScope := promutils.NewScope("flinkk8soperator")
+	labeled.SetMetricKeys(common.GetValidLabelNames()...)
+	sdk.Handle(controller.NewHandler(operatorScope))
 	sdk.Run(context.TODO())
 }

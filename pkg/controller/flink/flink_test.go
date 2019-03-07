@@ -8,19 +8,26 @@ import (
 	clientMock "github.com/lyft/flinkk8soperator/pkg/controller/flink/client/mock"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/mock"
 	k8mock "github.com/lyft/flinkk8soperator/pkg/controller/k8/mock"
+	mockScope "github.com/lyft/flytestdlib/promutils"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/apps/v1"
+
+	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/lyft/flytestdlib/promutils/labeled"
 )
 
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
 const testImageKey = "11ae1"
 
 func getTestFlinkController() FlinkController {
+	testScope := mockScope.NewTestScope()
+	labeled.SetMetricKeys(common.GetValidLabelNames()...)
 	return FlinkController{
 		flinkJobManager:  &mock.MockJobManagerController{},
 		FlinkTaskManager: &mock.MockTaskManagerController{},
 		k8Cluster:        &k8mock.MockK8Cluster{},
 		flinkClient:      &clientMock.MockJobManagerClient{},
+		metrics:          newFlinkControllerMetrics(testScope),
 	}
 }
 

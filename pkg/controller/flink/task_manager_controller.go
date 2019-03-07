@@ -14,6 +14,8 @@ import (
 	k8_err "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"github.com/lyft/flytestdlib/promutils"
+	"github.com/lyft/flytestdlib/promutils/labeled"
 )
 
 const (
@@ -28,14 +30,33 @@ type FlinkTaskManagerControllerInterface interface {
 	CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error
 }
 
-func NewFlinkTaskManagerController() FlinkJobManagerControllerInterface {
+func NewFlinkTaskManagerController(scope promutils.Scope) FlinkJobManagerControllerInterface {
+	metrics :=  newFlinkTaskManagerMetrics(scope)
 	return &FlinkTaskManagerController{
 		k8Cluster: k8.NewK8Cluster(),
+		metrics: metrics,
 	}
 }
 
 type FlinkTaskManagerController struct {
 	k8Cluster k8.K8ClusterInterface
+	metrics *flinkTaskManagerMetrics
+}
+
+
+func newFlinkTaskManagerMetrics(scope promutils.Scope) *flinkTaskManagerMetrics {
+	taskManagerControllerScope := scope.NewSubScope("task_manager_controller")
+	return &flinkTaskManagerMetrics{
+		scope:                       scope,
+		deploymentCreationSuccess: labeled.NewCounter("deployment_create_success", "Task manager deployment created successfully", taskManagerControllerScope),
+		deploymentCreationFailure: labeled.NewCounter("deployment_create_failure", "Task manager deployment creation failed", taskManagerControllerScope),
+	}
+}
+
+type flinkTaskManagerMetrics struct {
+	scope                       promutils.Scope
+	deploymentCreationSuccess labeled.Counter
+	deploymentCreationFailure labeled.Counter
 }
 
 var TaskManagerDefaultResources = coreV1.ResourceRequirements{
@@ -57,11 +78,16 @@ func (t *FlinkTaskManagerController) CreateIfNotExist(ctx context.Context, appli
 	err = t.k8Cluster.CreateK8Object(ctx, taskManagerDeployment)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
-			logger.Infof(ctx, "Taskmanager deployment already exists")
+			logger.Errorf(ctx, "Taskmanager deployment creation failed %v", err)
+			t.metrics.deploymentCreationFailure.Inc(ctx)
 			return err
 		}
-		logger.Errorf(ctx, "Taskmanager deployment creation failed %v", err)
+		logger.Infof(ctx, "Taskmanager deployment already exists")
+	} else {
+		t.metrics.deploymentCreationSuccess.Inc(ctx)
+
 	}
+
 	return nil
 }
 

@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/mock"
 	k8mock "github.com/lyft/flinkk8soperator/pkg/controller/k8/mock"
+	mockScope "github.com/lyft/flytestdlib/promutils"
+	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/apps/v1"
@@ -21,11 +24,15 @@ import (
 )
 
 func getTestStateMachine() FlinkStateMachine {
+	testScope := mockScope.NewTestScope()
+	labeled.SetMetricKeys(common.GetValidLabelNames()...)
+
 	return FlinkStateMachine{
 		flinkController:               &mock.MockFlinkController{},
 		k8Cluster:                     &k8mock.MockK8Cluster{},
 		clock:                         &clock.FakeClock{},
 		statemachineStalenessDuration: 5 * time.Minute,
+		metrics:                       newStateMachineMetrics(testScope),
 	}
 }
 

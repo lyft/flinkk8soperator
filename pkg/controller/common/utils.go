@@ -1,6 +1,17 @@
 package common
 
-import "regexp"
+import (
+	"regexp"
+
+	"github.com/lyft/flytestdlib/contextutils"
+)
+
+func GetValidLabelNames() []contextutils.Key {
+	return []contextutils.Key{
+		contextutils.AppNameKey,
+		contextutils.NamespaceKey,
+	}
+}
 
 func DuplicateMap(o map[string]string) (r map[string]string) {
 	if o == nil {

@@ -4,11 +4,14 @@ import (
 	"context"
 	"time"
 
+	"fmt"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/lyft/flytestdlib/logger"
+	"github.com/lyft/flytestdlib/promutils"
+	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
@@ -62,6 +65,37 @@ type FlinkStateMachine struct {
 	k8Cluster                     k8.K8ClusterInterface
 	clock                         clock.Clock
 	statemachineStalenessDuration time.Duration
+	metrics                       *stateMachineMetrics
+}
+
+type stateMachineMetrics struct {
+	scope                             promutils.Scope
+	stateMachineHandlePhaseMap        map[v1alpha1.FlinkApplicationPhase]labeled.StopWatch
+	stateMachineHandleSuccessPhaseMap map[v1alpha1.FlinkApplicationPhase]labeled.StopWatch
+	errorCounterPhaseMap              map[v1alpha1.FlinkApplicationPhase]labeled.Counter
+}
+
+func newStateMachineMetrics(scope promutils.Scope) *stateMachineMetrics {
+	stateMachineScope := scope.NewSubScope("state_machine")
+	stateMachineHandlePhaseMap := map[v1alpha1.FlinkApplicationPhase]labeled.StopWatch{}
+	stateMachineHandleSuccessPhaseMap := map[v1alpha1.FlinkApplicationPhase]labeled.StopWatch{}
+	errorCounterPhaseMap := map[v1alpha1.FlinkApplicationPhase]labeled.Counter{}
+
+	for _, phase := range v1alpha1.FlinkApplicationPhases {
+		phaseName := phase.VerboseString()
+		stateMachineHandleSuccessPhaseMap[phase] = labeled.NewStopWatch(phaseName+"_"+"handle_time_success",
+			fmt.Sprintf("Total time to handle the %s application state on success", phaseName), time.Millisecond, stateMachineScope)
+		stateMachineHandlePhaseMap[phase] = labeled.NewStopWatch(phaseName+"_"+"handle_time",
+			fmt.Sprintf("Total time to handle the %s application state", phaseName), time.Millisecond, stateMachineScope)
+		errorCounterPhaseMap[phase] = labeled.NewCounter(phaseName+"_"+"error",
+			fmt.Sprintf("Failure to handle the %s application state", phaseName), stateMachineScope)
+	}
+	return &stateMachineMetrics{
+		scope:                             scope,
+		stateMachineHandlePhaseMap:        stateMachineHandlePhaseMap,
+		stateMachineHandleSuccessPhaseMap: stateMachineHandleSuccessPhaseMap,
+		errorCounterPhaseMap:              errorCounterPhaseMap,
+	}
 }
 
 func (s *FlinkStateMachine) updateApplicationPhase(ctx context.Context, application *v1alpha1.FlinkApplication, phase v1alpha1.FlinkApplicationPhase) error {
@@ -83,8 +117,22 @@ func (s *FlinkStateMachine) isApplicationStuck(ctx context.Context, application 
 	}
 	return false
 }
-
 func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+	currentPhase := application.Status.Phase
+	timer := s.metrics.stateMachineHandlePhaseMap[currentPhase].Start(ctx)
+	successTimer := s.metrics.stateMachineHandleSuccessPhaseMap[currentPhase].Start(ctx)
+
+	defer timer.Stop()
+	err := s.handle(ctx, application)
+	if err != nil {
+		s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
+	} else {
+		successTimer.Stop()
+	}
+	return err
+}
+
+func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	if s.isApplicationStuck(ctx, application) {
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
 	}
@@ -294,15 +342,17 @@ func (s *FlinkStateMachine) handleApplicationFailed(ctx context.Context, applica
 	return nil
 }
 
-func NewFlinkStateMachine() FlinkHandlerInterface {
+func NewFlinkStateMachine(scope promutils.Scope) FlinkHandlerInterface {
 	statemachineStalenessDuration, err := time.ParseDuration(viper.GetString(StatemachineStalenessDurationKey))
 	if err != nil {
 		return nil
 	}
+	metrics := newStateMachineMetrics(scope)
 	return &FlinkStateMachine{
 		k8Cluster:                     k8.NewK8Cluster(),
-		flinkController:               flink.NewFlinkController(),
+		flinkController:               flink.NewFlinkController(scope),
 		statemachineStalenessDuration: statemachineStalenessDuration,
 		clock:                         clock.RealClock{},
+		metrics:                       metrics,
 	}
 }

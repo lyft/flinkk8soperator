@@ -13,12 +13,13 @@ import (
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"k8s.io/client-go/tools/record"
+	"github.com/lyft/flytestdlib/promutils"
 )
 
-func NewHandler() sdk.Handler {
+func NewHandler(scope promutils.Scope) sdk.Handler {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(logger.InfofNoCtx)
-	flinkHandler := NewFlinkStateMachine()
+	flinkHandler := NewFlinkStateMachine(scope)
 	if flinkHandler == nil {
 		panic("unable to create flink handler")
 	}

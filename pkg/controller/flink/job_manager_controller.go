@@ -14,6 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"github.com/lyft/flytestdlib/promutils"
+	"github.com/lyft/flytestdlib/promutils/labeled"
 )
 
 const (
@@ -44,9 +46,11 @@ type FlinkJobManagerControllerInterface interface {
 	CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error
 }
 
-func NewFlinkJobManagerController() FlinkJobManagerControllerInterface {
+func NewFlinkJobManagerController(scope promutils.Scope) FlinkJobManagerControllerInterface {
+	metrics := newFlinkJobManagerMetrics(scope)
 	return &FlinkJobManagerController{
 		k8Cluster: k8.NewK8Cluster(),
+		metrics: metrics,
 	}
 }
 
@@ -56,6 +60,30 @@ func GetJobManagerExternalServiceName(app *v1alpha1.FlinkApplication) string {
 
 type FlinkJobManagerController struct {
 	k8Cluster k8.K8ClusterInterface
+	metrics *flinkJobManagerMetrics
+}
+
+func newFlinkJobManagerMetrics(scope promutils.Scope) *flinkJobManagerMetrics {
+	jobManagerControllerScope := scope.NewSubScope("job_manager_controller")
+	return &flinkJobManagerMetrics{
+		scope:                       scope,
+		deploymentCreationSuccess: labeled.NewCounter("deployment_create_success", "Job manager deployment created successfully", jobManagerControllerScope),
+		deploymentCreationFailure: labeled.NewCounter("deployment_create_failure", "Job manager deployment creation failed", jobManagerControllerScope),
+		serviceCreationSuccess: labeled.NewCounter("service_create_success", "Job manager service created successfully", jobManagerControllerScope),
+		serviceCreationFailure: labeled.NewCounter("service_create_failure", "Job manager service creation failed", jobManagerControllerScope),
+		ingressCreationSuccess: labeled.NewCounter("ingress_create_success", "Job manager ingress created successfully", jobManagerControllerScope),
+		ingressCreationFailure: labeled.NewCounter("ingress_create_failure", "Job manager ingress creation failed", jobManagerControllerScope),
+	}
+}
+
+type flinkJobManagerMetrics struct {
+	scope                       promutils.Scope
+	deploymentCreationSuccess labeled.Counter
+	deploymentCreationFailure labeled.Counter
+	serviceCreationSuccess labeled.Counter
+	serviceCreationFailure labeled.Counter
+	ingressCreationSuccess labeled.Counter
+	ingressCreationFailure labeled.Counter
 }
 
 func (j *FlinkJobManagerController) CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error {
@@ -66,29 +94,38 @@ func (j *FlinkJobManagerController) CreateIfNotExist(ctx context.Context, applic
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerDeployment)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
-			logger.Infof(ctx, "Jobmanager deployment already exists")
+			j.metrics.deploymentCreationFailure.Inc(ctx)
+			logger.Errorf(ctx, "Jobmanager deployment creation failed %v", err)
 			return err
 		}
-		logger.Errorf(ctx, "Jobmanager deployment creation failed %v", err)
+		logger.Infof(ctx, "Jobmanager deployment already exists")
+	} else {
+		j.metrics.deploymentCreationSuccess.Inc(ctx)
 	}
 
 	jobManagerService := FetchJobManagerServiceCreateObj(application)
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerService)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
-			logger.Infof(ctx, "Jobmanager service already exists")
+			j.metrics.serviceCreationFailure.Inc(ctx)
+			logger.Errorf(ctx, "Jobmanager service creation failed %v", err)
 			return err
 		}
-		logger.Errorf(ctx, "Jobmanager service creation failed %v", err)
+		logger.Infof(ctx, "Jobmanager service already exists")
+	} else {
+		j.metrics.serviceCreationSuccess.Inc(ctx)
 	}
 	jobManagerIngress := FetchJobManagerIngressCreateObj(application)
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerIngress)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
-			logger.Infof(ctx, "Jobmanager ingress already exists")
+			j.metrics.ingressCreationFailure.Inc(ctx)
+			logger.Errorf(ctx, "Jobmanager ingress creation failed %v", err)
 			return err
 		}
-		logger.Errorf(ctx, "Jobmanager ingress creation failed %v", err)
+		logger.Infof(ctx, "Jobmanager ingress already exists")
+	} else {
+		j.metrics.ingressCreationSuccess.Inc(ctx)
 	}
 
 	return nil

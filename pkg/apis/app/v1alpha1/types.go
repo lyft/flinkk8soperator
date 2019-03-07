@@ -152,6 +152,15 @@ func (p FlinkApplicationPhase) IsTerminal() bool {
 	return p == FlinkApplicationCompleted || p == FlinkApplicationFailed
 }
 
+func (p FlinkApplicationPhase) VerboseString() string {
+	phaseName := fmt.Sprintf("%s", p)
+	if p == FlinkApplicationNew {
+		phaseName = "New"
+	}
+	return phaseName
+}
+
+// As you add more ApplicationPhase please add it to FlinkApplicationPhases list
 const (
 	FlinkApplicationNew             FlinkApplicationPhase = ""
 	FlinkApplicationClusterStarting FlinkApplicationPhase = "Starting"
@@ -162,6 +171,17 @@ const (
 	FlinkApplicationFailed          FlinkApplicationPhase = "Failed"
 	FlinkApplicationCompleted       FlinkApplicationPhase = "Completed"
 )
+
+var FlinkApplicationPhases = []FlinkApplicationPhase{
+	FlinkApplicationNew,
+	FlinkApplicationClusterStarting,
+	FlinkApplicationReady,
+	FlinkApplicationRunning,
+	FlinkApplicationSavepointing,
+	FlinkApplicationUpdating,
+	FlinkApplicationFailed,
+	FlinkApplicationCompleted,
+}
 
 type DeploymentMode string
 
