@@ -251,6 +251,14 @@
   version = "v1.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:07645814b32eec3e5b9b9bb8083448b10ef3a6babed999fa7f046c2c3b6dd668"
+  name = "github.com/jarcoal/httpmock"
+  packages = ["."]
+  pruneopts = ""
+  revision = "53def6cd0f87425f5425d4f0f27f66f048759b94"
+
+[[projects]]
   digest = "1:b79fc583e4dc7055ed86742e22164ac41bf8c0940722dbcb600f1a3ace1a8cb5"
   name = "github.com/json-iterator/go"
   packages = ["."]
@@ -848,6 +856,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/go-resty/resty",
+    "github.com/jarcoal/httpmock",
     "github.com/lyft/flytestdlib/contextutils",
     "github.com/lyft/flytestdlib/logger",
     "github.com/lyft/flytestdlib/promutils",
@@ -858,6 +867,7 @@
     "github.com/pkg/errors",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
+    "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
