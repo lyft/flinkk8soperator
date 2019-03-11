@@ -21,6 +21,8 @@ import (
 	"k8s.io/api/apps/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
+	controller_config "github.com/lyft/flinkk8soperator/pkg/controller/config"
+	"github.com/lyft/flytestdlib/config"
 )
 
 func getTestStateMachine() FlinkStateMachine {
@@ -31,7 +33,6 @@ func getTestStateMachine() FlinkStateMachine {
 		flinkController:               &mock.MockFlinkController{},
 		k8Cluster:                     &k8mock.MockK8Cluster{},
 		clock:                         &clock.FakeClock{},
-		statemachineStalenessDuration: 5 * time.Minute,
 		metrics:                       newStateMachineMetrics(testScope),
 	}
 }
@@ -532,8 +533,13 @@ func TestHandleApplicationUpdatingTakManagerUpdate(t *testing.T) {
 }
 
 func TestIsApplicationStuck(t *testing.T) {
+	testDuration := config.Duration{}
+	testDuration.Duration = 5 * time.Minute
+	controller_config.ConfigSection.SetConfig(&controller_config.Config{
+		StatemachineStalenessDuration: testDuration,
+	})
 	stateMachineForTest := getTestStateMachine()
-	lastUpdated := v12.NewTime(time.Now().Add(time.Duration(-10) * time.Minute))
+	lastUpdated := v12.NewTime(time.Now().Add(time.Duration(-8) * time.Minute))
 	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 	app := &v1alpha1.FlinkApplication{
 		Status: v1alpha1.FlinkApplicationStatus{

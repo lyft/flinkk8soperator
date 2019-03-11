@@ -12,18 +12,14 @@ import (
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
-	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 )
 
 type FlinkHandlerInterface interface {
 	Handle(ctx context.Context, application *v1alpha1.FlinkApplication) error
 }
-
-const (
-	StatemachineStalenessDurationKey = "statemachineStalenessDuration"
-)
 
 // State Machine Transition for Flink Application
 // Every state in the state machine can move to failed state.
@@ -64,7 +60,6 @@ type FlinkStateMachine struct {
 	flinkController               flink.FlinkInterface
 	k8Cluster                     k8.K8ClusterInterface
 	clock                         clock.Clock
-	statemachineStalenessDuration time.Duration
 	metrics                       *stateMachineMetrics
 }
 
@@ -110,7 +105,7 @@ func (s *FlinkStateMachine) isApplicationStuck(ctx context.Context, application 
 	if appLastUpdated != nil && application.Status.Phase != v1alpha1.FlinkApplicationFailed &&
 		application.Status.Phase != v1alpha1.FlinkApplicationRunning {
 		elapsedTime := s.clock.Since(appLastUpdated.Time)
-		if elapsedTime > s.statemachineStalenessDuration {
+		if elapsedTime > s.getStalenessDuration() {
 			logger.Errorf(ctx, "Flink Application stuck for %v", elapsedTime)
 			return true
 		}
@@ -342,16 +337,16 @@ func (s *FlinkStateMachine) handleApplicationFailed(ctx context.Context, applica
 	return nil
 }
 
+func (s *FlinkStateMachine) getStalenessDuration() time.Duration {
+	return config.GetConfig().StatemachineStalenessDuration.Duration
+}
+
 func NewFlinkStateMachine(scope promutils.Scope) FlinkHandlerInterface {
-	statemachineStalenessDuration, err := time.ParseDuration(viper.GetString(StatemachineStalenessDurationKey))
-	if err != nil {
-		return nil
-	}
+
 	metrics := newStateMachineMetrics(scope)
 	return &FlinkStateMachine{
 		k8Cluster:                     k8.NewK8Cluster(),
 		flinkController:               flink.NewFlinkController(scope),
-		statemachineStalenessDuration: statemachineStalenessDuration,
 		clock:                         clock.RealClock{},
 		metrics:                       metrics,
 	}

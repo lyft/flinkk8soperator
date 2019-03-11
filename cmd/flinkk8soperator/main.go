@@ -12,13 +12,15 @@ import (
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
-	"github.com/lyft/flinkk8soperator/pkg/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller"
+	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/lyft/flytestdlib/config"
+	"github.com/lyft/flytestdlib/config/viper"
 	"github.com/lyft/flytestdlib/logger"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
-	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"os"
 )
 
 const (
@@ -32,10 +34,23 @@ var (
 	cfgFile       string
 )
 
+func initConfig(ctx context.Context) error {
+	configAccessor := viper.NewAccessor(config.Options{
+		StrictMode:  true,
+		SearchPaths: []string{cfgFile},
+	})
+
+	err := configAccessor.UpdateConfig(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func init() {
 	flag.DurationVar(&resyncPeriod, ResyncPeriodKey, time.Second*time.Duration(20), "Determines the resync period for all watchers.")
 	flag.BoolVar(&logSourceLine, LogSourceLineKey, false, "Logs source code file and line number.")
-	flag.StringVar(&cfgFile, "config", "", "config file (default is ./flinkk8soperator_config.yaml)")
+	flag.StringVar(&cfgFile, "config", "./local_config.yaml", "config file path to load configuration")
 }
 
 func printVersion(ctx context.Context) {
@@ -58,8 +73,12 @@ func watch(ctx context.Context, resource, kind, namespace string, resyncPeriod t
 
 func main() {
 	flag.Parse()
-	config.Init(cfgFile)
 	ctx := context.Background()
+	err := initConfig(ctx)
+	if err != nil {
+		logger.Errorf(ctx, "Unable to load config %v", err)
+		os.Exit(1)
+	}
 	printVersion(ctx)
 
 	sdk.ExposeMetricsPort()

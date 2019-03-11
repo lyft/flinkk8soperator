@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/lyft/flinkk8soperator/pkg/config"
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flytestdlib/logger"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
@@ -101,8 +101,9 @@ type FlinkController struct {
 }
 
 func getUrlFromApp(application *v1alpha1.FlinkApplication) string {
-	if config.UseProxy {
-		return fmt.Sprintf(proxyUrl, config.ProxyPort, application.Namespace, application.Name)
+	cfg := config.GetConfig()
+	if cfg.UseProxy {
+		return fmt.Sprintf(proxyUrl, cfg.ProxyPort, application.Namespace, application.Name)
 	} else {
 		return fmt.Sprintf("http://%s:%d", GetJobManagerExternalServiceName(application), port)
 	}

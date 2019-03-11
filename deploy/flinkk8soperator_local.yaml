@@ -6,7 +6,8 @@ metadata:
 data:
   # this will need to be templatized
   development: |-
-    containerNameFormat: "%s-unknown"
+    operator:
+      containerNameFormat: "%s-unknown"
 ---
 
 # Create the actual deployment

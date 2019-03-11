@@ -6,13 +6,12 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/pkg/errors"
-	"github.com/spf13/viper"
 	"k8s.io/api/core/v1"
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 )
 
 const (
 	AppName                          = "APP_NAME"
-	ContainerNameFormat              = "containerNameFormat"
 	AwsMetadataServiceTimeoutKey     = "AWS_METADATA_SERVICE_TIMEOUT"
 	AwsMetadataServiceNumAttemptsKey = "AWS_METADATA_SERVICE_NUM_ATTEMPTS"
 	AwsMetadataServiceTimeout        = "5"
@@ -21,8 +20,10 @@ const (
 )
 
 func getFlinkContainerName(containerName string) string {
-	if c := viper.GetString(ContainerNameFormat); c != "" {
-		return fmt.Sprintf(c, containerName)
+	cfg := config.GetConfig()
+	containerNameFormat := cfg.ContainerNameFormat
+	if containerNameFormat != "" {
+		return fmt.Sprintf(containerNameFormat, containerName)
 	}
 	return containerName
 }

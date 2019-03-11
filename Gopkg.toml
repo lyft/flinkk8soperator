@@ -12,31 +12,28 @@ required = [
   "k8s.io/gengo/args",
 ]
 
+ignored = ["golang.org/x/crypto"]
+
 [[override]]
   name = "k8s.io/code-generator"
-  # revision for tag "kubernetes-1.9.3"
-  revision = "91d3f6a57905178524105a085085901bb73bd3dc"
+  # revision = "6702109cc68eb6fe6350b83e14407c8d7309fd1a"
+  version = "kubernetes-1.11.2"
 
 [[override]]
   name = "k8s.io/api"
-  # revision for tag "kubernetes-1.9.3"
-  revision = "acf347b865f29325eb61f4cd2df11e86e073a5ee"
+  version = "kubernetes-1.11.2"
 
 [[override]]
   name = "k8s.io/apimachinery"
-  # revision for tag "kubernetes-1.9.3"
-  revision = "19e3f5aa3adca672c153d324e6b7d82ff8935f03"
+  version = "kubernetes-1.11.2"
 
 [[override]]
   name = "k8s.io/client-go"
-  # revision for tag "kubernetes-1.9.3"
-  revision = "9389c055a838d4f208b699b3c7c51b70f2368861"
+  version = "kubernetes-1.11.2"
 
 [[constraint]]
   name = "github.com/operator-framework/operator-sdk"
-  # The version rule is used for a specific release and the master branch for in between releases.
-  branch = "master"
-  # version = "=v0.0.6"
+  version = "0.0.7"
 
 [[constraint]]
   name = "github.com/lyft/flytestdlib"

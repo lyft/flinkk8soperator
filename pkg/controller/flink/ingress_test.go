@@ -3,7 +3,7 @@ package flink
 import (
 	"testing"
 
-	"github.com/lyft/flinkk8soperator/pkg/config"
+	config2 "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,8 +13,13 @@ func TestReplaceJobUrl(t *testing.T) {
 		ReplaceJobUrl("{{$jobCluster}}.lyft.xyz", "ABC"))
 }
 
+func initTestConfig() {
+	config2.ConfigSection.SetConfig(&config2.Config{
+		FlinkIngressUrlFormat: "{{$jobCluster}}.lyft.xyz",
+	})
+}
 func TestGetFlinkUIIngressURL(t *testing.T) {
-	config.Init("")
+	initTestConfig()
 	assert.Equal(t,
 		"ABC.lyft.xyz",
 		GetFlinkUIIngressURL("ABC"))

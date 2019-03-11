@@ -1,6 +1,10 @@
 # This is a default configuration file for test.
 # Real configuration when running inside K8s (local or otherwise) lives in a ConfigMap
 # The operator will replace "job" field with the correct flink job name
-ingressUrlFormat: "{{$jobCluster}}.lyft.xyz"
-containerNameFormat: "%s-unknown"
-statemachineStalenessDuration: 10m
+operator:
+  ingressUrlFormat: "{{$jobCluster}}.lyft.xyz"
+  containerNameFormat: "%s-unknown"
+  statemachineStalenessDuration: 10m
+logger:
+  show-source: true
+  level: 4

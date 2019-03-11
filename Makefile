@@ -18,4 +18,8 @@ compile: generate
 linux_compile: generate
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /artifacts/flinkk8soperator ./cmd/flinkk8soperator/
 
+gen-config:
+	which pflags || (go get github.com/lyft/flytestdlib/cli/pflags)
+	@go generate ./...
+
 all: compile
