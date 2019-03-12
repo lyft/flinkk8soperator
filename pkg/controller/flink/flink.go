@@ -128,6 +128,9 @@ func (f *FlinkController) HasApplicationJobChanged(ctx context.Context, applicat
 		return false, err
 	}
 	jobConfig, err := f.flinkClient.GetJobConfig(ctx, getUrlFromApp(application), jobId)
+	if err != nil {
+		return false, err
+	}
 	if application.Spec.FlinkJob.Parallelism != jobConfig.ExecutionConfig.Parallelism {
 		return true, nil
 	}

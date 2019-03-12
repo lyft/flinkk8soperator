@@ -12,8 +12,6 @@ required = [
   "k8s.io/gengo/args",
 ]
 
-ignored = ["golang.org/x/crypto"]
-
 [[override]]
   name = "k8s.io/code-generator"
   # revision = "6702109cc68eb6fe6350b83e14407c8d7309fd1a"

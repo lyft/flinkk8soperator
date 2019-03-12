@@ -14,6 +14,8 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flytestdlib/promutils/labeled"
+	"github.com/pkg/errors"
+	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 )
 
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
@@ -186,4 +188,29 @@ func TestFlinkApplicationParallelismChanged(t *testing.T) {
 	)
 	assert.True(t, result)
 	assert.Nil(t, err)
+}
+
+func TestFlinkApplicationJobConfigErr(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
+		deployment := v1.Deployment{}
+		return &v1.DeploymentList{
+			Items: []v1.Deployment{
+				deployment,
+			},
+		}, nil
+	}
+	flinkApp := v1alpha1.FlinkApplication{}
+	flinkApp.Status.JobId = "job1"
+
+	mockJMClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
+	mockJMClient.GetJobConfigFunc = func(ctx context.Context, url string, jobId string) (*client.JobConfigResponse, error) {
+		return nil, errors.New("JobConfig Failure")
+	}
+	result, err := flinkControllerForTest.HasApplicationChanged(
+		context.Background(), &flinkApp,
+	)
+	assert.False(t, result)
+	assert.EqualError(t, err, "JobConfig Failure")
 }
