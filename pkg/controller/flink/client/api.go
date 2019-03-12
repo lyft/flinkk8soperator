@@ -107,8 +107,8 @@ func (c *FlinkJobManagerClient) GetClusterOverview(ctx context.Context, url stri
 	}
 	if response != nil && response.StatusCode() != http.StatusOK {
 		c.metrics.getClusterFailureCounter.Inc(ctx)
-		if response.StatusCode() != http.StatusNotFound {
-			logger.Errorf(ctx, fmt.Sprintf("Get cluster overview with response %v", response))
+		if response.StatusCode() != http.StatusNotFound || response.StatusCode() != http.StatusServiceUnavailable {
+			logger.Errorf(ctx, fmt.Sprintf("Get cluster overview failed with response %v", response))
 		}
 		return nil, errors.New(fmt.Sprintf("Get cluster overview failed with status %v", response.Status()))
 	}
