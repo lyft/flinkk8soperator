@@ -2,14 +2,6 @@
 
 
 [[projects]]
-  digest = "1:3de22f0e7208f2e7fb8662fcab0aee360e3cae85d5f3649f3bf0b247f575d183"
-  name = "cloud.google.com/go"
-  packages = ["compute/metadata"]
-  pruneopts = ""
-  revision = "f52f9bc132541d2aa914f42100c36d10b1ef7e0c"
-  version = "v0.37.0"
-
-[[projects]]
   digest = "1:c0952fb3cf9506cff577b4edf4458889570dcbd2902a7b90a1fd96bfbb97ccd8"
   name = "github.com/PuerkitoBio/purell"
   packages = ["."]
@@ -278,6 +270,7 @@
     "logger",
     "promutils",
     "promutils/labeled",
+    "version",
   ]
   pruneopts = ""
   revision = "b0ee768bb5b0725ee2030357472b7137b99ecd23"
@@ -360,7 +353,6 @@
     "pkg/sdk",
     "pkg/sdk/internal/metrics",
     "pkg/util/k8sutil",
-    "version",
   ]
   pruneopts = ""
   revision = "e5a0ab096e1a7c0e6b937d2b41707eccb82c3c77"
@@ -531,8 +523,6 @@
   digest = "1:a51d832881595a7312e766821f874b3172602f9adfbc5e6ddf6f5a75d55a23cc"
   name = "golang.org/x/net"
   packages = [
-    "context",
-    "context/ctxhttp",
     "http/httpguts",
     "http2",
     "http2/hpack",
@@ -541,20 +531,6 @@
   ]
   pruneopts = ""
   revision = "d8887717615a059821345a5c23649351b52a1c0b"
-
-[[projects]]
-  branch = "master"
-  digest = "1:ffae4a89b63a2c845533a393b3340f8696898b11b71da1b187f82f08135c23a0"
-  name = "golang.org/x/oauth2"
-  packages = [
-    ".",
-    "google",
-    "internal",
-    "jws",
-    "jwt",
-  ]
-  pruneopts = ""
-  revision = "e64efc72b421e893cbf63f17ba2221e7d6d0b0f3"
 
 [[projects]]
   branch = "master"
@@ -619,25 +595,6 @@
   ]
   pruneopts = ""
   revision = "00c44ba9c14f88ffdd4fb5bfae57fe8dd6d6afb1"
-
-[[projects]]
-  digest = "1:bc09e719c4e2a15d17163f5272d9a3131c45d77542b7fdc53ff518815bc19ab3"
-  name = "google.golang.org/appengine"
-  packages = [
-    ".",
-    "internal",
-    "internal/app_identity",
-    "internal/base",
-    "internal/datastore",
-    "internal/log",
-    "internal/modules",
-    "internal/remote_api",
-    "internal/urlfetch",
-    "urlfetch",
-  ]
-  pruneopts = ""
-  revision = "e9657d882bb81064595ca3b56cbe2546bbabf7b1"
-  version = "v1.4.0"
 
 [[projects]]
   digest = "1:75fb3fcfc73a8c723efde7777b40e8e8ff9babf30d8c56160d01beffea8a95a6"
@@ -787,11 +744,9 @@
     "pkg/apis/clientauthentication/v1beta1",
     "pkg/version",
     "plugin/pkg/client/auth/exec",
-    "plugin/pkg/client/auth/gcp",
     "rest",
     "rest/watch",
     "restmapper",
-    "third_party/forked/golang/template",
     "tools/auth",
     "tools/cache",
     "tools/clientcmd",
@@ -809,7 +764,6 @@
     "util/flowcontrol",
     "util/homedir",
     "util/integer",
-    "util/jsonpath",
     "util/retry",
     "util/workqueue",
   ]
@@ -902,11 +856,12 @@
     "github.com/lyft/flytestdlib/logger",
     "github.com/lyft/flytestdlib/promutils",
     "github.com/lyft/flytestdlib/promutils/labeled",
+    "github.com/lyft/flytestdlib/version",
     "github.com/mitchellh/mapstructure",
     "github.com/operator-framework/operator-sdk/pkg/sdk",
     "github.com/operator-framework/operator-sdk/pkg/util/k8sutil",
-    "github.com/operator-framework/operator-sdk/version",
     "github.com/pkg/errors",
+    "github.com/spf13/cobra",
     "github.com/spf13/pflag",
     "github.com/stretchr/testify/assert",
     "gopkg.in/yaml.v2",
@@ -921,7 +876,6 @@
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/util/clock",
     "k8s.io/apimachinery/pkg/util/intstr",
-    "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/tools/record",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/conversion-gen",

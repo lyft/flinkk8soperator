@@ -1,0 +1,114 @@
+package cmd
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+
+	"github.com/lyft/flytestdlib/config/viper"
+	"github.com/lyft/flytestdlib/version"
+	"github.com/operator-framework/operator-sdk/pkg/sdk"
+
+	"github.com/lyft/flytestdlib/config"
+	"github.com/lyft/flytestdlib/logger"
+	"github.com/spf13/pflag"
+
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/spf13/cobra"
+
+	"github.com/lyft/flinkk8soperator/pkg/controller"
+	controller_config "github.com/lyft/flinkk8soperator/pkg/controller/config"
+
+	"time"
+
+	"github.com/lyft/flytestdlib/promutils"
+	"github.com/lyft/flytestdlib/promutils/labeled"
+)
+
+const (
+	appName      = "flinkoperator"
+)
+
+var (
+	cfgFile        string
+	configAccessor = viper.NewAccessor(config.Options{StrictMode: true})
+)
+
+// rootCmd represents the base command when called without any subcommands
+var rootCmd = &cobra.Command{
+	Use:     "flinkoperator",
+	Short:   "Operator for running Flink applications in kubernetes",
+	PreRunE: initConfig,
+	Run: func(cmd *cobra.Command, args []string) {
+		executeRootCmd(controller_config.GetConfig())
+	},
+}
+
+// Execute adds all child commands to the root command and sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func Execute() {
+	version.LogBuildInformation(appName)
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+func init() {
+	// See https://gist.github.com/nak3/78a32817a8a3950ae48f239a44cd3663
+	// allows `$ flinkoperator --logtostderr` to work
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	err := flag.CommandLine.Parse([]string{})
+	if err != nil {
+		logAndExit(err)
+	}
+
+	// Here you will define your flags and configuration settings. Cobra supports persistent flags, which, if defined
+	// here, will be global for your application.
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "./config.yaml",
+		"config file path to load configuration")
+
+	configAccessor.InitializePflags(rootCmd.PersistentFlags())
+}
+
+func initConfig(_ *cobra.Command, _ []string) error {
+	configAccessor = viper.NewAccessor(config.Options{
+		StrictMode:  true,
+		SearchPaths: []string{cfgFile},
+	})
+
+	err := configAccessor.UpdateConfig(context.Background())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func logAndExit(err error) {
+	logger.Error(context.Background(), err)
+	os.Exit(-1)
+}
+
+func executeRootCmd(cfg *controller_config.Config) {
+	ctx := context.Background()
+	resource := v1alpha1.SchemeGroupVersion.String()
+	kind := v1alpha1.FlinkApplicationKind
+	watch(ctx, resource, kind, cfg.LimitNamespace, cfg.ResyncPeriod.Duration)
+	operatorScope := promutils.NewScope(cfg.MetricsPrefix)
+	labeled.SetMetricKeys(common.GetValidLabelNames()...)
+	sdk.Handle(controller.NewHandler(operatorScope))
+	sdk.Run(ctx)
+}
+
+func watch(ctx context.Context, resource, kind, namespace string, resyncPeriod time.Duration) {
+	watchingNamespace := namespace
+	if watchingNamespace == "" {
+		watchingNamespace = "*"
+	}
+
+	logger.Infof(ctx, "Watching [Resource: %s] [Kind: %s] [Namespace: %s] [SyncPeriod: %v]",
+		resource, kind, watchingNamespace, resyncPeriod)
+	sdk.Watch(resource, kind, namespace, resyncPeriod)
+}

@@ -12,11 +12,12 @@ update_boilerplate:
 
 .PHONY: compile
 compile: generate
-	go build -o flinkk8soperator ./cmd/flinkk8soperator/ && mv ./flinkk8soperator ${GOPATH}/bin
+	mkdir -p ./bin
+	go build -o bin/flinkoperator ./cmd/flinkk8soperator/main.go 
 
 .PHONY: linux_compile
 linux_compile: generate
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /artifacts/flinkk8soperator ./cmd/flinkk8soperator/
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /artifacts/flinkoperator ./cmd/flinkk8soperator/main.go
 
 gen-config:
 	which pflags || (go get github.com/lyft/flytestdlib/cli/pflags)

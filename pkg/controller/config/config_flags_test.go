@@ -99,6 +99,72 @@ func TestConfig_SetFlags(t *testing.T) {
 	cmdFlags := actual.GetPFlagSet("")
 	assert.True(t, cmdFlags.HasFlags())
 
+	t.Run("Test_resyncPeriod", func(t *testing.T) {
+		t.Run("DefaultValue", func(t *testing.T) {
+			// Test that default value is set properly
+			if vString, err := cmdFlags.GetString("resyncPeriod"); err == nil {
+				assert.Equal(t, string("10s"), vString)
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+
+		t.Run("Override", func(t *testing.T) {
+			testValue := "10s"
+
+			cmdFlags.Set("resyncPeriod", testValue)
+			if vString, err := cmdFlags.GetString("resyncPeriod"); err == nil {
+				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.ResyncPeriod)
+
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+	})
+	t.Run("Test_limitNamespace", func(t *testing.T) {
+		t.Run("DefaultValue", func(t *testing.T) {
+			// Test that default value is set properly
+			if vString, err := cmdFlags.GetString("limitNamespace"); err == nil {
+				assert.Equal(t, string("*"), vString)
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+
+		t.Run("Override", func(t *testing.T) {
+			testValue := "1"
+
+			cmdFlags.Set("limitNamespace", testValue)
+			if vString, err := cmdFlags.GetString("limitNamespace"); err == nil {
+				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.LimitNamespace)
+
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+	})
+	t.Run("Test_metricsPrefix", func(t *testing.T) {
+		t.Run("DefaultValue", func(t *testing.T) {
+			// Test that default value is set properly
+			if vString, err := cmdFlags.GetString("metricsPrefix"); err == nil {
+				assert.Equal(t, string("flinkk8soperator"), vString)
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+
+		t.Run("Override", func(t *testing.T) {
+			testValue := "1"
+
+			cmdFlags.Set("metricsPrefix", testValue)
+			if vString, err := cmdFlags.GetString("metricsPrefix"); err == nil {
+				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.MetricsPrefix)
+
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+	})
 	t.Run("Test_ingressUrlFormat", func(t *testing.T) {
 		t.Run("DefaultValue", func(t *testing.T) {
 			// Test that default value is set properly

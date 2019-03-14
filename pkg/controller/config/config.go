@@ -12,6 +12,9 @@ const configSectionKey = "operator"
 var ConfigSection = config.MustRegisterSection(configSectionKey, &Config{})
 
 type Config struct {
+	ResyncPeriod                  config.Duration `json:"resyncPeriod" pflag:"\"10s\",Determines the resync period for all watchers."`
+	LimitNamespace                string          `json:"limitNamespace" pflag:"\"*\",Namespaces to watch for this propeller"`
+	MetricsPrefix                 string          `json:"metricsPrefix" pflag:"\"flinkk8soperator\",Prefix for metrics propagated to prometheus"`
 	FlinkIngressUrlFormat         string          `json:"ingressUrlFormat"`
 	UseProxy                      bool            `json:"useKubectlProxy"`
 	ProxyPort                     config.Port     `json:"ProxyPort" pflag:"\"8001\",The port at which flink cluster runs locally"`

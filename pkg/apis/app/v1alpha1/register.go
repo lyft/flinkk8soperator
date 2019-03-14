@@ -10,7 +10,7 @@ import (
 
 const (
 	version   = "v1alpha1"
-	groupName = "flink.lyft.com"
+	groupName = "flink.apache.org"
 
 	FlinkApplicationKind = "FlinkApplication"
 )

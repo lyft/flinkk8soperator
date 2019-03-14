@@ -13,6 +13,9 @@ import (
 // flags is json-name.json-sub-name... etc.
 func (Config) GetPFlagSet(prefix string) *pflag.FlagSet {
 	cmdFlags := pflag.NewFlagSet("Config", pflag.ExitOnError)
+	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "resyncPeriod"), "10s", "Determines the resync period for all watchers.")
+	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "limitNamespace"), "*", "Namespaces to watch for this propeller")
+	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "metricsPrefix"), "flinkk8soperator", "Prefix for metrics propagated to prometheus")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "ingressUrlFormat"), *new(string), "")
 	cmdFlags.Bool(fmt.Sprintf("%v%v", prefix, "useKubectlProxy"), *new(bool), "")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "ProxyPort"), "8001", "The port at which flink cluster runs locally")
