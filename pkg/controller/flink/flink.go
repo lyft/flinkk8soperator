@@ -103,7 +103,7 @@ type FlinkController struct {
 func getUrlFromApp(application *v1alpha1.FlinkApplication) string {
 	cfg := config.GetConfig()
 	if cfg.UseProxy {
-		return fmt.Sprintf(proxyUrl, cfg.ProxyPort, application.Namespace, application.Name)
+		return fmt.Sprintf(proxyUrl, cfg.ProxyPort.Port, application.Namespace, application.Name)
 	} else {
 		return fmt.Sprintf("http://%s:%d", GetJobManagerExternalServiceName(application), port)
 	}
