@@ -13,7 +13,7 @@ update_boilerplate:
 .PHONY: compile
 compile: generate
 	mkdir -p ./bin
-	go build -o bin/flinkoperator ./cmd/flinkk8soperator/main.go 
+	go build -o bin/flinkoperator ./cmd/flinkk8soperator/main.go
 
 .PHONY: linux_compile
 linux_compile: generate
