@@ -84,7 +84,7 @@ func (c *FlinkJobManagerClient) GetJobConfig(ctx context.Context, url, jobId str
 		return nil, errors.Wrap(err, "GetJobConfig API request failed")
 	}
 
-	if response != nil && response.StatusCode() != http.StatusOK {
+	if response != nil && !response.IsSuccess() {
 		c.metrics.getJobConfigFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Get Jobconfig failed with response %v", response))
 		return nil, errors.New(fmt.Sprintf("Get Jobconfig failed with status %v", response.Status()))
@@ -105,7 +105,7 @@ func (c *FlinkJobManagerClient) GetClusterOverview(ctx context.Context, url stri
 		c.metrics.getClusterFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "GetClusterOverview API request failed")
 	}
-	if response != nil && response.StatusCode() != http.StatusOK {
+	if response != nil && !response.IsSuccess() {
 		c.metrics.getClusterFailureCounter.Inc(ctx)
 		if response.StatusCode() != http.StatusNotFound || response.StatusCode() != http.StatusServiceUnavailable {
 			logger.Errorf(ctx, fmt.Sprintf("Get cluster overview failed with response %v", response))
@@ -153,7 +153,7 @@ func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url 
 		c.metrics.cancelJobFailureCounter.Inc(ctx)
 		return "", errors.Wrap(err, "Cancel job API request failed")
 	}
-	if response != nil && response.StatusCode() != http.StatusOK {
+	if response != nil && !response.IsSuccess() {
 		c.metrics.cancelJobFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Cancel job failed with response %v", response))
 		return "", errors.New(fmt.Sprintf("Cancel job failed with status %v", response.Status()))
@@ -176,7 +176,7 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarId
 		c.metrics.submitJobFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "Submit job API request failed")
 	}
-	if response != nil && response.StatusCode() != http.StatusOK {
+	if response != nil && !response.IsSuccess() {
 		c.metrics.submitJobFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Job submission failed with response %v", response))
 		return nil, errors.New(fmt.Sprintf("Job submission failed with status %v", response.Status()))
@@ -200,7 +200,7 @@ func (c *FlinkJobManagerClient) CheckSavepointStatus(ctx context.Context, url st
 		c.metrics.checkSavepointFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "Check savepoint status API request failed")
 	}
-	if response != nil && response.StatusCode() != http.StatusOK {
+	if response != nil && !response.IsSuccess() {
 		c.metrics.checkSavepointFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Check savepoint status failed with response %v", response))
 		return nil, errors.New(fmt.Sprintf("Check savepoint status failed with status %v", response.Status()))
@@ -221,7 +221,7 @@ func (c *FlinkJobManagerClient) GetJobs(ctx context.Context, url string) (*GetJo
 		c.metrics.getJobsFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "Get jobs API request failed")
 	}
-	if response != nil && response.StatusCode() != http.StatusOK {
+	if response != nil && !response.IsSuccess() {
 		c.metrics.getJobsFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("GetJobs failed with response %v", response))
 		return nil, errors.New(fmt.Sprintf("GetJobs request failed with status %v", response.Status()))

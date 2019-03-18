@@ -346,7 +346,7 @@ func TestCancelJobHappyCase(t *testing.T) {
 	response := CancelJobResponse{
 		TriggerId: "133",
 	}
-	responder, _ := httpmock.NewJsonResponder(200, response)
+	responder, _ := httpmock.NewJsonResponder(203, response)
 	fakeUrl := "http://abc.com/jobs/1/savepoints"
 	httpmock.RegisterResponder("POST", fakeUrl, responder)
 
