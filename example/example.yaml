@@ -1,75 +1,17 @@
 # This file needs to be removed before we open source.
-apiVersion: flink.lyft.com/v1alpha1
+apiVersion: flink.k8s.io/v1alpha1
 kind: FlinkApplication
 metadata:
   name: flink-speeds-working-stats
   namespace: flink
   annotations:
-    iam.amazonaws.com/role: "arn:aws:iam::173840052742:role/streamingspeeds-staging-iad"
-    lyft.net/statsd-inject: "required"
+    iam.amazonaws.com/role: ""
   labels:
-    app: "flink-speeds-working-stats"
+    app: "app-name"
     environment: "staging"
-    version: fdec74a5cb3b5d2a9cae793aba98350fca39eba2
 spec:
-  image: 173840052742.dkr.ecr.us-east-1.amazonaws.com/streamingspeeds:fdec74a5cb3b5d2a9cae793aba98350fca39eba2
-  jobManagerConfig:
-    resources:
-      requests:
-        memory: "4Gi"
-        cpu: "4"
-    replicas: 2
-    envConfig:
-      env:
-        - name: CREDENTIALS_CONFLUENT_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: confluent-cloud
-              key: api_key
-        - name: CREDENTIALS_CONFLUENT_API_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: confluent-cloud
-              key: api_secret
-      envFrom:
-        - configMapRef:
-            name: flink-staging-ha-config
-  taskManagerConfig:
-    resources:
-      requests:
-        memory: "9Gi"
-        cpu: "8"
-    replicas: 6
-    envConfig:
-      env:
-        - name: CREDENTIALS_CONFLUENT_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: confluent-cloud
-              key: api_key
-        - name: CREDENTIALS_CONFLUENT_API_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: confluent-cloud
-              key: api_secret
-      envFrom:
-        - configMapRef:
-            name: flink-staging-ha-config
+  image: 100.dkr.ecr.us-east-1.amazonaws.com/abc:xyz
   flinkJob:
-    jarName: "streamingspeeds-1.0.0-SNAPSHOT.jar"
-    parallelism: 130
-    entryClass: "com.lyft.streamingspeeds.StreamingSpeedsClient"
+    jarName: "name.jar"
+    parallelism: 10
   deploymentMode: Single
----
-# This config map is required for getting Lyft sidecars working for stats, envoy
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: flink-speeds-working-stats-staging-fdec74a5cb3b5d2a9cae793aba98350fca39eba2
-  namespace: flink
-data:
-  SERVICE: "flink-speeds-working-stats"
-  SERVICE_INSTANCE: "staging"
-  EC2_AVAILABILITY_ZONE: "us-east-1a"
-  EC2_REGION: "us-east-1"
-  EC2_REGION_SHORTNAME: "iad"

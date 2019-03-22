@@ -37,4 +37,4 @@ ENV PATH="/artifacts:${PATH}"
 # This will eventually move to centurylink/ca-certs:latest for minimum possible image size
 FROM alpine:3.8
 COPY --from=builder /artifacts /bin
-CMD ["flinkk8soperator"]
+CMD ["flinkoperator"]

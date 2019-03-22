@@ -25,22 +25,25 @@ import (
 
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
+	"github.com/pkg/errors"
 )
 
 const (
-	appName      = "flinkoperator"
+	appName = "flinkoperator"
 )
 
 var (
 	cfgFile        string
-	configAccessor = viper.NewAccessor(config.Options{StrictMode: true})
+	configAccessor = viper.NewAccessor(config.Options{})
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "flinkoperator",
-	Short:   "Operator for running Flink applications in kubernetes",
-	PreRunE: initConfig,
+	Use:   "flinkoperator",
+	Short: "Operator for running Flink applications in kubernetes",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		return initConfig(cmd.Flags())
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		executeRootCmd(controller_config.GetConfig())
 	},
@@ -67,18 +70,18 @@ func init() {
 
 	// Here you will define your flags and configuration settings. Cobra supports persistent flags, which, if defined
 	// here, will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "./config.yaml",
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
 		"config file path to load configuration")
 
 	configAccessor.InitializePflags(rootCmd.PersistentFlags())
 }
 
-func initConfig(_ *cobra.Command, _ []string) error {
+func initConfig(flags *pflag.FlagSet) error {
 	configAccessor = viper.NewAccessor(config.Options{
-		StrictMode:  true,
 		SearchPaths: []string{cfgFile},
 	})
 
+	configAccessor.InitializePflags(flags)
 	err := configAccessor.UpdateConfig(context.Background())
 	if err != nil {
 		return err
@@ -95,6 +98,10 @@ func executeRootCmd(cfg *controller_config.Config) {
 	ctx := context.Background()
 	resource := v1alpha1.SchemeGroupVersion.String()
 	kind := v1alpha1.FlinkApplicationKind
+
+	if cfg.MetricsPrefix == "" {
+		logAndExit(errors.New("Invalid config: Metric prefix empty"))
+	}
 	watch(ctx, resource, kind, cfg.LimitNamespace, cfg.ResyncPeriod.Duration)
 	operatorScope := promutils.NewScope(cfg.MetricsPrefix)
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
@@ -103,12 +110,14 @@ func executeRootCmd(cfg *controller_config.Config) {
 }
 
 func watch(ctx context.Context, resource, kind, namespace string, resyncPeriod time.Duration) {
-	watchingNamespace := namespace
-	if watchingNamespace == "" {
-		watchingNamespace = "*"
+	namespaceForLogging := namespace
+	if namespaceForLogging == "" {
+		namespaceForLogging = "*"
 	}
 
 	logger.Infof(ctx, "Watching [Resource: %s] [Kind: %s] [Namespace: %s] [SyncPeriod: %v]",
-		resource, kind, watchingNamespace, resyncPeriod)
+		resource, kind, namespaceForLogging, resyncPeriod)
+	// Passing empty string as namespace indicates informer to watch all namespaces.
+	// "*" does NOT work as namespace. We are just logging "*" for readability
 	sdk.Watch(resource, kind, namespace, resyncPeriod)
 }

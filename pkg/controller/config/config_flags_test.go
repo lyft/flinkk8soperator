@@ -125,7 +125,7 @@ func TestConfig_SetFlags(t *testing.T) {
 		t.Run("DefaultValue", func(t *testing.T) {
 			// Test that default value is set properly
 			if vString, err := cmdFlags.GetString("limitNamespace"); err == nil {
-				assert.Equal(t, string("*"), vString)
+				assert.Equal(t, string(""), vString)
 			} else {
 				assert.FailNow(t, err.Error())
 			}
