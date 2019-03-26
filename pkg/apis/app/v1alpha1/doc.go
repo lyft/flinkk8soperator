@@ -1,3 +1,3 @@
 // +k8s:deepcopy-gen=package
-// +groupName=flink.lyft.com
+// +groupName=flink.k8s.io
 package v1alpha1

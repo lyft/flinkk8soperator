@@ -11,9 +11,11 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	controller_config "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/mock"
 	k8mock "github.com/lyft/flinkk8soperator/pkg/controller/k8/mock"
+	"github.com/lyft/flytestdlib/config"
 	mockScope "github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
@@ -21,8 +23,6 @@ import (
 	"k8s.io/api/apps/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
-	controller_config "github.com/lyft/flinkk8soperator/pkg/controller/config"
-	"github.com/lyft/flytestdlib/config"
 )
 
 func getTestStateMachine() FlinkStateMachine {
@@ -30,10 +30,10 @@ func getTestStateMachine() FlinkStateMachine {
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
 
 	return FlinkStateMachine{
-		flinkController:               &mock.MockFlinkController{},
-		k8Cluster:                     &k8mock.MockK8Cluster{},
-		clock:                         &clock.FakeClock{},
-		metrics:                       newStateMachineMetrics(testScope),
+		flinkController: &mock.MockFlinkController{},
+		k8Cluster:       &k8mock.MockK8Cluster{},
+		clock:           &clock.FakeClock{},
+		metrics:         newStateMachineMetrics(testScope),
 	}
 }
 

@@ -23,7 +23,7 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 				"akka.timeout":                            "5s",
 				"taskmanager.network.memory.fraction":     0.1,
 				"taskmanager.network.request-backoff.max": 5000,
-				"jobmanager.rpc.address": "wrong-address",
+				"jobmanager.rpc.address":                  "wrong-address",
 			},
 			TaskManagerConfig: v1alpha1.TaskManagerConfig{
 				TaskSlots: &taskSlots,

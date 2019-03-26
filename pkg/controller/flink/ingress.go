@@ -4,8 +4,8 @@ import (
 	"regexp"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
-	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"

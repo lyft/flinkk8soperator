@@ -9,13 +9,13 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/lyft/flytestdlib/logger"
+	"github.com/lyft/flytestdlib/promutils"
+	"github.com/lyft/flytestdlib/promutils/labeled"
 	"k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	k8_err "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"github.com/lyft/flytestdlib/promutils"
-	"github.com/lyft/flytestdlib/promutils/labeled"
 )
 
 const (
@@ -31,30 +31,29 @@ type FlinkTaskManagerControllerInterface interface {
 }
 
 func NewFlinkTaskManagerController(scope promutils.Scope) FlinkJobManagerControllerInterface {
-	metrics :=  newFlinkTaskManagerMetrics(scope)
+	metrics := newFlinkTaskManagerMetrics(scope)
 	return &FlinkTaskManagerController{
 		k8Cluster: k8.NewK8Cluster(),
-		metrics: metrics,
+		metrics:   metrics,
 	}
 }
 
 type FlinkTaskManagerController struct {
 	k8Cluster k8.K8ClusterInterface
-	metrics *flinkTaskManagerMetrics
+	metrics   *flinkTaskManagerMetrics
 }
-
 
 func newFlinkTaskManagerMetrics(scope promutils.Scope) *flinkTaskManagerMetrics {
 	taskManagerControllerScope := scope.NewSubScope("task_manager_controller")
 	return &flinkTaskManagerMetrics{
-		scope:                       scope,
+		scope:                     scope,
 		deploymentCreationSuccess: labeled.NewCounter("deployment_create_success", "Task manager deployment created successfully", taskManagerControllerScope),
 		deploymentCreationFailure: labeled.NewCounter("deployment_create_failure", "Task manager deployment creation failed", taskManagerControllerScope),
 	}
 }
 
 type flinkTaskManagerMetrics struct {
-	scope                       promutils.Scope
+	scope                     promutils.Scope
 	deploymentCreationSuccess labeled.Counter
 	deploymentCreationFailure labeled.Counter
 }
@@ -253,6 +252,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Dep
 						*taskContainer,
 					},
 					Volumes: app.Spec.Volumes,
+					ImagePullSecrets: app.Spec.ImagePullSecrets,
 				},
 			},
 		},

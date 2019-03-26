@@ -13,9 +13,9 @@ import (
 	"k8s.io/api/apps/v1"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/pkg/errors"
-	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 )
 
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"

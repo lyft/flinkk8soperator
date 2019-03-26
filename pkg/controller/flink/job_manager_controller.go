@@ -8,14 +8,14 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/lyft/flytestdlib/logger"
+	"github.com/lyft/flytestdlib/promutils"
+	"github.com/lyft/flytestdlib/promutils/labeled"
 	"k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	k8_err "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"github.com/lyft/flytestdlib/promutils"
-	"github.com/lyft/flytestdlib/promutils/labeled"
 )
 
 const (
@@ -50,7 +50,7 @@ func NewFlinkJobManagerController(scope promutils.Scope) FlinkJobManagerControll
 	metrics := newFlinkJobManagerMetrics(scope)
 	return &FlinkJobManagerController{
 		k8Cluster: k8.NewK8Cluster(),
-		metrics: metrics,
+		metrics:   metrics,
 	}
 }
 
@@ -60,30 +60,30 @@ func GetJobManagerExternalServiceName(app *v1alpha1.FlinkApplication) string {
 
 type FlinkJobManagerController struct {
 	k8Cluster k8.K8ClusterInterface
-	metrics *flinkJobManagerMetrics
+	metrics   *flinkJobManagerMetrics
 }
 
 func newFlinkJobManagerMetrics(scope promutils.Scope) *flinkJobManagerMetrics {
 	jobManagerControllerScope := scope.NewSubScope("job_manager_controller")
 	return &flinkJobManagerMetrics{
-		scope:                       scope,
+		scope:                     scope,
 		deploymentCreationSuccess: labeled.NewCounter("deployment_create_success", "Job manager deployment created successfully", jobManagerControllerScope),
 		deploymentCreationFailure: labeled.NewCounter("deployment_create_failure", "Job manager deployment creation failed", jobManagerControllerScope),
-		serviceCreationSuccess: labeled.NewCounter("service_create_success", "Job manager service created successfully", jobManagerControllerScope),
-		serviceCreationFailure: labeled.NewCounter("service_create_failure", "Job manager service creation failed", jobManagerControllerScope),
-		ingressCreationSuccess: labeled.NewCounter("ingress_create_success", "Job manager ingress created successfully", jobManagerControllerScope),
-		ingressCreationFailure: labeled.NewCounter("ingress_create_failure", "Job manager ingress creation failed", jobManagerControllerScope),
+		serviceCreationSuccess:    labeled.NewCounter("service_create_success", "Job manager service created successfully", jobManagerControllerScope),
+		serviceCreationFailure:    labeled.NewCounter("service_create_failure", "Job manager service creation failed", jobManagerControllerScope),
+		ingressCreationSuccess:    labeled.NewCounter("ingress_create_success", "Job manager ingress created successfully", jobManagerControllerScope),
+		ingressCreationFailure:    labeled.NewCounter("ingress_create_failure", "Job manager ingress creation failed", jobManagerControllerScope),
 	}
 }
 
 type flinkJobManagerMetrics struct {
-	scope                       promutils.Scope
+	scope                     promutils.Scope
 	deploymentCreationSuccess labeled.Counter
 	deploymentCreationFailure labeled.Counter
-	serviceCreationSuccess labeled.Counter
-	serviceCreationFailure labeled.Counter
-	ingressCreationSuccess labeled.Counter
-	ingressCreationFailure labeled.Counter
+	serviceCreationSuccess    labeled.Counter
+	serviceCreationFailure    labeled.Counter
+	ingressCreationSuccess    labeled.Counter
+	ingressCreationFailure    labeled.Counter
 }
 
 func (j *FlinkJobManagerController) CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error {
@@ -304,6 +304,7 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 						*jobManagerContainer,
 					},
 					Volumes: app.Spec.Volumes,
+					ImagePullSecrets: app.Spec.ImagePullSecrets,
 				},
 			},
 		},

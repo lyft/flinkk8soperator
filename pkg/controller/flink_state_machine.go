@@ -6,6 +6,7 @@ import (
 
 	"fmt"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
@@ -14,7 +15,6 @@ import (
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
-	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 )
 
 type FlinkHandlerInterface interface {
@@ -57,10 +57,10 @@ type FlinkHandlerInterface interface {
 //|                                                                                                                 |
 //+-----------------------------------------------------------------------------------------------------------------+
 type FlinkStateMachine struct {
-	flinkController               flink.FlinkInterface
-	k8Cluster                     k8.K8ClusterInterface
-	clock                         clock.Clock
-	metrics                       *stateMachineMetrics
+	flinkController flink.FlinkInterface
+	k8Cluster       k8.K8ClusterInterface
+	clock           clock.Clock
+	metrics         *stateMachineMetrics
 }
 
 type stateMachineMetrics struct {
@@ -345,9 +345,9 @@ func NewFlinkStateMachine(scope promutils.Scope) FlinkHandlerInterface {
 
 	metrics := newStateMachineMetrics(scope)
 	return &FlinkStateMachine{
-		k8Cluster:                     k8.NewK8Cluster(),
-		flinkController:               flink.NewFlinkController(scope),
-		clock:                         clock.RealClock{},
-		metrics:                       metrics,
+		k8Cluster:       k8.NewK8Cluster(),
+		flinkController: flink.NewFlinkController(scope),
+		clock:           clock.RealClock{},
+		metrics:         metrics,
 	}
 }
