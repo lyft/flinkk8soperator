@@ -91,7 +91,7 @@ $ dep ensure
 $ KUBERNETES_CONFIG="$HOME/.kube/config" go run ./cmd/flinkk8soperator/main.go  --config=local_config.yaml
 ```
 
-(you may need to accept a firewall prompt)
+(you may need to accept a firewall prompt and `brew install dep` if you don't have it installed)
 
 #### Option 2: run inside the kubernetes cluster
 
@@ -133,6 +133,8 @@ $ docker pull 173840052742.dkr.ecr.us-east-1.amazonaws.com/s2istreamingplatformf
 
 2. Build the application image
 
+(`brew install source-to-image` if you don't have it installed)
+
 ```bash
 $ cd ~/src/$APP_NAME
 $ s2i build --copy -e "CODE_ROOT=/code" . 173840052742.dkr.ecr.us-east-1.amazonaws.com/s2istreamingplatformflink:$SHA $APP_NAME
@@ -149,7 +151,7 @@ this:
 app-development.yaml:
 
 ```yaml
-apiVersion: flink.lyft.com/v1alpha1
+apiVersion: flink.k8s.io/v1alpha1
 kind: FlinkApplication
 metadata:
   name: $APP_NAME
@@ -157,33 +159,34 @@ metadata:
   labels:
     environment: development
 spec:
+  deploymentMode: Single
+  flinkJob:
+    jar_name: "$JAR"
+    parallelism: 1
+    entry_class: "$MAIN_CLASS"
   image: $APP_NAME:latest
   imagePullPolicy: Never
   jobManagerConfig:
-    resources:
-      requests:
-        memory: "200Mi"
-        cpu: "1"
-    jobManagerCount: 1
     envConfig:
       envFrom:
-        - configMapRef:
-            name: flink-development-config
+      - configMapRef:
+          name: flink-development-config
+    replicas: 1
+    resources:
+      requests:
+        cpu: "1"
+        memory: "200Mi"
   taskManagerConfig:
-    resources:
-      requests:
-        memory: "200Mi"
-        cpu: "1"
-    taskManagerCount: 1
     envConfig:
       envFrom:
-        - configMapRef:
-            name: flink-development-config
-  flinkJob:
-    jarName: "$JAR"
-    parallelism: 1
-    entryClass: "$MAIN_CLASS"
-  deploymentMode: Single
+      - configMapRef:
+          name: flink-development-config
+    resources:
+      requests:
+        cpu: "1"
+        memory: "200Mi"
+    taskSlots: 2
+
 ```
 
 ```bash
