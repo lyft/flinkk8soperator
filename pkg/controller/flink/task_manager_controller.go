@@ -30,7 +30,7 @@ type FlinkTaskManagerControllerInterface interface {
 	CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error
 }
 
-func NewFlinkTaskManagerController(scope promutils.Scope) FlinkJobManagerControllerInterface {
+func NewFlinkTaskManagerController(scope promutils.Scope) FlinkTaskManagerControllerInterface {
 	metrics := newFlinkTaskManagerMetrics(scope)
 	return &FlinkTaskManagerController{
 		k8Cluster: k8.NewK8Cluster(),
@@ -90,26 +90,9 @@ func (t *FlinkTaskManagerController) CreateIfNotExist(ctx context.Context, appli
 	return nil
 }
 
-func getDeploymentWithName(deployments []v1.Deployment, name string) *v1.Deployment {
-	if len(deployments) == 0 {
-		return nil
-	}
-	for _, deployment := range deployments {
-		if deployment.Name == name {
-			return &deployment
-		}
-	}
-	return nil
-}
-
 func getTaskManagerDeployment(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) *v1.Deployment {
 	tmDeploymentName := getTaskManagerName(*application)
-	return getDeploymentWithName(deployments, tmDeploymentName)
-}
-
-func getJobManagerDeployment(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) *v1.Deployment {
-	jmDeploymentName := getJobManagerName(application)
-	return getDeploymentWithName(deployments, jmDeploymentName)
+	return k8.GetDeploymentWithName(deployments, tmDeploymentName)
 }
 
 func getTaskManagerReplicaCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
@@ -118,14 +101,6 @@ func getTaskManagerReplicaCount(deployments []v1.Deployment, application *v1alph
 		return 0
 	}
 	return *taskManagerDeployment.Spec.Replicas
-}
-
-func getJobManagerReplicaCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
-	jobManagerDeployment := getJobManagerDeployment(deployments, application)
-	if jobManagerDeployment == nil {
-		return 0
-	}
-	return *jobManagerDeployment.Spec.Replicas
 }
 
 func GetTaskManagerPorts(app *v1alpha1.FlinkApplication) []coreV1.ContainerPort {
@@ -251,7 +226,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Dep
 					Containers: []coreV1.Container{
 						*taskContainer,
 					},
-					Volumes: app.Spec.Volumes,
+					Volumes:          app.Spec.Volumes,
 					ImagePullSecrets: app.Spec.ImagePullSecrets,
 				},
 			},

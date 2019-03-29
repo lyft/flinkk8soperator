@@ -17,9 +17,9 @@ func GetAppLabel(appName string) map[string]string {
 	}
 }
 
-func GetImageLabel(imageKey string) map[string]string {
+func GetImageLabel(imageValue string) map[string]string {
 	return map[string]string{
-		ImageKey: imageKey,
+		ImageKey: imageValue,
 	}
 }
 
@@ -61,4 +61,16 @@ func MatchDeploymentsByLabel(deployments v1.DeploymentList, matchMap map[string]
 		}
 	}
 	return matchingDeployments, unMatchedDeployments
+}
+
+func GetDeploymentWithName(deployments []v1.Deployment, name string) *v1.Deployment {
+	if len(deployments) == 0 {
+		return nil
+	}
+	for _, deployment := range deployments {
+		if deployment.Name == name {
+			return &deployment
+		}
+	}
+	return nil
 }

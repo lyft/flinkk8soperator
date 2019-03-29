@@ -138,6 +138,8 @@ func (f *FlinkController) HasApplicationJobChanged(ctx context.Context, applicat
 	return false, nil
 }
 
+// This is currently unused - Will evaluate and delete if needed.
+// We currently cancel with savepoint and bring up new clusters if cluster resources need updating.
 func (f *FlinkController) CheckAndUpdateClusterResources(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	logger.Infof(ctx, "Checking and updating cluster resources: %s", application)
 

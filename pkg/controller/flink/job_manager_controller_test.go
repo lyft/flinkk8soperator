@@ -6,70 +6,62 @@ import (
 	"testing"
 
 	"context"
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/apps/v1"
+	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func getTMControllerForTest() FlinkTaskManagerController {
+func getJMControllerForTest() FlinkJobManagerController {
 	testScope := mockScope.NewTestScope()
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
 
-	return FlinkTaskManagerController{
-		metrics:   newFlinkTaskManagerMetrics(testScope),
+	return FlinkJobManagerController{
+		metrics:   newFlinkJobManagerMetrics(testScope),
 		k8Cluster: &k8mock.MockK8Cluster{},
 	}
 }
 
-func TestComputeTaskManagerReplicas(t *testing.T) {
-	app := v1alpha1.FlinkApplication{}
-	taskSlots := int32(4)
-	app.Spec.TaskManagerConfig.TaskSlots = &taskSlots
-	app.Spec.FlinkJob.Parallelism = 9
-
-	assert.Equal(t, int32(3), computeTaskManagerReplicas(&app))
-}
-
-func TestGetTaskManagerName(t *testing.T) {
+func TestGetJobManagerName(t *testing.T) {
 	app := getFlinkTestApp()
-	assert.Equal(t, "app-name-11ae1-tm", getTaskManagerName(app))
+	assert.Equal(t, "app-name-11ae1-jm", getJobManagerName(&app))
 }
 
-func TestGetTaskManagerPodName(t *testing.T) {
+func TestGetJobManagerPodName(t *testing.T) {
 	app := getFlinkTestApp()
-	assert.Equal(t, "app-name-11ae1-tm-pod", getTaskManagerPodName(app))
+	assert.Equal(t, "app-name-11ae1-jm-pod", getJobManagerPodName(&app))
 }
 
-func TestGetTaskManagerDeployment(t *testing.T) {
+func TestGetJobManagerDeployment(t *testing.T) {
 	app := getFlinkTestApp()
 	deployment := v1.Deployment{}
-	deployment.Name = getTaskManagerName(app)
+	deployment.Name = getJobManagerName(&app)
 	deployments := []v1.Deployment{
 		deployment,
 	}
-	assert.Equal(t, deployment, *getTaskManagerDeployment(deployments, &app))
+	assert.Equal(t, deployment, *getJobManagerDeployment(deployments, &app))
 }
 
-func TestGetTaskManagerReplicaCount(t *testing.T) {
+func TestGetJobManagerReplicaCount(t *testing.T) {
 	app := getFlinkTestApp()
 	deployment := v1.Deployment{}
-	deployment.Name = getTaskManagerName(app)
+	deployment.Name = getJobManagerName(&app)
 	replicaCount := int32(2)
 	deployment.Spec.Replicas = &replicaCount
 	deployments := []v1.Deployment{
 		deployment,
 	}
-	assert.Equal(t, int32(2), getTaskManagerReplicaCount(deployments, &app))
+	assert.Equal(t, int32(2), getJobManagerReplicaCount(deployments, &app))
 }
 
-func TestTaskManagerCreateSuccess(t *testing.T) {
-	testController := getTMControllerForTest()
+func TestJobManagerCreateSuccess(t *testing.T) {
+	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	annotations := map[string]string{
 		"key": "annotation",
@@ -79,25 +71,42 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		"app":      "app-name",
 		"imageKey": "11ae1",
 	}
+	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
-		deployment := object.(*v1.Deployment)
-		assert.Equal(t, getTaskManagerName(app), deployment.Name)
-		assert.Equal(t, app.Namespace, deployment.Namespace)
-		assert.Equal(t, getTaskManagerPodName(app), deployment.Spec.Template.Name)
-		assert.Equal(t, annotations, deployment.Annotations)
-		assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
-		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
-		assert.Equal(t, expectedLabels, deployment.Labels)
-
+		ctr += 1
+		switch ctr {
+		case 1:
+			deployment := object.(*v1.Deployment)
+			assert.Equal(t, getJobManagerName(&app), deployment.Name)
+			assert.Equal(t, app.Namespace, deployment.Namespace)
+			assert.Equal(t, getJobManagerPodName(&app), deployment.Spec.Template.Name)
+			assert.Equal(t, annotations, deployment.Annotations)
+			assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
+			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
+			assert.Equal(t, expectedLabels, deployment.Labels)
+		case 2:
+			service := object.(*coreV1.Service)
+			assert.Equal(t, getJobManagerServiceName(&app), service.Name)
+			assert.Equal(t, app.Namespace, service.Namespace)
+			assert.Equal(t, map[string]string{"frontend": "app-name-jm"}, service.Spec.Selector)
+		case 3:
+			labels := map[string]string{
+				"app": "app-name",
+			}
+			ingress := object.(*v1beta1.Ingress)
+			assert.Equal(t, app.Name, ingress.Name)
+			assert.Equal(t, app.Namespace, ingress.Namespace)
+			assert.Equal(t, labels, ingress.Labels)
+		}
 		return nil
 	}
 	err := testController.CreateIfNotExist(context.Background(), &app)
 	assert.Nil(t, err)
 }
 
-func TestTaskManagerCreateErr(t *testing.T) {
-	testController := getTMControllerForTest()
+func TestJobManagerCreateErr(t *testing.T) {
+	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
@@ -107,13 +116,16 @@ func TestTaskManagerCreateErr(t *testing.T) {
 	assert.EqualError(t, err, "create error")
 }
 
-func TestTaskManagerCreateAlreadyExists(t *testing.T) {
-	testController := getTMControllerForTest()
+func TestJobManagerCreateAlreadyExists(t *testing.T) {
+	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.MockK8Cluster)
+	ctr := 0
 	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+		ctr += 1
 		return k8sErrors.NewAlreadyExists(schema.GroupResource{}, "")
 	}
 	err := testController.CreateIfNotExist(context.Background(), &app)
+	assert.Equal(t, ctr, 3)
 	assert.Nil(t, err)
 }

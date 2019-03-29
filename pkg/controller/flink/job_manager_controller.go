@@ -303,10 +303,23 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 					Containers: []coreV1.Container{
 						*jobManagerContainer,
 					},
-					Volumes: app.Spec.Volumes,
+					Volumes:          app.Spec.Volumes,
 					ImagePullSecrets: app.Spec.ImagePullSecrets,
 				},
 			},
 		},
 	}, nil
+}
+
+func getJobManagerReplicaCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
+	jobManagerDeployment := getJobManagerDeployment(deployments, application)
+	if jobManagerDeployment == nil {
+		return 0
+	}
+	return *jobManagerDeployment.Spec.Replicas
+}
+
+func getJobManagerDeployment(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) *v1.Deployment {
+	jmDeploymentName := getJobManagerName(application)
+	return k8.GetDeploymentWithName(deployments, jmDeploymentName)
 }
