@@ -57,7 +57,7 @@ func TestGetJobManagerReplicaCount(t *testing.T) {
 	deployments := []v1.Deployment{
 		deployment,
 	}
-	assert.Equal(t, int32(2), getJobManagerReplicaCount(deployments, &app))
+	assert.Equal(t, int32(2), getJobManagerCount(deployments, &app))
 }
 
 func TestJobManagerCreateSuccess(t *testing.T) {
@@ -85,6 +85,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 			assert.Equal(t, expectedLabels, deployment.Labels)
+			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 		case 2:
 			service := object.(*coreV1.Service)
 			assert.Equal(t, getJobManagerServiceName(&app), service.Name)

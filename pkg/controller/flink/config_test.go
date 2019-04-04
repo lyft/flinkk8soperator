@@ -67,3 +67,16 @@ func TestGetTaskSlots(t *testing.T) {
 	app2.Spec.TaskManagerConfig.TaskSlots = &taskSlots
 	assert.Equal(t, int32(4), getTaskmanagerSlots(&app2))
 }
+
+func TestGetJobManagerReplicas(t *testing.T) {
+	app1 := v1alpha1.FlinkApplication{}
+	assert.Equal(t, int32(JobManagerDefaultReplicaCount), getJobmanagerReplicas(&app1))
+}
+
+func TestGetJobManagerReplicasNonZero(t *testing.T) {
+	app1 := v1alpha1.FlinkApplication{}
+	replicas := int32(4)
+
+	app1.Spec.JobManagerConfig.Replicas = &replicas
+	assert.Equal(t, int32(4), getJobmanagerReplicas(&app1))
+}

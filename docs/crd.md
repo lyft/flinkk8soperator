@@ -21,10 +21,10 @@ Below is the list of fields in the custom resource and their description
     * **Environment** `type:EnvironmentConfig`
       Configuration for setting environment variables in the task manager.
 
-    * **Replicas** `type:int32 required=true`
-      Number of task managers for the flink cluster
+    * **TaskSlots** `type:int32 required=true`
+      Number of task slots per task manager
 
-  * **JobManagerConfig** `type:JobManagerConfig required=true`
+  * **JobManagerConfig** `type:JobManagerConfig`
     Configuration for the Flink job manager
 
     * **Resources** `type:ResourceRequirements`

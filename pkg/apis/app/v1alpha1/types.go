@@ -96,7 +96,7 @@ type FlinkJobInfo struct {
 type JobManagerConfig struct {
 	Resources   *v1.ResourceRequirements `json:"resources,omitempty"`
 	Environment EnvironmentConfig        `json:"envConfig"`
-	Replicas    int32                    `json:"replicas"`
+	Replicas    *int32                   `json:"replicas,omitempty"`
 }
 
 type TaskManagerConfig struct {

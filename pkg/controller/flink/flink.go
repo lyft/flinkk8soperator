@@ -163,8 +163,9 @@ func (f *FlinkController) CheckAndUpdateClusterResources(ctx context.Context, ap
 	}
 
 	jobManagerDeployment := getJobManagerDeployment(currentAppDeployments.Items, application)
-	if *jobManagerDeployment.Spec.Replicas != application.Spec.JobManagerConfig.Replicas {
-		jobManagerDeployment.Spec.Replicas = &application.Spec.JobManagerConfig.Replicas
+	jmCount := getJobmanagerReplicas(application)
+	if *jobManagerDeployment.Spec.Replicas != jmCount {
+		jobManagerDeployment.Spec.Replicas = &jmCount
 		err := f.k8Cluster.UpdateK8Object(ctx, jobManagerDeployment)
 		if err != nil {
 			logger.Errorf(ctx, "Jobmanager deployment update failed %v", err)
@@ -351,13 +352,13 @@ func (f *FlinkController) isClusterUpdateNeeded(ctx context.Context, application
 		return false, err
 	}
 	replicasNeeded := computeTaskManagerReplicas(application)
-	taskManagerReplicaCount := getTaskManagerReplicaCount(currentAppDeployments.Items, application)
+	taskManagerReplicaCount := getTaskManagerCount(currentAppDeployments.Items, application)
 	if taskManagerReplicaCount != replicasNeeded {
 		return true, nil
 	}
 
-	jobManagerReplicaCount := getJobManagerReplicaCount(currentAppDeployments.Items, application)
-	if jobManagerReplicaCount != application.Spec.JobManagerConfig.Replicas {
+	jobManagerReplicaCount := getJobManagerCount(currentAppDeployments.Items, application)
+	if jobManagerReplicaCount != getJobmanagerReplicas(application) {
 		return true, nil
 	}
 	return f.HasApplicationJobChanged(ctx, application)

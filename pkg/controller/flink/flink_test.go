@@ -192,16 +192,20 @@ func TestFlinkApplicationParallelismChanged(t *testing.T) {
 
 func TestFlinkApplicationJobConfigErr(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
+	flinkApp := getFlinkTestApp()
+
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		deployment := v1.Deployment{}
+		deployment.Name = getJobManagerName(&flinkApp)
+		replicas := int32(1)
+		deployment.Spec.Replicas = &replicas
 		return &v1.DeploymentList{
 			Items: []v1.Deployment{
 				deployment,
 			},
 		}, nil
 	}
-	flinkApp := getFlinkTestApp()
 
 	mockJMClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
 	mockJMClient.GetJobConfigFunc = func(ctx context.Context, url string, jobId string) (*client.JobConfigResponse, error) {

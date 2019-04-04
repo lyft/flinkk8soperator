@@ -7,12 +7,13 @@ import (
 )
 
 const (
-	TaskManagerDefaultSlots = 16
-	RpcDefaultPort          = 6123
-	QueryDefaultPort        = 6124
-	BlobDefaultPort         = 6125
-	UiDefaultPort           = 8081
-	MetricsQueryDefaultPort = 50101
+	JobManagerDefaultReplicaCount = 1
+	TaskManagerDefaultSlots       = 16
+	RpcDefaultPort                = 6123
+	QueryDefaultPort              = 6124
+	BlobDefaultPort               = 6125
+	UiDefaultPort                 = 8081
+	MetricsQueryDefaultPort       = 50101
 )
 
 func firstNonNil(x *int32, y int32) int32 {
@@ -24,6 +25,10 @@ func firstNonNil(x *int32, y int32) int32 {
 
 func getTaskmanagerSlots(app *v1alpha1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.TaskManagerConfig.TaskSlots, TaskManagerDefaultSlots)
+}
+
+func getJobmanagerReplicas(app *v1alpha1.FlinkApplication) int32 {
+	return firstNonNil(app.Spec.JobManagerConfig.Replicas, JobManagerDefaultReplicaCount)
 }
 
 func getRpcPort(app *v1alpha1.FlinkApplication) int32 {

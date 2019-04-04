@@ -221,7 +221,6 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV
 	if resources == nil {
 		resources = &JobManagerDefaultResources
 	}
-
 	ports := getJobManagerPorts(application)
 	operatorEnv, err := GetFlinkContainerEnv(application)
 	if err != nil {
@@ -267,7 +266,7 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 		MatchLabels: podLabels,
 	}
 	deploymentLabels := common.CopyMap(app.Labels, commonLabels)
-
+	replicas := getJobmanagerReplicas(app)
 	jobManagerContainer, err := FetchJobManagerContainerObj(app)
 	if err != nil {
 		return nil, err
@@ -291,7 +290,7 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 			Strategy: v1.DeploymentStrategy{
 				Type: v1.RecreateDeploymentStrategyType,
 			},
-			Replicas: &app.Spec.JobManagerConfig.Replicas,
+			Replicas: &replicas,
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Name:        podName,
@@ -311,7 +310,7 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 	}, nil
 }
 
-func getJobManagerReplicaCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
+func getJobManagerCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
 	jobManagerDeployment := getJobManagerDeployment(deployments, application)
 	if jobManagerDeployment == nil {
 		return 0

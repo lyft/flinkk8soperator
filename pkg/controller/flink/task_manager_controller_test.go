@@ -65,7 +65,7 @@ func TestGetTaskManagerReplicaCount(t *testing.T) {
 	deployments := []v1.Deployment{
 		deployment,
 	}
-	assert.Equal(t, int32(2), getTaskManagerReplicaCount(deployments, &app))
+	assert.Equal(t, int32(2), getTaskManagerCount(deployments, &app))
 }
 
 func TestTaskManagerCreateSuccess(t *testing.T) {

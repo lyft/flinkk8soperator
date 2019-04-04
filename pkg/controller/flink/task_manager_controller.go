@@ -95,7 +95,7 @@ func getTaskManagerDeployment(deployments []v1.Deployment, application *v1alpha1
 	return k8.GetDeploymentWithName(deployments, tmDeploymentName)
 }
 
-func getTaskManagerReplicaCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
+func getTaskManagerCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
 	taskManagerDeployment := getTaskManagerDeployment(deployments, application)
 	if taskManagerDeployment == nil {
 		return 0
