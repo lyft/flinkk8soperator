@@ -26,6 +26,7 @@ import (
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/pkg/errors"
+	"github.com/lyft/flytestdlib/profutils"
 )
 
 const (
@@ -102,8 +103,16 @@ func executeRootCmd(cfg *controller_config.Config) {
 	if cfg.MetricsPrefix == "" {
 		logAndExit(errors.New("Invalid config: Metric prefix empty"))
 	}
-	watch(ctx, resource, kind, cfg.LimitNamespace, cfg.ResyncPeriod.Duration)
 	operatorScope := promutils.NewScope(cfg.MetricsPrefix)
+
+	go func() {
+		err := profutils.StartProfilingServerWithDefaultHandlers(ctx, cfg.ProfilerPort.Port, nil)
+		if err != nil {
+			logger.Panicf(ctx, "Failed to Start profiling and metrics server. Error: %v", err)
+		}
+	}()
+
+	watch(ctx, resource, kind, cfg.LimitNamespace, cfg.ResyncPeriod.Duration)
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
 	sdk.Handle(controller.NewHandler(operatorScope))
 	sdk.Run(ctx)

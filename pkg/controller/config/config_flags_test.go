@@ -165,6 +165,28 @@ func TestConfig_SetFlags(t *testing.T) {
 			}
 		})
 	})
+	t.Run("Test_prof-port", func(t *testing.T) {
+		t.Run("DefaultValue", func(t *testing.T) {
+			// Test that default value is set properly
+			if vString, err := cmdFlags.GetString("prof-port"); err == nil {
+				assert.Equal(t, string("10254"), vString)
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+
+		t.Run("Override", func(t *testing.T) {
+			testValue := "10254"
+
+			cmdFlags.Set("prof-port", testValue)
+			if vString, err := cmdFlags.GetString("prof-port"); err == nil {
+				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.ProfilerPort)
+
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+	})
 	t.Run("Test_ingressUrlFormat", func(t *testing.T) {
 		t.Run("DefaultValue", func(t *testing.T) {
 			// Test that default value is set properly
