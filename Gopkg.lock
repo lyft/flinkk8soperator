@@ -259,7 +259,7 @@
   version = "v1.0.2"
 
 [[projects]]
-  digest = "1:d2af64bd4692ae881cc1e3457f7bb7e4b1726680c8849bc344e430d568c3cfa8"
+  digest = "1:aa23b76eb438ad6b5bd94eb9e2e21a9efec11eb2fb0c6352657b5c583497ea4e"
   name = "github.com/lyft/flytestdlib"
   packages = [
     "atomic",
@@ -268,14 +268,15 @@
     "config/viper",
     "contextutils",
     "logger",
+    "profutils",
     "promutils",
     "promutils/labeled",
     "version",
   ]
   pruneopts = ""
-  revision = "b0ee768bb5b0725ee2030357472b7137b99ecd23"
+  revision = "c83f847a7d5aa849dd13d43d238babb7172fc662"
   source = "git@github.com:lyft/flytestdlib"
-  version = "v0.6.3"
+  version = "v0.6.7"
 
 [[projects]]
   digest = "1:961dc3b1d11f969370533390fdf203813162980c858e1dabe827b60940c909a5"
@@ -854,6 +855,7 @@
     "github.com/lyft/flytestdlib/config/viper",
     "github.com/lyft/flytestdlib/contextutils",
     "github.com/lyft/flytestdlib/logger",
+    "github.com/lyft/flytestdlib/profutils",
     "github.com/lyft/flytestdlib/promutils",
     "github.com/lyft/flytestdlib/promutils/labeled",
     "github.com/lyft/flytestdlib/version",
