@@ -26,3 +26,7 @@ type Config struct {
 func GetConfig() *Config {
 	return ConfigSection.GetConfig().(*Config)
 }
+
+func SetConfig(c *Config) error {
+	return ConfigSection.SetConfig(c)
+}

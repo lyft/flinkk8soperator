@@ -105,8 +105,8 @@ func (s *FlinkStateMachine) isApplicationStuck(ctx context.Context, application 
 	if appLastUpdated != nil && application.Status.Phase != v1alpha1.FlinkApplicationFailed &&
 		application.Status.Phase != v1alpha1.FlinkApplicationRunning {
 		elapsedTime := s.clock.Since(appLastUpdated.Time)
-		if elapsedTime > s.getStalenessDuration() {
-			logger.Errorf(ctx, "Flink Application stuck for %v", elapsedTime)
+		if s.getStalenessDuration() > 0 && elapsedTime > s.getStalenessDuration() {
+			logger.Errorf(ctx, "Flink Application stuck for %v (staleness %v)", elapsedTime, s.getStalenessDuration())
 			return true
 		}
 	}
@@ -280,7 +280,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
 		// Savepointing failed
 		// TODO: this should probably be a kubernetes message
-		logger.Infof(ctx, "savepoint failed: %v", savepointStatusResponse.Operation.FailureCause.StackTrace)
+		logger.Infof(ctx, "savepoint failed: %v", savepointStatusResponse.Operation.FailureCause)
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
 	}
 

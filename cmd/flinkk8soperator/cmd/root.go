@@ -60,6 +60,15 @@ func Execute() {
 	}
 }
 
+func Run(config *controller_config.Config) {
+	if err := controller_config.SetConfig(config); err != nil {
+		logger.Errorf(context.Background(), "Failed to set config: %v", err)
+		return
+	}
+
+	executeRootCmd(controller_config.GetConfig())
+}
+
 func init() {
 	// See https://gist.github.com/nak3/78a32817a8a3950ae48f239a44cd3663
 	// allows `$ flinkoperator --logtostderr` to work
@@ -99,6 +108,8 @@ func executeRootCmd(cfg *controller_config.Config) {
 	ctx := context.Background()
 	resource := v1alpha1.SchemeGroupVersion.String()
 	kind := v1alpha1.FlinkApplicationKind
+
+	logger.Infof(ctx, "Stalesness Duration %v", cfg.StatemachineStalenessDuration)
 
 	if cfg.MetricsPrefix == "" {
 		logAndExit(errors.New("Invalid config: Metric prefix empty"))

@@ -15,7 +15,8 @@ type FlinkApplicationList struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
+// +genclient
+// +genclient:noStatus
 type FlinkApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`

@@ -1,6 +1,9 @@
 sudo: required
 language: go
 dist: xenial
+cache:
+  directories:
+    - $GOPATH/pkg/dep
 go:
   - "1.10"
 services:
@@ -19,5 +22,4 @@ jobs:
       name: integration tests
       install: integ/install.sh
       before_script: integ/setup.sh
-      script:
-        - integ/run_tests.sh
+      script: "sudo -E \"PATH=$PATH\" integ/test.sh"

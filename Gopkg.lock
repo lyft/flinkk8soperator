@@ -19,6 +19,25 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:a74730e052a45a3fab1d310fdef2ec17ae3d6af16228421e238320846f2aaec8"
+  name = "github.com/alecthomas/template"
+  packages = [
+    ".",
+    "parse",
+  ]
+  pruneopts = ""
+  revision = "a0175ee3bccc567396460bf5acd36800cb10c49c"
+
+[[projects]]
+  branch = "master"
+  digest = "1:8483994d21404c8a1d489f6be756e25bfccd3b45d65821f25695577791a08e68"
+  name = "github.com/alecthomas/units"
+  packages = ["."]
+  pruneopts = ""
+  revision = "2efee857e7cfd4f3d0138cc3cbb1b4966962b93a"
+
+[[projects]]
+  branch = "master"
   digest = "1:c0bec5f9b98d0bc872ff5e834fac186b807b656683bd29cb82fb207a1513fabb"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -259,6 +278,22 @@
   version = "v1.0.2"
 
 [[projects]]
+  digest = "1:3108ec0946181c60040ff51b811908f89d03e521e2b4ade5ef5c65b3c0e911ae"
+  name = "github.com/kr/pretty"
+  packages = ["."]
+  pruneopts = ""
+  revision = "73f6ac0b30a98e433b289500d779f50c1a6f0712"
+  version = "v0.1.0"
+
+[[projects]]
+  digest = "1:11b056b4421396ab14e384ab8ab8c2079b03f1e51aa5eb4d9b81f9e0d1aa8fbf"
+  name = "github.com/kr/text"
+  packages = ["."]
+  pruneopts = ""
+  revision = "e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f"
+  version = "v0.1.0"
+
+[[projects]]
   digest = "1:aa23b76eb438ad6b5bd94eb9e2e21a9efec11eb2fb0c6352657b5c583497ea4e"
   name = "github.com/lyft/flytestdlib"
   packages = [
@@ -425,6 +460,7 @@
   packages = [
     "expfmt",
     "internal/bitbucket.org/ww/goautoneg",
+    "log",
     "model",
   ]
   pruneopts = ""
@@ -540,6 +576,8 @@
   packages = [
     "unix",
     "windows",
+    "windows/registry",
+    "windows/svc/eventlog",
   ]
   pruneopts = ""
   revision = "c8c8c57fd1e1a977c10821a559dda983a9a9a3b5"
@@ -598,6 +636,22 @@
   revision = "00c44ba9c14f88ffdd4fb5bfae57fe8dd6d6afb1"
 
 [[projects]]
+  digest = "1:15d017551627c8bb091bde628215b2861bed128855343fdd570c62d08871f6e1"
+  name = "gopkg.in/alecthomas/kingpin.v2"
+  packages = ["."]
+  pruneopts = ""
+  revision = "947dcec5ba9c011838740e680966fd7087a71d0d"
+  version = "v2.2.6"
+
+[[projects]]
+  branch = "v1"
+  digest = "1:1d01f96bc2293b56c3dec797b8f976d7613fb30ce92bfbc994130404f7f7f031"
+  name = "gopkg.in/check.v1"
+  packages = ["."]
+  pruneopts = ""
+  revision = "788fd78401277ebd861206a03c884797c6ec5541"
+
+[[projects]]
   digest = "1:75fb3fcfc73a8c723efde7777b40e8e8ff9babf30d8c56160d01beffea8a95a6"
   name = "gopkg.in/inf.v0"
   packages = ["."]
@@ -649,6 +703,20 @@
   ]
   pruneopts = ""
   revision = "2d6f90ab1293a1fb871cf149423ebb72aa7423aa"
+  version = "kubernetes-1.11.2"
+
+[[projects]]
+  digest = "1:d04bb4b31e495fa35739550e4dec2dd4c6f45c57f6d7fccb830a6ab75762efaa"
+  name = "k8s.io/apiextensions-apiserver"
+  packages = [
+    "pkg/apis/apiextensions",
+    "pkg/apis/apiextensions/v1beta1",
+    "pkg/client/clientset/clientset",
+    "pkg/client/clientset/clientset/scheme",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
+  ]
+  pruneopts = ""
+  revision = "408db4a50408e2149acbd657bceb2480c13cb0a4"
   version = "kubernetes-1.11.2"
 
 [[projects]]
@@ -708,6 +776,7 @@
   packages = [
     "discovery",
     "discovery/cached",
+    "discovery/fake",
     "dynamic",
     "kubernetes",
     "kubernetes/scheme",
@@ -748,6 +817,7 @@
     "rest",
     "rest/watch",
     "restmapper",
+    "testing",
     "tools/auth",
     "tools/cache",
     "tools/clientcmd",
@@ -863,22 +933,38 @@
     "github.com/operator-framework/operator-sdk/pkg/sdk",
     "github.com/operator-framework/operator-sdk/pkg/util/k8sutil",
     "github.com/pkg/errors",
+    "github.com/prometheus/common/log",
     "github.com/spf13/cobra",
     "github.com/spf13/pflag",
     "github.com/stretchr/testify/assert",
+    "gopkg.in/check.v1",
     "gopkg.in/yaml.v2",
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
+    "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
+    "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/resource",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
+    "k8s.io/apimachinery/pkg/runtime/serializer",
+    "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/clock",
     "k8s.io/apimachinery/pkg/util/intstr",
+    "k8s.io/apimachinery/pkg/util/yaml",
+    "k8s.io/apimachinery/pkg/watch",
+    "k8s.io/client-go/discovery",
+    "k8s.io/client-go/discovery/fake",
+    "k8s.io/client-go/kubernetes",
+    "k8s.io/client-go/rest",
+    "k8s.io/client-go/testing",
+    "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/record",
+    "k8s.io/client-go/util/flowcontrol",
+    "k8s.io/client-go/util/homedir",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/conversion-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
