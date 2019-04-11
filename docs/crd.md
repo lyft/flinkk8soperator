@@ -23,7 +23,11 @@ Below is the list of fields in the custom resource and their description
 
     * **TaskSlots** `type:int32 required=true`
       Number of task slots per task manager
-
+    
+    * **OffHeapMemoryFraction** `type:float64`
+      A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
+      remaining memory is allocated for heap.
+    
   * **JobManagerConfig** `type:JobManagerConfig`
     Configuration for the Flink job manager
 
@@ -37,6 +41,11 @@ Below is the list of fields in the custom resource and their description
     * **Replicas** `type:int32 required=true`
       Number of job managers for the flink cluster. If multiple job managers are provided, the user has to ensure that
       correct environment variables are set for High availability mode.
+      
+    * **OffHeapMemoryFraction** `type:float64`
+      A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
+      remaining memory is allocated for heap.
+
 
   * **FlinkJob** `type:FlinkJobInfo required=true`
     Information about the Flink Job to be run inside the flink cluster. Currently the operator and the custom resource supports

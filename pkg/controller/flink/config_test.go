@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	coreV1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sort"
 	"strings"
@@ -13,6 +15,7 @@ import (
 func TestRenderFlinkConfigOverrides(t *testing.T) {
 	taskSlots := int32(4)
 	blobPort := int32(1000)
+	offHeapMemoryFrac := 0.5
 
 	yaml, err := renderFlinkConfig(&v1alpha1.FlinkApplication{
 		ObjectMeta: v1.ObjectMeta{
@@ -27,6 +30,10 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 			},
 			TaskManagerConfig: v1alpha1.TaskManagerConfig{
 				TaskSlots: &taskSlots,
+				OffHeapMemoryFraction: &offHeapMemoryFrac,
+			},
+			JobManagerConfig: v1alpha1.JobManagerConfig{
+				OffHeapMemoryFraction: &offHeapMemoryFrac,
 			},
 			BlobPort: &blobPort,
 		},
@@ -45,11 +52,13 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 	expected := []string{
 		"akka.timeout: 5s",
 		fmt.Sprintf("blob.server.port: %d", blobPort),
+		"jobmanager.heap.size: 1536", // defaults
 		"jobmanager.rpc.address: test-app-jm",
 		fmt.Sprintf("jobmanager.rpc.port: %d", RpcDefaultPort),
 		fmt.Sprintf("jobmanager.web.port: %d", UiDefaultPort),
 		fmt.Sprintf("metrics.internal.query-service.port: %d", MetricsQueryDefaultPort),
 		fmt.Sprintf("query.server.port: %d", QueryDefaultPort),
+		"taskmanager.heap.size: 512", // defaults
 		"taskmanager.network.memory.fraction: 0.1",
 		"taskmanager.network.request-backoff.max: 5000",
 		fmt.Sprintf("taskmanager.numberOfTaskSlots: %d", taskSlots),
@@ -80,3 +89,104 @@ func TestGetJobManagerReplicasNonZero(t *testing.T) {
 	app1.Spec.JobManagerConfig.Replicas = &replicas
 	assert.Equal(t, int32(4), getJobmanagerReplicas(&app1))
 }
+
+func TestGetTaskManagerMemory(t *testing.T)  {
+	app :=  v1alpha1.FlinkApplication{}
+	tmResources := coreV1.ResourceRequirements{
+	Requests: coreV1.ResourceList{
+		coreV1.ResourceCPU:    resource.MustParse("2"),
+		coreV1.ResourceMemory: resource.MustParse("1Mi"),
+	},
+	Limits: coreV1.ResourceList{
+		coreV1.ResourceCPU:    resource.MustParse("2"),
+		coreV1.ResourceMemory: resource.MustParse("1Mi"),
+	},
+	}
+	expectedResource := resource.MustParse("1Mi")
+	expectedValue, _ := expectedResource.AsInt64()
+	app.Spec.TaskManagerConfig.Resources = &tmResources
+	assert.Equal(t, expectedValue, getTaskManagerMemory( &app))
+}
+
+func TestGetJobManagerMemory(t *testing.T)  {
+	app :=  v1alpha1.FlinkApplication{}
+	tmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
+	}
+	expectedResource := resource.MustParse("1Mi")
+	expectedValue, _ := expectedResource.AsInt64()
+	app.Spec.JobManagerConfig.Resources = &tmResources
+	assert.Equal(t, expectedValue, getJobManagerMemory( &app))
+}
+
+func TestGetTaskManagerHeapMemory(t *testing.T) {
+	app :=  v1alpha1.FlinkApplication{}
+	tmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
+	}
+	offHeapMemoryFraction := float64(0.5)
+	app.Spec.TaskManagerConfig.Resources = &tmResources
+	app.Spec.TaskManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
+
+	tmMemory := float64(getTaskManagerMemory(&app))
+	expectedtmHeapMemoryMB := (tmMemory  - tmMemory * offHeapMemoryFraction) / (1024 * 1024)
+	assert.Equal(t, expectedtmHeapMemoryMB, getTaskManagerHeapMemory(&app))
+}
+
+func TestGetJobManagerHeapMemory(t *testing.T) {
+	app :=  v1alpha1.FlinkApplication{}
+	jmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
+	}
+	offHeapMemoryFraction := float64(0.5)
+	app.Spec.JobManagerConfig.Resources = &jmResources
+	app.Spec.JobManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
+
+	jmMemory := float64(getJobManagerMemory(&app))
+	expectedjmHeapMemoryMB := (jmMemory  - jmMemory * offHeapMemoryFraction) / (1024 * 1024)
+	assert.Equal(t, expectedjmHeapMemoryMB, getJobManagerHeapMemory(&app))
+}
+
+func TestInvalidMemoryFraction(t *testing.T) {
+	app :=  v1alpha1.FlinkApplication{}
+	jmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
+	}
+	offHeapMemoryFraction := float64(1.5)
+	app.Spec.JobManagerConfig.Resources = &jmResources
+	app.Spec.JobManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
+
+	jmMemory := float64(getJobManagerMemory(&app))
+	expectedjmHeapMemoryMB := (jmMemory  - jmMemory * OffHeapMemoryDefaultFraction) / (1024 * 1024)
+	assert.Equal(t, expectedjmHeapMemoryMB, getJobManagerHeapMemory(&app))
+
+}
+

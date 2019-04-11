@@ -95,15 +95,18 @@ type FlinkJobInfo struct {
 }
 
 type JobManagerConfig struct {
-	Resources   *v1.ResourceRequirements `json:"resources,omitempty"`
-	Environment EnvironmentConfig        `json:"envConfig"`
-	Replicas    *int32                   `json:"replicas,omitempty"`
+	Resources             *v1.ResourceRequirements `json:"resources,omitempty"`
+	Environment           EnvironmentConfig        `json:"envConfig"`
+	Replicas              *int32                   `json:"replicas,omitempty"`
+	OffHeapMemoryFraction *float64                 `json:"offHeapMemoryFraction,omitempty"`
 }
 
 type TaskManagerConfig struct {
-	Resources   *v1.ResourceRequirements `json:"resources,omitempty"`
-	Environment EnvironmentConfig        `json:"envConfig"`
-	TaskSlots   *int32                   `json:"taskSlots,omitempty"`
+	Resources             *v1.ResourceRequirements `json:"resources,omitempty"`
+	Environment           EnvironmentConfig        `json:"envConfig"`
+	TaskSlots             *int32                   `json:"taskSlots,omitempty"`
+	OffHeapMemoryFraction *float64                 `json:"offHeapMemoryFraction,omitempty"`
+
 }
 
 type EnvironmentConfig struct {
