@@ -460,17 +460,10 @@ func TestHandleApplicationUpdatingParallelismChanged(t *testing.T) {
 	triggerId := "t1"
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.MockFlinkController)
-	mockFlinkController.IsClusterChangeNeededFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-		return false, nil
-	}
 
 	mockFlinkController.CreateClusterFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 		assert.False(t, true)
 		return nil
-	}
-
-	mockFlinkController.CheckAndUpdateClusterResourcesFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-		return false, nil
 	}
 
 	mockFlinkController.HasApplicationChangedFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
@@ -503,9 +496,6 @@ func TestHandleApplicationUpdatingTakManagerUpdate(t *testing.T) {
 	updateInvoked := false
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.MockFlinkController)
-	mockFlinkController.IsClusterChangeNeededFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-		return false, nil
-	}
 
 	mockFlinkController.HasApplicationChangedFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 		return true, nil

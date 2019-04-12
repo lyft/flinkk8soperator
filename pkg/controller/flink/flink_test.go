@@ -2,24 +2,23 @@ package flink
 
 import (
 	"context"
-	"testing"
-
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	clientMock "github.com/lyft/flinkk8soperator/pkg/controller/flink/client/mock"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/mock"
 	k8mock "github.com/lyft/flinkk8soperator/pkg/controller/k8/mock"
 	mockScope "github.com/lyft/flytestdlib/promutils"
-	"github.com/stretchr/testify/assert"
-	"k8s.io/api/apps/v1"
-
-	"github.com/lyft/flinkk8soperator/pkg/controller/common"
-	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"testing"
 )
 
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
-const testImageKey = "11ae1"
+const testAppHash = "79f298cd"
 const testAppName = "app-name"
 const testNamespace = "ns"
 const testJobId = "j1"
@@ -38,6 +37,7 @@ func getTestFlinkController() FlinkController {
 
 func getFlinkTestApp() v1alpha1.FlinkApplication {
 	app := v1alpha1.FlinkApplication{}
+	app.Spec.FlinkJob.Parallelism = 8
 	app.Name = testAppName
 	app.Namespace = testNamespace
 	app.Status.JobId = testJobId
@@ -46,10 +46,33 @@ func getFlinkTestApp() v1alpha1.FlinkApplication {
 	return app
 }
 
+func getDeployment(app *v1alpha1.FlinkApplication) v1.Deployment {
+	d := v1.Deployment{}
+	d.Name = app.Name + "-" + testAppHash + "-tm"
+	d.Spec = v1.DeploymentSpec{
+		Template: corev1.PodTemplateSpec{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Image: app.Spec.Image,
+					},
+				},
+			},
+		},
+	}
+	d.Labels = map[string]string{
+		"flink-deployment-type": "taskmanager",
+		"app":                   testAppName,
+		"flink-app-hash":        testAppHash,
+	}
+
+	return d
+}
+
 func TestFlinkIsClusterReady(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	labelMapVal := map[string]string{
-		"imageKey": testImageKey,
+		"flink-app-hash": testAppHash,
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.IsAllPodsRunningFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
@@ -57,6 +80,7 @@ func TestFlinkIsClusterReady(t *testing.T) {
 		assert.Equal(t, labelMapVal, labelMap)
 		return true, nil
 	}
+
 	flinkApp := getFlinkTestApp()
 	result, err := flinkControllerForTest.IsClusterReady(
 		context.Background(), &flinkApp,
@@ -65,56 +89,63 @@ func TestFlinkIsClusterReady(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestFlinkIsClusterChangeNeeded(t *testing.T) {
+func TestFlinkApplicationChangedReplicas(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	labelMapVal := map[string]string{
-		"imageKey": testImageKey,
+		"app": testAppName,
 	}
+
+	flinkApp := getFlinkTestApp()
+	taskSlots := int32(16)
+	flinkApp.Spec.TaskManagerConfig.TaskSlots = &taskSlots
+	flinkApp.Spec.FlinkJob.Parallelism = 8
+
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
+
+		newApp := flinkApp.DeepCopy()
+		newApp.Spec.FlinkJob.Parallelism = 10
+		d := *FetchTaskMangerDeploymentCreateObj(newApp)
+
 		return &v1.DeploymentList{
-			Items: []v1.Deployment{
-				{
-					Status: v1.DeploymentStatus{
-						Replicas: 2,
-					},
-				},
-			},
+			Items: []v1.Deployment{d},
 		}, nil
 	}
-	flinkApp := getFlinkTestApp()
-	result, err := flinkControllerForTest.IsClusterChangeNeeded(
-		context.Background(), &flinkApp,
-	)
-	assert.False(t, result)
-	assert.Nil(t, err)
-}
 
-func TestFlinkIsClusterChangeNotNeeded(t *testing.T) {
-	flinkControllerForTest := getTestFlinkController()
-	labelMapVal := map[string]string{
-		"imageKey": testImageKey,
-	}
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		assert.Equal(t, testNamespace, namespace)
-		assert.Equal(t, labelMapVal, labelMap)
-		return &v1.DeploymentList{}, nil
-	}
-	flinkApp := getFlinkTestApp()
-	result, err := flinkControllerForTest.IsClusterChangeNeeded(
+	result, err := flinkControllerForTest.HasApplicationChanged(
 		context.Background(), &flinkApp,
 	)
 	assert.True(t, result)
 	assert.Nil(t, err)
 }
 
+func TestFlinkApplicationNotChanged(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	labelMapVal := map[string]string{
+		"app": testAppName,
+	}
+	flinkApp := getFlinkTestApp()
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
+		assert.Equal(t, testNamespace, namespace)
+		assert.Equal(t, labelMapVal, labelMap)
+		return &v1.DeploymentList{
+			Items: []v1.Deployment{*FetchTaskMangerDeploymentCreateObj(&flinkApp)},
+		}, nil
+	}
+	result, err := flinkControllerForTest.HasApplicationChanged(
+		context.Background(), &flinkApp,
+	)
+	assert.False(t, result)
+	assert.Nil(t, err)
+}
+
 func TestFlinkApplicationChanged(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	labelMapVal := map[string]string{
-		"imageKey": testImageKey,
+		"app": testAppName,
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
@@ -130,14 +161,44 @@ func TestFlinkApplicationChanged(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestFlinkApplicationNeededNeedUpdate(t *testing.T) {
+func TestFlinkApplicationChangedParallelism(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	flinkApp := getFlinkTestApp()
+
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
+		assert.Equal(t, testNamespace, namespace)
+		if val, ok := labelMap["flink-app-hash"]; ok {
+			assert.Equal(t, testAppHash, val)
+		}
+		if val, ok := labelMap["App"]; ok {
+			assert.Equal(t, testAppName, val)
+		}
+		deployment := getDeployment(&flinkApp)
+		deployment.Name = testAppName + "-" + testAppHash + "-tm"
+		return &v1.DeploymentList{
+			Items: []v1.Deployment{
+				deployment,
+			},
+		}, nil
+	}
+
+	flinkApp.Spec.FlinkJob.Parallelism = 3
+	result, err := flinkControllerForTest.HasApplicationChanged(
+		context.Background(), &flinkApp,
+	)
+	assert.True(t, result)
+	assert.Nil(t, err)
+}
+
+func TestFlinkApplicationNeedsUpdate(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	numberOfTaskManagers := int32(2)
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
-		if val, ok := labelMap["imageKey"]; ok {
-			assert.Equal(t, testImageKey, val)
+		if val, ok := labelMap["flink-app-hash"]; ok {
+			assert.Equal(t, testAppHash, val)
 		}
 		if val, ok := labelMap["App"]; ok {
 			assert.Equal(t, testAppName, val)
@@ -147,7 +208,7 @@ func TestFlinkApplicationNeededNeedUpdate(t *testing.T) {
 				Replicas: &numberOfTaskManagers,
 			},
 		}
-		deployment.Name = testAppName + "-" + testImageKey + "-tm"
+		deployment.Name = testAppName + "-" + testAppHash + "-tm"
 		return &v1.DeploymentList{
 			Items: []v1.Deployment{
 				deployment,
@@ -163,61 +224,6 @@ func TestFlinkApplicationNeededNeedUpdate(t *testing.T) {
 	)
 	assert.True(t, result)
 	assert.Nil(t, err)
-}
-
-func TestFlinkApplicationParallelismChanged(t *testing.T) {
-	taskSlots := int32(1)
-	flinkControllerForTest := getTestFlinkController()
-	mockJMClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockJMClient.GetJobConfigFunc = func(ctx context.Context, url string, jobId string) (*client.JobConfigResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
-		assert.Equal(t, jobId, testJobId)
-
-		return &client.JobConfigResponse{
-			ExecutionConfig: client.JobExecutionConfig{
-				Parallelism: 3,
-			},
-		}, nil
-	}
-	flinkApp := getFlinkTestApp()
-	flinkApp.Spec.FlinkJob.Parallelism = 2
-	flinkApp.Spec.TaskManagerConfig.TaskSlots = &taskSlots
-
-	result, err := flinkControllerForTest.HasApplicationJobChanged(
-		context.Background(), &flinkApp,
-	)
-	assert.True(t, result)
-	assert.Nil(t, err)
-}
-
-func TestFlinkApplicationJobConfigErr(t *testing.T) {
-	flinkControllerForTest := getTestFlinkController()
-	flinkApp := getFlinkTestApp()
-
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		deployment := v1.Deployment{}
-		deployment.Name = getJobManagerName(&flinkApp)
-		replicas := int32(1)
-		deployment.Spec.Replicas = &replicas
-		return &v1.DeploymentList{
-			Items: []v1.Deployment{
-				deployment,
-			},
-		}, nil
-	}
-
-	mockJMClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockJMClient.GetJobConfigFunc = func(ctx context.Context, url string, jobId string) (*client.JobConfigResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
-		assert.Equal(t, jobId, testJobId)
-		return nil, errors.New("JobConfig Failure")
-	}
-	result, err := flinkControllerForTest.HasApplicationChanged(
-		context.Background(), &flinkApp,
-	)
-	assert.False(t, result)
-	assert.EqualError(t, err, "JobConfig Failure")
 }
 
 func TestFlinkIsServiceReady(t *testing.T) {
@@ -321,75 +327,16 @@ func TestGetActiveJobEmpty(t *testing.T) {
 	assert.Nil(t, activeJob)
 }
 
-func TestIsMultipleClusterPresentTrue(t *testing.T) {
-	flinkControllerForTest := getTestFlinkController()
-	flinkApp := getFlinkTestApp()
-	labelMapVal := map[string]string{
-		"app": testAppName,
-	}
-
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		assert.Equal(t, testNamespace, namespace)
-		assert.Equal(t, labelMapVal, labelMap)
-
-		d1 := v1.Deployment{}
-		d1.Labels = labelMapVal
-		d2 := v1.Deployment{}
-		d2.Labels = map[string]string{
-			"imageKey": testImageKey,
-		}
-		return &v1.DeploymentList{
-			Items: []v1.Deployment{
-				d1, d2,
-			},
-		}, nil
-	}
-	isPresent, err := flinkControllerForTest.IsMultipleClusterPresent(context.Background(), &flinkApp)
-	assert.Nil(t, err)
-	assert.True(t, isPresent)
-}
-
-func TestIsMultipleClusterPresentFalse(t *testing.T) {
-	flinkControllerForTest := getTestFlinkController()
-	flinkApp := getFlinkTestApp()
-	labelMapVal := map[string]string{
-		"app": testAppName,
-	}
-
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		assert.Equal(t, testNamespace, namespace)
-		assert.Equal(t, labelMapVal, labelMap)
-
-		d := v1.Deployment{}
-		d.Labels = labelMapVal
-		return &v1.DeploymentList{
-			Items: []v1.Deployment{
-				d, d,
-			},
-		}, nil
-	}
-	isPresent, err := flinkControllerForTest.IsMultipleClusterPresent(context.Background(), &flinkApp)
-	assert.Nil(t, err)
-	assert.False(t, isPresent)
-}
-
 func TestDeleteOldCluster(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 	labelMapVal := map[string]string{
 		"app": testAppName,
 	}
-	d1 := v1.Deployment{}
-	d1.Labels = map[string]string{
-		"app":      testAppName,
-		"imageKey": testImageKey,
-	}
-	d2 := v1.Deployment{}
+	d1 := *FetchTaskMangerDeploymentCreateObj(&flinkApp)
+	d2 := *FetchTaskMangerDeploymentCreateObj(&flinkApp)
 	d2.Labels = map[string]string{
-		"app":      testAppName,
-		"imageKey": testImageKey + "3",
+		"flink-app-hash": testAppHash + "3",
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
@@ -421,9 +368,7 @@ func TestDeleteOldClusterNoOldDeployment(t *testing.T) {
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
-		d1 := v1.Deployment{}
-		d1.Labels = labelMapVal
-		d1.Labels["imageKey"] = testImageKey
+		d1 := *FetchTaskMangerDeploymentCreateObj(&flinkApp)
 
 		return &v1.DeploymentList{Items: []v1.Deployment{
 			d1,

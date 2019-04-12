@@ -1,8 +1,6 @@
 package common
 
 import (
-	"regexp"
-
 	"github.com/lyft/flytestdlib/contextutils"
 )
 
@@ -38,16 +36,4 @@ func CopyMap(to map[string]string, from map[string]string) map[string]string {
 		to[k] = v
 	}
 	return to
-}
-
-var urlRegex = regexp.MustCompile(`^(?:([^/]+)/)?(?:([^/]+)/)?([^@:/]+)(?:[@:](.+))?$`)
-
-// Gets the repository part of the container image url
-func ContainerImageTag(containerImage string) string {
-	parts := urlRegex.FindAllStringSubmatch(containerImage, -1)
-	if len(parts) > 0 && len(parts[0]) > 3 {
-		return parts[0][4]
-	}
-
-	return ""
 }

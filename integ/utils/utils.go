@@ -31,9 +31,10 @@ type TestUtil struct {
 	ApiExtensionsClient    apiextensionsClientset.Interface
 	Namespace              *v1.Namespace
 	Image                  string
+	CheckpointDir          string
 }
 
-func New(namespaceName string, kubeconfig string, image string) (*TestUtil, error) {
+func New(namespaceName string, kubeconfig string, image string, checkpointDir string) (*TestUtil, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
@@ -77,6 +78,7 @@ func New(namespaceName string, kubeconfig string, image string) (*TestUtil, erro
 		ApiExtensionsClient:    apiextensionsClient,
 		Namespace:              namespace,
 		Image:                  image,
+		CheckpointDir:          checkpointDir,
 	}, nil
 }
 
@@ -310,7 +312,7 @@ func (f *TestUtil) TailOperatorLogs() error {
 	return nil
 }
 
-func ReadFlinkApplication(path string) (*v1alpha1.FlinkApplication, error) {
+func (f *TestUtil) ReadFlinkApplication(path string) (*v1alpha1.FlinkApplication, error) {
 	file, err := getFile(path)
 	if err != nil {
 		return nil, err
@@ -321,6 +323,8 @@ func ReadFlinkApplication(path string) (*v1alpha1.FlinkApplication, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	app.Spec.Volumes[0].HostPath.Path = f.CheckpointDir
 
 	return &app, nil
 }
@@ -360,12 +364,12 @@ func (f *TestUtil) WaitForPhase(name string, phase v1alpha1.FlinkApplicationPhas
 	}
 }
 
-func (f *TestUtil) FlinkApiGet(app *v1alpha1.FlinkApplication, endpoint string) (map[string]interface{}, error) {
+func (f *TestUtil) FlinkApiGet(app *v1alpha1.FlinkApplication, endpoint string) (interface{}, error) {
 	url := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/"+
 		"services/%s-jm:8081/proxy/%s",
 		f.Namespace.Name, app.Name, endpoint)
 
-	resp, err := resty.R().Get(url)
+	resp, err := resty.SetRedirectPolicy(resty.FlexibleRedirectPolicy(5)).R().Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +378,7 @@ func (f *TestUtil) FlinkApiGet(app *v1alpha1.FlinkApplication, endpoint string) 
 		return nil, errors.New(fmt.Sprintf("request failed with code %d", resp.StatusCode()))
 	}
 
-	var result map[string]interface{}
+	var result interface{}
 	err = json.Unmarshal(resp.Body(), &result)
 	if err != nil {
 		return nil, err
@@ -391,11 +395,12 @@ func (f *TestUtil) WaitForAllTasksInState(name string, state string) error {
 
 	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.JobId)
 	for {
-		body, err := f.FlinkApiGet(flinkApp, endpoint)
+		res, err := f.FlinkApiGet(flinkApp, endpoint)
 		if err != nil {
 			return err
 		}
 
+		body := res.(map[string]interface{})
 		vertices := body["vertices"].([]interface{})
 
 		var allRunning = true
@@ -409,6 +414,10 @@ func (f *TestUtil) WaitForAllTasksInState(name string, state string) error {
 
 		time.Sleep(100 * time.Millisecond)
 	}
+
+	// wait a little bit longer, as sometimes the flink api reports tasks as running
+	// just before they actually are
+	time.Sleep(5 * time.Second)
 
 	return nil
 }

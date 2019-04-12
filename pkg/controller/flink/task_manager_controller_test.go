@@ -38,18 +38,18 @@ func TestComputeTaskManagerReplicas(t *testing.T) {
 
 func TestGetTaskManagerName(t *testing.T) {
 	app := getFlinkTestApp()
-	assert.Equal(t, "app-name-11ae1-tm", getTaskManagerName(app))
+	assert.Equal(t, "app-name-"+testAppHash+"-tm", getTaskManagerName(&app, testAppHash))
 }
 
 func TestGetTaskManagerPodName(t *testing.T) {
 	app := getFlinkTestApp()
-	assert.Equal(t, "app-name-11ae1-tm-pod", getTaskManagerPodName(app))
+	assert.Equal(t, "app-name-"+testAppHash+"-tm-pod", getTaskManagerPodName(&app, testAppHash))
 }
 
 func TestGetTaskManagerDeployment(t *testing.T) {
 	app := getFlinkTestApp()
 	deployment := v1.Deployment{}
-	deployment.Name = getTaskManagerName(app)
+	deployment.Name = getTaskManagerName(&app, testAppHash)
 	deployments := []v1.Deployment{
 		deployment,
 	}
@@ -59,7 +59,7 @@ func TestGetTaskManagerDeployment(t *testing.T) {
 func TestGetTaskManagerReplicaCount(t *testing.T) {
 	app := getFlinkTestApp()
 	deployment := v1.Deployment{}
-	deployment.Name = getTaskManagerName(app)
+	deployment.Name = getTaskManagerName(&app, testAppHash)
 	replicaCount := int32(2)
 	deployment.Spec.Replicas = &replicaCount
 	deployments := []v1.Deployment{
@@ -71,20 +71,23 @@ func TestGetTaskManagerReplicaCount(t *testing.T) {
 func TestTaskManagerCreateSuccess(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
+	hash := "84018cf1"
 	annotations := map[string]string{
-		"key": "annotation",
+		"key":                   "annotation",
+		"flink-app-parallelism": "8",
 	}
 	app.Annotations = annotations
 	expectedLabels := map[string]string{
-		"app":      "app-name",
-		"imageKey": "11ae1",
+		"app":                   "app-name",
+		"flink-app-hash":        hash,
+		"flink-deployment-type": "taskmanager",
 	}
 	mockK8Cluster := testController.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
 		deployment := object.(*v1.Deployment)
-		assert.Equal(t, getTaskManagerName(app), deployment.Name)
+		assert.Equal(t, getTaskManagerName(&app, hash), deployment.Name)
 		assert.Equal(t, app.Namespace, deployment.Namespace)
-		assert.Equal(t, getTaskManagerPodName(app), deployment.Spec.Template.Name)
+		assert.Equal(t, getTaskManagerPodName(&app, hash), deployment.Spec.Template.Name)
 		assert.Equal(t, annotations, deployment.Annotations)
 		assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)

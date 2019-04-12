@@ -30,18 +30,18 @@ func getJMControllerForTest() FlinkJobManagerController {
 
 func TestGetJobManagerName(t *testing.T) {
 	app := getFlinkTestApp()
-	assert.Equal(t, "app-name-11ae1-jm", getJobManagerName(&app))
+	assert.Equal(t, "app-name-"+testAppHash+"-jm", getJobManagerName(&app, testAppHash))
 }
 
 func TestGetJobManagerPodName(t *testing.T) {
 	app := getFlinkTestApp()
-	assert.Equal(t, "app-name-11ae1-jm-pod", getJobManagerPodName(&app))
+	assert.Equal(t, "app-name-"+testAppHash+"-jm-pod", getJobManagerPodName(&app, testAppHash))
 }
 
 func TestGetJobManagerDeployment(t *testing.T) {
 	app := getFlinkTestApp()
 	deployment := v1.Deployment{}
-	deployment.Name = getJobManagerName(&app)
+	deployment.Name = getJobManagerName(&app, testAppHash)
 	deployments := []v1.Deployment{
 		deployment,
 	}
@@ -51,7 +51,7 @@ func TestGetJobManagerDeployment(t *testing.T) {
 func TestGetJobManagerReplicaCount(t *testing.T) {
 	app := getFlinkTestApp()
 	deployment := v1.Deployment{}
-	deployment.Name = getJobManagerName(&app)
+	deployment.Name = getJobManagerName(&app, HashForApplication(&app))
 	replicaCount := int32(2)
 	deployment.Spec.Replicas = &replicaCount
 	deployments := []v1.Deployment{
@@ -64,12 +64,15 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	annotations := map[string]string{
-		"key": "annotation",
+		"key":                   "annotation",
+		"flink-app-parallelism": "8",
 	}
 	app.Annotations = annotations
+	hash := "84018cf1"
 	expectedLabels := map[string]string{
-		"app":      "app-name",
-		"imageKey": "11ae1",
+		"app":                   "app-name",
+		"flink-app-hash":        hash,
+		"flink-deployment-type": "jobmanager",
 	}
 	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.MockK8Cluster)
@@ -78,9 +81,9 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		switch ctr {
 		case 1:
 			deployment := object.(*v1.Deployment)
-			assert.Equal(t, getJobManagerName(&app), deployment.Name)
+			assert.Equal(t, getJobManagerName(&app, hash), deployment.Name)
 			assert.Equal(t, app.Namespace, deployment.Namespace)
-			assert.Equal(t, getJobManagerPodName(&app), deployment.Spec.Template.Name)
+			assert.Equal(t, getJobManagerPodName(&app, hash), deployment.Spec.Template.Name)
 			assert.Equal(t, annotations, deployment.Annotations)
 			assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)

@@ -106,7 +106,6 @@ type TaskManagerConfig struct {
 	Environment           EnvironmentConfig        `json:"envConfig"`
 	TaskSlots             *int32                   `json:"taskSlots,omitempty"`
 	OffHeapMemoryFraction *float64                 `json:"offHeapMemoryFraction,omitempty"`
-
 }
 
 type EnvironmentConfig struct {

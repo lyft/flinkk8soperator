@@ -16,10 +16,6 @@ type GetSavepointStatusFunc func(ctx context.Context, application *v1alpha1.Flin
 type IsClusterReadyFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type IsServiceReadyFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type HasApplicationChangedFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-type IsClusterChangeNeededFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-type IsClusterUpdateNeededFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-type CheckAndUpdateClusterResourcesFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-type HasApplicationJobChangedFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type GetJobsForApplicationFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error)
 type GetCurrentAndOldDeploymentsForAppFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error)
 
@@ -32,10 +28,6 @@ type MockFlinkController struct {
 	IsClusterReadyFunc                    IsClusterReadyFunc
 	IsServiceReadyFunc                    IsServiceReadyFunc
 	HasApplicationChangedFunc             HasApplicationChangedFunc
-	IsClusterChangeNeededFunc             IsClusterChangeNeededFunc
-	IsClusterUpdateNeededFunc             IsClusterUpdateNeededFunc
-	CheckAndUpdateClusterResourcesFunc    CheckAndUpdateClusterResourcesFunc
-	HasApplicationJobChangedFunc          HasApplicationJobChangedFunc
 	GetJobsForApplicationFunc             GetJobsForApplicationFunc
 	GetCurrentAndOldDeploymentsForAppFunc GetCurrentAndOldDeploymentsForAppFunc
 }
@@ -99,34 +91,6 @@ func (m *MockFlinkController) IsServiceReady(ctx context.Context, application *v
 func (m *MockFlinkController) HasApplicationChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	if m.HasApplicationChangedFunc != nil {
 		return m.HasApplicationChangedFunc(ctx, application)
-	}
-	return false, nil
-}
-
-func (m *MockFlinkController) IsClusterChangeNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	if m.IsClusterChangeNeededFunc != nil {
-		return m.IsClusterChangeNeededFunc(ctx, application)
-	}
-	return false, nil
-}
-
-func (m *MockFlinkController) IsClusterUpdateNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	if m.IsClusterUpdateNeededFunc != nil {
-		return m.IsClusterUpdateNeededFunc(ctx, application)
-	}
-	return false, nil
-}
-
-func (m *MockFlinkController) CheckAndUpdateClusterResources(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	if m.CheckAndUpdateClusterResourcesFunc != nil {
-		return m.CheckAndUpdateClusterResourcesFunc(ctx, application)
-	}
-	return false, nil
-}
-
-func (m *MockFlinkController) HasApplicationJobChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	if m.HasApplicationJobChangedFunc != nil {
-		return m.HasApplicationJobChangedFunc(ctx, application)
 	}
 	return false, nil
 }

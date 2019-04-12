@@ -29,7 +29,7 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 				"jobmanager.rpc.address":                  "wrong-address",
 			},
 			TaskManagerConfig: v1alpha1.TaskManagerConfig{
-				TaskSlots: &taskSlots,
+				TaskSlots:             &taskSlots,
 				OffHeapMemoryFraction: &offHeapMemoryFrac,
 			},
 			JobManagerConfig: v1alpha1.JobManagerConfig{
@@ -90,26 +90,26 @@ func TestGetJobManagerReplicasNonZero(t *testing.T) {
 	assert.Equal(t, int32(4), getJobmanagerReplicas(&app1))
 }
 
-func TestGetTaskManagerMemory(t *testing.T)  {
-	app :=  v1alpha1.FlinkApplication{}
+func TestGetTaskManagerMemory(t *testing.T) {
+	app := v1alpha1.FlinkApplication{}
 	tmResources := coreV1.ResourceRequirements{
-	Requests: coreV1.ResourceList{
-		coreV1.ResourceCPU:    resource.MustParse("2"),
-		coreV1.ResourceMemory: resource.MustParse("1Mi"),
-	},
-	Limits: coreV1.ResourceList{
-		coreV1.ResourceCPU:    resource.MustParse("2"),
-		coreV1.ResourceMemory: resource.MustParse("1Mi"),
-	},
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Mi"),
+		},
 	}
 	expectedResource := resource.MustParse("1Mi")
 	expectedValue, _ := expectedResource.AsInt64()
 	app.Spec.TaskManagerConfig.Resources = &tmResources
-	assert.Equal(t, expectedValue, getTaskManagerMemory( &app))
+	assert.Equal(t, expectedValue, getTaskManagerMemory(&app))
 }
 
-func TestGetJobManagerMemory(t *testing.T)  {
-	app :=  v1alpha1.FlinkApplication{}
+func TestGetJobManagerMemory(t *testing.T) {
+	app := v1alpha1.FlinkApplication{}
 	tmResources := coreV1.ResourceRequirements{
 		Requests: coreV1.ResourceList{
 			coreV1.ResourceCPU:    resource.MustParse("2"),
@@ -123,11 +123,11 @@ func TestGetJobManagerMemory(t *testing.T)  {
 	expectedResource := resource.MustParse("1Mi")
 	expectedValue, _ := expectedResource.AsInt64()
 	app.Spec.JobManagerConfig.Resources = &tmResources
-	assert.Equal(t, expectedValue, getJobManagerMemory( &app))
+	assert.Equal(t, expectedValue, getJobManagerMemory(&app))
 }
 
 func TestGetTaskManagerHeapMemory(t *testing.T) {
-	app :=  v1alpha1.FlinkApplication{}
+	app := v1alpha1.FlinkApplication{}
 	tmResources := coreV1.ResourceRequirements{
 		Requests: coreV1.ResourceList{
 			coreV1.ResourceCPU:    resource.MustParse("2"),
@@ -143,12 +143,12 @@ func TestGetTaskManagerHeapMemory(t *testing.T) {
 	app.Spec.TaskManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
 	tmMemory := float64(getTaskManagerMemory(&app))
-	expectedtmHeapMemoryMB := (tmMemory  - tmMemory * offHeapMemoryFraction) / (1024 * 1024)
+	expectedtmHeapMemoryMB := (tmMemory - tmMemory*offHeapMemoryFraction) / (1024 * 1024)
 	assert.Equal(t, expectedtmHeapMemoryMB, getTaskManagerHeapMemory(&app))
 }
 
 func TestGetJobManagerHeapMemory(t *testing.T) {
-	app :=  v1alpha1.FlinkApplication{}
+	app := v1alpha1.FlinkApplication{}
 	jmResources := coreV1.ResourceRequirements{
 		Requests: coreV1.ResourceList{
 			coreV1.ResourceCPU:    resource.MustParse("2"),
@@ -164,12 +164,12 @@ func TestGetJobManagerHeapMemory(t *testing.T) {
 	app.Spec.JobManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
 	jmMemory := float64(getJobManagerMemory(&app))
-	expectedjmHeapMemoryMB := (jmMemory  - jmMemory * offHeapMemoryFraction) / (1024 * 1024)
+	expectedjmHeapMemoryMB := (jmMemory - jmMemory*offHeapMemoryFraction) / (1024 * 1024)
 	assert.Equal(t, expectedjmHeapMemoryMB, getJobManagerHeapMemory(&app))
 }
 
 func TestInvalidMemoryFraction(t *testing.T) {
-	app :=  v1alpha1.FlinkApplication{}
+	app := v1alpha1.FlinkApplication{}
 	jmResources := coreV1.ResourceRequirements{
 		Requests: coreV1.ResourceList{
 			coreV1.ResourceCPU:    resource.MustParse("2"),
@@ -185,8 +185,7 @@ func TestInvalidMemoryFraction(t *testing.T) {
 	app.Spec.JobManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
 	jmMemory := float64(getJobManagerMemory(&app))
-	expectedjmHeapMemoryMB := (jmMemory  - jmMemory * OffHeapMemoryDefaultFraction) / (1024 * 1024)
+	expectedjmHeapMemoryMB := (jmMemory - jmMemory*OffHeapMemoryDefaultFraction) / (1024 * 1024)
 	assert.Equal(t, expectedjmHeapMemoryMB, getJobManagerHeapMemory(&app))
 
 }
-

@@ -23,10 +23,10 @@ import (
 
 	"time"
 
+	"github.com/lyft/flytestdlib/profutils"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/pkg/errors"
-	"github.com/lyft/flytestdlib/profutils"
 )
 
 const (
@@ -109,7 +109,7 @@ func executeRootCmd(cfg *controller_config.Config) {
 	resource := v1alpha1.SchemeGroupVersion.String()
 	kind := v1alpha1.FlinkApplicationKind
 
-	logger.Infof(ctx, "Stalesness Duration %v", cfg.StatemachineStalenessDuration)
+	logger.Infof(ctx, "Staleness Duration %v", cfg.StatemachineStalenessDuration)
 
 	if cfg.MetricsPrefix == "" {
 		logAndExit(errors.New("Invalid config: Metric prefix empty"))

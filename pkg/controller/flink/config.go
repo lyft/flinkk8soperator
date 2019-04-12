@@ -81,21 +81,22 @@ func getJobManagerMemory(application *v1alpha1.FlinkApplication) int64 {
 	return jmMemory
 }
 
-func getTaskManagerHeapMemory(app *v1alpha1.FlinkApplication) float64  {
-	offHeapMemoryFrac := getValidFraction( app.Spec.TaskManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
+func getTaskManagerHeapMemory(app *v1alpha1.FlinkApplication) float64 {
+	offHeapMemoryFrac := getValidFraction(app.Spec.TaskManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
 	tmMemory := float64(getTaskManagerMemory(app))
 	heapMemoryBytes := tmMemory - (tmMemory * offHeapMemoryFrac)
 	heapMemoryMB := heapMemoryBytes / (1024 * 1024)
 	return heapMemoryMB
 }
 
-func getJobManagerHeapMemory(app *v1alpha1.FlinkApplication) float64  {
+func getJobManagerHeapMemory(app *v1alpha1.FlinkApplication) float64 {
 	offHeapMemoryFrac := getValidFraction(app.Spec.JobManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
 	jmMemory := float64(getJobManagerMemory(app))
 	heapMemoryBytes := jmMemory - (jmMemory * offHeapMemoryFrac)
 	heapMemoryMB := heapMemoryBytes / (1024 * 1024)
 	return heapMemoryMB
 }
+
 // Renders the flink configuration overrides stored in FlinkApplication.FlinkConfig into a
 // YAML string suitable for interpolating into flink-conf.yaml.
 func renderFlinkConfig(app *v1alpha1.FlinkApplication) (string, error) {

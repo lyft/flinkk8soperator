@@ -28,7 +28,7 @@ func (m *MockK8Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace s
 	return nil, nil
 }
 
-func (m *MockK8Cluster) IsAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
+func (m *MockK8Cluster) AreAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
 	if m.IsAllPodsRunningFunc != nil {
 		return m.IsAllPodsRunningFunc(ctx, namespace, labelMap)
 	}

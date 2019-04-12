@@ -2,7 +2,6 @@ package integ
 
 import (
 	"fmt"
-	integFramework "github.com/lyft/flinkk8soperator/integ/utils"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
@@ -14,7 +13,7 @@ import (
 
 func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	// create a Flink app
-	config, err := integFramework.ReadFlinkApplication("test_app.yaml")
+	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 	config.Name = testName + "job"
 
@@ -69,7 +68,7 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 // Tests that we correctly handle updating a job with task failures
 func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 	failingJobTest(s, c, "taskfailure", func() {
-		f, err := os.OpenFile("/tmp/checkpoints/fail", os.O_RDONLY|os.O_CREATE, 0666)
+		f, err := os.OpenFile(s.Util.CheckpointDir+"/fail", os.O_RDONLY|os.O_CREATE, 0666)
 		c.Assert(err, IsNil)
 		c.Assert(f.Close(), IsNil)
 	})
@@ -79,7 +78,7 @@ func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 func (s *IntegSuite) TestCheckpointTimeout(c *C) {
 	failingJobTest(s, c, "checkpointtimeout", func() {
 		// cause checkpoints to take 120 seconds
-		err := ioutil.WriteFile("/tmp/checkpoints/checkpoint_delay", []byte("120000"), 0644)
+		err := ioutil.WriteFile(s.Util.CheckpointDir+"/checkpoint_delay", []byte("120000"), 0644)
 		c.Assert(err, IsNil)
 	})
 }

@@ -2,12 +2,17 @@ package flink
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/pkg/errors"
+	"hash/fnv"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"strconv"
 )
 
 const (
@@ -17,6 +22,9 @@ const (
 	AwsMetadataServiceTimeout        = "5"
 	AwsMetadataServiceNumAttempts    = "20"
 	OperatorFlinkConfig              = "OPERATOR_FLINK_CONFIG"
+	FlinkDeploymentType              = "flink-deployment-type"
+	FlinkAppHash                     = "flink-app-hash"
+	FlinkAppParallelism              = "flink-app-parallelism"
 )
 
 func getFlinkContainerName(containerName string) string {
@@ -29,9 +37,13 @@ func getFlinkContainerName(containerName string) string {
 }
 
 func getCommonAppLabels(app *v1alpha1.FlinkApplication) map[string]string {
-	appLabels := k8.GetAppLabel(app.Name)
-	appLabels = common.CopyMap(appLabels, k8.GetImageLabel(k8.GetImageKey(app.Spec.Image)))
-	return appLabels
+	return k8.GetAppLabel(app.Name)
+}
+
+func getCommonAnnotations(app *v1alpha1.FlinkApplication) map[string]string {
+	annotations := common.DuplicateMap(app.Annotations)
+	annotations[FlinkAppParallelism] = strconv.Itoa(int(app.Spec.FlinkJob.Parallelism))
+	return annotations
 }
 
 func GetAWSServiceEnv() []v1.EnvVar {
@@ -69,12 +81,108 @@ func getFlinkEnv(app *v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 	return env, nil
 }
 
-func GetFlinkContainerEnv(app *v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
+func GetFlinkContainerEnv(app *v1alpha1.FlinkApplication) []v1.EnvVar {
 	env := []v1.EnvVar{}
 	env = append(env, GetAWSServiceEnv()...)
 	flinkEnv, err := getFlinkEnv(app)
 	if err == nil {
 		env = append(env, flinkEnv...)
 	}
-	return env, nil
+	return env
+}
+
+func ImagePullPolicy(app *v1alpha1.FlinkApplication) v1.PullPolicy {
+	if app.Spec.ImagePullPolicy == "" {
+		return v1.PullIfNotPresent
+	} else {
+		return app.Spec.ImagePullPolicy
+	}
+}
+
+// Returns an 8 character hash sensitive to the application name, labels, annotations, and spec.
+// TODO: we may need to add collision-avoidance to this
+func HashForApplication(app *v1alpha1.FlinkApplication) string {
+	printer := spew.ConfigState{
+		Indent:                  " ",
+		SortKeys:                true,
+		DisableMethods:          true,
+		SpewKeys:                true,
+		DisablePointerAddresses: true,
+	}
+
+	jmDeployment := jobmanagerTemplate(app)
+	tmDeployment := taskmanagerTemplate(app)
+
+	hasher := fnv.New32a()
+	_, err := printer.Fprintf(hasher, "%#v%#v", jmDeployment, tmDeployment)
+	if err != nil {
+		// the hasher cannot actually throw an error on write
+		panic(fmt.Sprintf("got error trying when writing to hash %v", err))
+	}
+
+	return fmt.Sprintf("%x", hasher.Sum32())
+}
+
+func GetAppHashSelector(app *v1alpha1.FlinkApplication) map[string]string {
+	return map[string]string{
+		FlinkAppHash: HashForApplication(app),
+	}
+}
+
+func envsEqual(a []v1.EnvVar, b []v1.EnvVar) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := 0; i < len(a); i++ {
+		if a[i].Name != b[i].Name || a[i].Value != b[i].Value {
+			return false
+		}
+	}
+	return true
+}
+
+func containersEqual(a *v1.Container, b *v1.Container) bool {
+	if !(a.Image == b.Image &&
+		a.ImagePullPolicy == b.ImagePullPolicy &&
+		apiequality.Semantic.DeepEqual(a.Args, b.Args) &&
+		apiequality.Semantic.DeepEqual(a.Resources, b.Resources) &&
+		envsEqual(a.Env, b.Env) &&
+		apiequality.Semantic.DeepEqual(a.EnvFrom, b.EnvFrom) &&
+		apiequality.Semantic.DeepEqual(a.VolumeMounts, b.VolumeMounts)) {
+		return false
+	}
+
+	if len(a.Ports) != len(b.Ports) {
+		return false
+	}
+
+	for i := 0; i < len(a.Ports); i++ {
+		if a.Ports[i].Name != b.Ports[i].Name ||
+			a.Ports[i].ContainerPort != b.Ports[i].ContainerPort {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Returns true if there are no relevant differences between the deployments. This should be used only to determine
+// that two deployments correspond to the same FlinkApplication, not as a general notion of equality.
+func DeploymentsEqual(a *appsv1.Deployment, b *appsv1.Deployment) bool {
+	if !apiequality.Semantic.DeepEqual(a.Spec.Template.Spec.Volumes, b.Spec.Template.Spec.Volumes) {
+		return false
+	}
+	if len(a.Spec.Template.Spec.Containers) == 0 ||
+		len(b.Spec.Template.Spec.Containers) == 0 ||
+		!containersEqual(&a.Spec.Template.Spec.Containers[0], &b.Spec.Template.Spec.Containers[0]) {
+		return false
+	}
+	if *a.Spec.Replicas != *b.Spec.Replicas {
+		return false
+	}
+	if a.Annotations[FlinkAppParallelism] != b.Annotations[FlinkAppParallelism] {
+		return false
+	}
+	return true
 }

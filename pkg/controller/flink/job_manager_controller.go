@@ -87,11 +87,8 @@ type flinkJobManagerMetrics struct {
 }
 
 func (j *FlinkJobManagerController) CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error {
-	jobManagerDeployment, err := FetchJobMangerDeploymentCreateObj(application)
-	if err != nil {
-		return err
-	}
-	err = j.k8Cluster.CreateK8Object(ctx, jobManagerDeployment)
+	jobManagerDeployment := FetchJobMangerDeploymentCreateObj(application)
+	err := j.k8Cluster.CreateK8Object(ctx, jobManagerDeployment)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
 			j.metrics.deploymentCreationFailure.Inc(ctx)
@@ -142,16 +139,14 @@ var JobManagerDefaultResources = coreV1.ResourceRequirements{
 	},
 }
 
-func getJobManagerPodName(application *v1alpha1.FlinkApplication) string {
+func getJobManagerPodName(application *v1alpha1.FlinkApplication, hash string) string {
 	applicationName := application.Name
-	imageKey := k8.GetImageKey(application.Spec.Image)
-	return fmt.Sprintf(JobManagerPodNameFormat, applicationName, imageKey)
+	return fmt.Sprintf(JobManagerPodNameFormat, applicationName, hash)
 }
 
-func getJobManagerName(application *v1alpha1.FlinkApplication) string {
+func getJobManagerName(application *v1alpha1.FlinkApplication, hash string) string {
 	applicationName := application.Name
-	imageKey := k8.GetImageKey(application.Spec.Image)
-	return fmt.Sprintf(JobManagerNameFormat, applicationName, imageKey)
+	return fmt.Sprintf(JobManagerNameFormat, applicationName, hash)
 }
 
 func FetchJobManagerServiceCreateObj(app *v1alpha1.FlinkApplication) *coreV1.Service {
@@ -215,23 +210,20 @@ func getJobManagerPorts(app *v1alpha1.FlinkApplication) []coreV1.ContainerPort {
 	}
 }
 
-func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV1.Container, error) {
+func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1.Container {
 	jmConfig := application.Spec.JobManagerConfig
 	resources := jmConfig.Resources
 	if resources == nil {
 		resources = &JobManagerDefaultResources
 	}
 	ports := getJobManagerPorts(application)
-	operatorEnv, err := GetFlinkContainerEnv(application)
-	if err != nil {
-		return nil, err
-	}
+	operatorEnv := GetFlinkContainerEnv(application)
 	operatorEnv = append(operatorEnv, jmConfig.Environment.Env...)
 
 	return &coreV1.Container{
 		Name:            getFlinkContainerName(JobManagerContainerName),
 		Image:           application.Spec.Image,
-		ImagePullPolicy: application.Spec.ImagePullPolicy,
+		ImagePullPolicy: ImagePullPolicy(application),
 		Resources:       *resources,
 		Args:            []string{JobManagerArg},
 		Ports:           ports,
@@ -251,13 +243,18 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) (*coreV
 			FailureThreshold:    JobManagerReadinessFailureThreshold,
 			PeriodSeconds:       JobManagerReadinessPeriodSec,
 		},
-	}, nil
+	}
 }
 
-func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Deployment, error) {
-	jmName := getJobManagerName(app)
-	podName := getJobManagerPodName(app)
+func DeploymentIsJobmanager(deployment *v1.Deployment) bool {
+	return deployment.Labels[FlinkDeploymentType] == "jobmanager"
+}
 
+// Translates a FlinkApplication into a JobManager deployment. Changes to this function must be
+// made very carefully. Any new version v' that causes DeploymentsEqual(v(x), v'(x)) to be false
+// will cause redeployments for all applications, and should be considered a breaking change that
+// requires a new version of the CRD.
+func jobmanagerTemplate(app *v1alpha1.FlinkApplication) *v1.Deployment {
 	podLabels := common.DuplicateMap(app.Labels)
 	podLabels[AppFrontEndKey] = getJobManagerServiceName(app)
 	commonLabels := getCommonAppLabels(app)
@@ -265,22 +262,22 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 	podSelector := &metaV1.LabelSelector{
 		MatchLabels: podLabels,
 	}
-	deploymentLabels := common.CopyMap(app.Labels, commonLabels)
+
+	deploymentLabels := common.DuplicateMap(app.Labels)
+	deploymentLabels[FlinkDeploymentType] = "jobmanager"
+	deploymentLabels = common.CopyMap(deploymentLabels, commonLabels)
 	replicas := getJobmanagerReplicas(app)
-	jobManagerContainer, err := FetchJobManagerContainerObj(app)
-	if err != nil {
-		return nil, err
-	}
+	jobManagerContainer := FetchJobManagerContainerObj(app)
+
 	return &v1.Deployment{
 		TypeMeta: metaV1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
 			Kind:       k8.Deployment,
 		},
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:        jmName,
 			Namespace:   app.Namespace,
 			Labels:      deploymentLabels,
-			Annotations: app.Annotations,
+			Annotations: getCommonAnnotations(app),
 			OwnerReferences: []metaV1.OwnerReference{
 				*metaV1.NewControllerRef(app, app.GroupVersionKind()),
 			},
@@ -293,7 +290,6 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 			Replicas: &replicas,
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
-					Name:        podName,
 					Namespace:   app.Namespace,
 					Labels:      podLabels,
 					Annotations: app.Annotations,
@@ -307,7 +303,25 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) (*v1.Depl
 				},
 			},
 		},
-	}, nil
+	}
+}
+
+func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) *v1.Deployment {
+	template := jobmanagerTemplate(app)
+	hash := HashForApplication(app)
+
+	template.Name = getJobManagerName(app, hash)
+	template.Labels[FlinkAppHash] = hash
+	template.Spec.Template.Labels[FlinkAppHash] = hash
+	template.Spec.Selector.MatchLabels[FlinkAppHash] = hash
+	template.Spec.Template.Name = getJobManagerPodName(app, hash)
+
+	return template
+}
+
+func JobManagerDeploymentMatches(deployment *v1.Deployment, application *v1alpha1.FlinkApplication) bool {
+	deploymentFromApp := FetchJobMangerDeploymentCreateObj(application)
+	return DeploymentsEqual(deploymentFromApp, deployment)
 }
 
 func getJobManagerCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
@@ -319,6 +333,6 @@ func getJobManagerCount(deployments []v1.Deployment, application *v1alpha1.Flink
 }
 
 func getJobManagerDeployment(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) *v1.Deployment {
-	jmDeploymentName := getJobManagerName(application)
+	jmDeploymentName := getJobManagerName(application, HashForApplication(application))
 	return k8.GetDeploymentWithName(deployments, jmDeploymentName)
 }

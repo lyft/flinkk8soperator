@@ -58,8 +58,13 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 		}
 	}
 
+	checkpointDir := os.Getenv("CHECKPOINT_DIR")
+	if checkpointDir == "" {
+		checkpointDir = "/tmp/checkpoints"
+	}
+
 	var err error
-	s.Util, err = integFramework.New(namespace, kubeconfig, image)
+	s.Util, err = integFramework.New(namespace, kubeconfig, image, checkpointDir)
 	if err != nil {
 		c.Fatalf("Failed to set up test util: %v", err)
 	}
@@ -100,8 +105,8 @@ func (s *IntegSuite) TearDownSuite(c *C) {
 
 func (s *IntegSuite) SetUpTest(c *C) {
 	// create checkpoint directory
-	if _, err := os.Stat("/tmp/checkpoints"); os.IsNotExist(err) {
-		c.Assert(os.Mkdir("/tmp/checkpoints", 0777), IsNil)
+	if _, err := os.Stat(s.Util.CheckpointDir); os.IsNotExist(err) {
+		c.Assert(os.Mkdir(s.Util.CheckpointDir, 0777), IsNil)
 	}
 }
 
@@ -126,7 +131,7 @@ func (s *IntegSuite) TearDownTest(c *C) {
 		log.Fatalf("Failed to clean up flink applications")
 	}
 
-	err = os.RemoveAll("/tmp/checkpoints")
+	err = os.RemoveAll(s.Util.CheckpointDir)
 	if err != nil {
 		log.Fatalf("Failed to clean up checkpoints directory: %v", err)
 	}

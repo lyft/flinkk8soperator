@@ -20,7 +20,7 @@ const (
 
 type K8ClusterInterface interface {
 	GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
-	IsAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error)
+	AreAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error)
 	CreateK8Object(ctx context.Context, object sdk.Object) error
 	UpdateK8Object(ctx context.Context, object sdk.Object) error
 	DeleteDeployments(ctx context.Context, deploymentList v1.DeploymentList) error
@@ -111,7 +111,7 @@ func (k *K8Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace strin
 	return deploymentList, nil
 }
 
-func (k *K8Cluster) IsAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
+func (k *K8Cluster) AreAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
 	podList, err := k.GetPodsWithLabel(ctx, namespace, labelMap)
 	if err != nil {
 		logger.Warnf(ctx, "Failed to get pods for label map %v", labelMap)

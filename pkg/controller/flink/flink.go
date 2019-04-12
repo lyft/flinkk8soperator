@@ -48,15 +48,6 @@ type FlinkInterface interface {
 	// Return true if the spec does not match the underlying Flink cluster.
 	HasApplicationChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 
-	// Indicates if a new Flink cluster needs to spinned up for the Application
-	IsClusterChangeNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-
-	// Ensure that correct resources are running for the Application.
-	CheckAndUpdateClusterResources(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-
-	// Check if the Job details in the application has changed corresponding to one running in the cluster
-	HasApplicationJobChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
-
 	// Returns the list of Jobs running on the Flink Cluster for the Application
 	GetJobsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error)
 
@@ -122,79 +113,17 @@ func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
 	return nil
 }
 
-func (f *FlinkController) HasApplicationJobChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	jobId, err := f.getJobIdForApplication(ctx, application)
-	if err != nil {
-		return false, err
+// returns true iff the deployment exactly matches the flink application
+func (f *FlinkController) deploymentMatches(ctx context.Context, deployment *v1.Deployment, application *v1alpha1.FlinkApplication) bool {
+	if DeploymentIsTaskmanager(deployment) {
+		return TaskManagerDeploymentMatches(deployment, application)
 	}
-	jobConfig, err := f.flinkClient.GetJobConfig(ctx, getUrlFromApp(application), jobId)
-	if err != nil {
-		return false, err
-	}
-	if application.Spec.FlinkJob.Parallelism != jobConfig.ExecutionConfig.Parallelism {
-		return true, nil
-	}
-	// More checks here for job change monitoring.
-	return false, nil
-}
-
-// This is currently unused - Will evaluate and delete if needed.
-// We currently cancel with savepoint and bring up new clusters if cluster resources need updating.
-func (f *FlinkController) CheckAndUpdateClusterResources(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	logger.Infof(ctx, "Checking and updating cluster resources: %s", application)
-
-	currentAppDeployments, err := f.getDeploymentsForApp(ctx, application)
-	if err != nil {
-		return false, err
-	}
-	hasUpdated := false
-
-	replicas := computeTaskManagerReplicas(application)
-
-	taskManagerDeployment := getTaskManagerDeployment(currentAppDeployments.Items, application)
-	if *taskManagerDeployment.Spec.Replicas != replicas {
-		taskManagerDeployment.Spec.Replicas = &replicas
-		err := f.k8Cluster.UpdateK8Object(ctx, taskManagerDeployment)
-		if err != nil {
-			logger.Errorf(ctx, "Taskmanager deployment update failed %v", err)
-			return false, err
-		}
-		hasUpdated = true
+	if DeploymentIsJobmanager(deployment) {
+		return JobManagerDeploymentMatches(deployment, application)
 	}
 
-	jobManagerDeployment := getJobManagerDeployment(currentAppDeployments.Items, application)
-	jmCount := getJobmanagerReplicas(application)
-	if *jobManagerDeployment.Spec.Replicas != jmCount {
-		jobManagerDeployment.Spec.Replicas = &jmCount
-		err := f.k8Cluster.UpdateK8Object(ctx, jobManagerDeployment)
-		if err != nil {
-			logger.Errorf(ctx, "Jobmanager deployment update failed %v", err)
-			return false, err
-		}
-		hasUpdated = true
-	}
-	return hasUpdated, nil
-}
-
-func (f *FlinkController) IsMultipleClusterPresent(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	currentDeployments, oldDeployments, err := f.GetCurrentAndOldDeploymentsForApp(ctx, application)
-	if err != nil {
-		return false, err
-	}
-	if len(currentDeployments) > 0 && len(oldDeployments) > 0 {
-		return true, nil
-	}
-	return false, nil
-}
-
-func (f *FlinkController) getDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) (*v1.DeploymentList, error) {
-	appLabels := k8.GetAppLabel(application.Name)
-	return f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, appLabels)
-}
-
-func (f *FlinkController) getDeploymentsForImage(ctx context.Context, application *v1alpha1.FlinkApplication) (*v1.DeploymentList, error) {
-	imageLabels := k8.GetImageLabel(k8.GetImageKey(application.Spec.Image))
-	return f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, imageLabels)
+	logger.Warnf(ctx, "Found deployment that is not a TaskManager or JobManager: %s", deployment.Name)
+	return false
 }
 
 func (f *FlinkController) GetJobsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error) {
@@ -287,8 +216,8 @@ func (f *FlinkController) DeleteOldCluster(ctx context.Context, application *v1a
 }
 
 func (f *FlinkController) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	appImageLabel := k8.GetImageLabel(k8.GetImageKey(application.Spec.Image))
-	return f.k8Cluster.IsAllPodsRunning(ctx, application.Namespace, appImageLabel)
+	appHashLabel := GetAppHashSelector(application)
+	return f.k8Cluster.AreAllPodsRunning(ctx, application.Namespace, appHashLabel)
 }
 
 func (f *FlinkController) IsServiceReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
@@ -300,66 +229,38 @@ func (f *FlinkController) IsServiceReady(ctx context.Context, application *v1alp
 	return true, nil
 }
 
+func (f *FlinkController) HasApplicationChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	cur, _, err := f.GetCurrentAndOldDeploymentsForApp(ctx, application)
+	if err != nil {
+		return false, err
+	}
+
+	return len(cur) == 0, nil
+}
+
 func (f *FlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error) {
-	currentAppDeployments, err := f.getDeploymentsForApp(ctx, application)
+	appLabels := k8.GetAppLabel(application.Name)
+	deployments, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, appLabels)
 	if err != nil {
 		return nil, nil, err
 	}
-	appImageLabel := k8.GetImageLabel(k8.GetImageKey(application.Spec.Image))
-	currentDeployments, oldDeployments := k8.MatchDeploymentsByLabel(*currentAppDeployments, appImageLabel)
-	return currentDeployments, oldDeployments, nil
-}
 
-func (f *FlinkController) HasApplicationChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	clusterChangeNeeded, err := f.IsClusterChangeNeeded(ctx, application)
-	if err != nil {
-		return false, err
-	}
-	if clusterChangeNeeded {
-		logger.Infof(ctx, "Flink cluster for the application needs to be changed")
-		f.metrics.applicationChangedCounter.Inc(ctx)
-		return true, nil
-	}
-
-	clusterUpdateNeeded, err := f.isClusterUpdateNeeded(ctx, application)
-	if err != nil {
-		return false, err
+	cur := make([]v1.Deployment, 0)
+	old := make([]v1.Deployment, 0)
+	appHash := HashForApplication(application)
+	for _, deployment := range deployments.Items {
+		if f.deploymentMatches(ctx, &deployment, application) {
+			cur = append(cur, deployment)
+		} else {
+			if deployment.Labels[FlinkAppHash] == appHash {
+				// we had a hash collision (i.e., the previous application has the same hash as the new one)
+				// this is *very* unlikely to occur (1/2^32)
+				return nil, nil, errors.New("found hash collision for deployment, you must do a clean deploy")
+			}
+			old = append(old, deployment)
+		}
 	}
 
-	if clusterUpdateNeeded {
-		logger.Infof(ctx, "Flink cluster for the application needs to be updated")
-		f.metrics.applicationChangedCounter.Inc(ctx)
-		return true, nil
-	}
-	return false, nil
-}
+	return cur, old, nil
 
-func (f *FlinkController) IsClusterChangeNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	currentDeployments, err := f.getDeploymentsForImage(ctx, application)
-	if err != nil {
-		return false, err
-	}
-	if len(currentDeployments.Items) == 0 {
-		logger.Infof(ctx, "No deployments found matching the current application spec")
-		return true, nil
-	}
-	return false, nil
-}
-
-func (f *FlinkController) isClusterUpdateNeeded(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	currentAppDeployments, err := f.getDeploymentsForApp(ctx, application)
-	if err != nil {
-		return false, err
-	}
-	replicasNeeded := computeTaskManagerReplicas(application)
-	taskManagerReplicaCount := getTaskManagerCount(currentAppDeployments.Items, application)
-	if taskManagerReplicaCount != replicasNeeded {
-		return true, nil
-	}
-
-	jobManagerReplicaCount := getJobManagerCount(currentAppDeployments.Items, application)
-	if jobManagerReplicaCount != getJobmanagerReplicas(application) {
-		return true, nil
-	}
-	return f.HasApplicationJobChanged(ctx, application)
 }
