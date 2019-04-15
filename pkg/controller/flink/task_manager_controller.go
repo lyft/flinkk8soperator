@@ -166,7 +166,7 @@ func getTaskManagerName(application *v1alpha1.FlinkApplication, hash string) str
 
 func computeTaskManagerReplicas(application *v1alpha1.FlinkApplication) int32 {
 	slots := getTaskmanagerSlots(application)
-	parallelism := application.Spec.FlinkJob.Parallelism
+	parallelism := application.Spec.Parallelism
 	return int32(math.Ceil(float64(parallelism) / float64(slots)))
 }
 

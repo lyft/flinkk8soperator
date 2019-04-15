@@ -46,26 +46,24 @@ Below is the list of fields in the custom resource and their description
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
       remaining memory is allocated for heap.
 
+  * **JarName** `type:string required=true`
+    Name of the jar file to be run. The application image needs to ensure that the jar file is present at the right location, as
+    the operator uses the Web API to submit jobs.
 
-  * **FlinkJob** `type:FlinkJobInfo required=true`
-    Information about the Flink Job to be run inside the flink cluster. Currently the operator and the custom resource supports
-    one job per flink application
+  * **Parallelism** `type:int32 required=true`
+    Job level parallelism for the Flink Job
 
-    * **JarName** `type:string required=true`
-      Name of the jar file to be run. The application image needs to ensure that the jar file is present at the right location, as
-      the operator uses the Web API to submit jobs.
+  * **EntryClass** `type:string`
+    Entry point for the Flink job
 
-    * **Parallelism** `type:int32 required=true`
-      Job level parallelism for the Flink Job
+  * **ProgramArgs** `type:string`
+    External configuration parameters to be passed as arguments to the job like input and output sources, etc
 
-    * **EntryClass** `type:string`
-      Entry point for the Flink job
-
-    * **ProgramArgs** `type:string`
-      External configuration parameters to be passed as arguments to the job like input and output sources, etc
-
-    * **SavepointInfo** `type:SavepointInfo`
-      Optional Savepoint info that can be passed in to indicate that the Flink job must resume from the corresponding savepoint.
+  * **SavepointInfo** `type:SavepointInfo`
+    Optional Savepoint info that can be passed in to indicate that the Flink job must resume from the corresponding savepoint.
+  
+  * **FlinkVersion** `type:string required=true`
+    The version of Flink to be managed. This version must match the version in the image.
 
   * **DeploymentMode** `type:DeploymentMode`
     Indicates the type of deployment that operator should perform if the custom resource is updated.

@@ -170,12 +170,12 @@ func (f *FlinkController) StartFlinkJob(ctx context.Context, application *v1alph
 	response, err := f.flinkClient.SubmitJob(
 		ctx,
 		getUrlFromApp(application),
-		application.Spec.FlinkJob.JarName,
+		application.Spec.JarName,
 		client.SubmitJobRequest{
-			Parallelism:   application.Spec.FlinkJob.Parallelism,
-			SavepointPath: application.Spec.FlinkJob.SavepointInfo.SavepointLocation,
-			EntryClass:    application.Spec.FlinkJob.EntryClass,
-			ProgramArgs:   application.Spec.FlinkJob.ProgramArgs,
+			Parallelism:   application.Spec.Parallelism,
+			SavepointPath: application.Spec.SavepointInfo.SavepointLocation,
+			EntryClass:    application.Spec.EntryClass,
+			ProgramArgs:   application.Spec.ProgramArgs,
 		})
 	if err != nil {
 		return "", err
@@ -192,7 +192,7 @@ func (f *FlinkController) GetSavepointStatus(ctx context.Context, application *v
 	if err != nil {
 		return nil, err
 	}
-	return f.flinkClient.CheckSavepointStatus(ctx, getUrlFromApp(application), jobId, application.Spec.FlinkJob.SavepointInfo.TriggerId)
+	return f.flinkClient.CheckSavepointStatus(ctx, getUrlFromApp(application), jobId, application.Spec.SavepointInfo.TriggerId)
 }
 
 func (f *FlinkController) DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {

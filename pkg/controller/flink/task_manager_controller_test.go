@@ -31,7 +31,8 @@ func TestComputeTaskManagerReplicas(t *testing.T) {
 	app := v1alpha1.FlinkApplication{}
 	taskSlots := int32(4)
 	app.Spec.TaskManagerConfig.TaskSlots = &taskSlots
-	app.Spec.FlinkJob.Parallelism = 9
+	app.Spec.Parallelism = 9
+	app.Spec.FlinkVersion = "1.7"
 
 	assert.Equal(t, int32(3), computeTaskManagerReplicas(&app))
 }

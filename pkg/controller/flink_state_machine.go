@@ -172,7 +172,7 @@ func (s *FlinkStateMachine) cancelWithSavepointAndTransitionState(ctx context.Co
 		return err
 	}
 	logger.Infof(ctx, "Flink job cancelled with savepoint, trigger id: %s", triggerId)
-	application.Spec.FlinkJob.SavepointInfo.TriggerId = triggerId
+	application.Spec.SavepointInfo.TriggerId = triggerId
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationSavepointing)
 }
 
@@ -232,7 +232,7 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 	}
 
 	// Clear the savepoint info
-	application.Spec.FlinkJob.SavepointInfo = v1alpha1.SavepointInfo{}
+	application.Spec.SavepointInfo = v1alpha1.SavepointInfo{}
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationRunning)
 }
 
@@ -293,7 +293,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		if !isDeleted {
 			return nil
 		}
-		application.Spec.FlinkJob.SavepointInfo.SavepointLocation = savepointStatusResponse.Operation.Location
+		application.Spec.SavepointInfo.SavepointLocation = savepointStatusResponse.Operation.Location
 		// In single deployment mode, after the cluster is deleted, no extra cluster exists
 		if application.Spec.DeploymentMode == v1alpha1.DeploymentModeSingle {
 			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationNew)

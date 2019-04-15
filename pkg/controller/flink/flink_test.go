@@ -22,6 +22,7 @@ const testAppHash = "79f298cd"
 const testAppName = "app-name"
 const testNamespace = "ns"
 const testJobId = "j1"
+const testFlinkVersion = "1.7"
 
 func getTestFlinkController() FlinkController {
 	testScope := mockScope.NewTestScope()
@@ -37,11 +38,12 @@ func getTestFlinkController() FlinkController {
 
 func getFlinkTestApp() v1alpha1.FlinkApplication {
 	app := v1alpha1.FlinkApplication{}
-	app.Spec.FlinkJob.Parallelism = 8
+	app.Spec.Parallelism = 8
 	app.Name = testAppName
 	app.Namespace = testNamespace
 	app.Status.JobId = testJobId
 	app.Spec.Image = testImage
+	app.Spec.FlinkVersion = testFlinkVersion
 
 	return app
 }
@@ -98,7 +100,7 @@ func TestFlinkApplicationChangedReplicas(t *testing.T) {
 	flinkApp := getFlinkTestApp()
 	taskSlots := int32(16)
 	flinkApp.Spec.TaskManagerConfig.TaskSlots = &taskSlots
-	flinkApp.Spec.FlinkJob.Parallelism = 8
+	flinkApp.Spec.Parallelism = 8
 
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
@@ -106,7 +108,7 @@ func TestFlinkApplicationChangedReplicas(t *testing.T) {
 		assert.Equal(t, labelMapVal, labelMap)
 
 		newApp := flinkApp.DeepCopy()
-		newApp.Spec.FlinkJob.Parallelism = 10
+		newApp.Spec.Parallelism = 10
 		d := *FetchTaskMangerDeploymentCreateObj(newApp)
 
 		return &v1.DeploymentList{
@@ -183,7 +185,7 @@ func TestFlinkApplicationChangedParallelism(t *testing.T) {
 		}, nil
 	}
 
-	flinkApp.Spec.FlinkJob.Parallelism = 3
+	flinkApp.Spec.Parallelism = 3
 	result, err := flinkControllerForTest.HasApplicationChanged(
 		context.Background(), &flinkApp,
 	)
@@ -218,7 +220,7 @@ func TestFlinkApplicationNeedsUpdate(t *testing.T) {
 	flinkApp := getFlinkTestApp()
 	taskSlots := int32(2)
 	flinkApp.Spec.TaskManagerConfig.TaskSlots = &taskSlots
-	flinkApp.Spec.FlinkJob.Parallelism = taskSlots*numberOfTaskManagers + 1
+	flinkApp.Spec.Parallelism = taskSlots*numberOfTaskManagers + 1
 	result, err := flinkControllerForTest.HasApplicationChanged(
 		context.Background(), &flinkApp,
 	)
@@ -259,7 +261,7 @@ func TestFlinkIsServiceReadyErr(t *testing.T) {
 func TestFlinkGetSavepointStatus(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Spec.FlinkJob.SavepointInfo.TriggerId = "t1"
+	flinkApp.Spec.SavepointInfo.TriggerId = "t1"
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
 	mockJmClient.CheckSavepointStatusFunc = func(ctx context.Context, url string, jobId, triggerId string) (*client.SavepointResponse, error) {
@@ -484,11 +486,12 @@ func TestCreateClusterTmErr(t *testing.T) {
 func TestStartFlinkJob(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Spec.FlinkJob.Parallelism = 4
-	flinkApp.Spec.FlinkJob.ProgramArgs = "args"
-	flinkApp.Spec.FlinkJob.EntryClass = "class"
-	flinkApp.Spec.FlinkJob.JarName = "jar-name"
-	flinkApp.Spec.FlinkJob.SavepointInfo.SavepointLocation = "location//"
+	flinkApp.Spec.Parallelism = 4
+	flinkApp.Spec.ProgramArgs = "args"
+	flinkApp.Spec.EntryClass = "class"
+	flinkApp.Spec.JarName = "jar-name"
+	flinkApp.Spec.SavepointInfo.SavepointLocation = "location//"
+	flinkApp.Spec.FlinkVersion = "1.7"
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
 	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarId string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {

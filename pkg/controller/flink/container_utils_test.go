@@ -10,7 +10,7 @@ func TestHashForApplication(t *testing.T) {
 	app := v1alpha1.FlinkApplication{}
 	taskSlots := int32(8)
 	app.Spec.TaskManagerConfig.TaskSlots = &taskSlots
-	app.Spec.FlinkJob.Parallelism = 4
+	app.Spec.Parallelism = 4
 	app.Name = "app-name"
 	app.Namespace = "ns"
 	app.Spec.Image = "abcdef"
@@ -40,7 +40,7 @@ func TestHashForApplication(t *testing.T) {
 	h5 := HashForApplication(&app)
 	assert.NotEqual(t, h4, h5)
 
-	app.Spec.FlinkJob.Parallelism = 7
+	app.Spec.Parallelism = 7
 	h6 := HashForApplication(&app)
 	assert.NotEqual(t, h5, h6)
 }

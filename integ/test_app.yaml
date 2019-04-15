@@ -34,8 +34,8 @@ spec:
       hostPath:
         path: /tmp/checkpoints
         type: Directory
-  flinkJob:
-    jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
-    parallelism: 3
-    entryClass: "com.lyft.streamingplatform.OperatorTestApp"
+  flinkVersion: "1.7"
+  jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
+  parallelism: 3
+  entryClass: "com.lyft.streamingplatform.OperatorTestApp"
   deploymentMode: Single

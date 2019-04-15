@@ -42,7 +42,7 @@ func getCommonAppLabels(app *v1alpha1.FlinkApplication) map[string]string {
 
 func getCommonAnnotations(app *v1alpha1.FlinkApplication) map[string]string {
 	annotations := common.DuplicateMap(app.Annotations)
-	annotations[FlinkAppParallelism] = strconv.Itoa(int(app.Spec.FlinkJob.Parallelism))
+	annotations[FlinkAppParallelism] = strconv.Itoa(int(app.Spec.Parallelism))
 	return annotations
 }
 

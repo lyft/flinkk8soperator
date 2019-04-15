@@ -29,9 +29,14 @@ type FlinkApplicationSpec struct {
 	ImagePullPolicy   v1.PullPolicy             `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
 	ImagePullSecrets  []v1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
 	FlinkConfig       FlinkConfig               `json:"flinkConfig"`
+	FlinkVersion      string					`json:"flinkVersion"`
 	TaskManagerConfig TaskManagerConfig         `json:"taskManagerConfig,omitempty"`
 	JobManagerConfig  JobManagerConfig          `json:"jobManagerConfig,omitempty"`
-	FlinkJob          FlinkJobInfo              `json:"flinkJob"`
+	JarName           string                    `json:"jarName"`
+	Parallelism       int32                     `json:"parallelism"`
+	EntryClass        string                    `json:"entryClass,omitempty"`
+	ProgramArgs       string                    `json:"programArgs,omitempty"`
+	SavepointInfo     SavepointInfo             `json:"savepointInfo,omitempty"`
 	DeploymentMode    DeploymentMode            `json:"deploymentMode"`
 	RpcPort           *int32                    `json:"rpcPort,omitempty"`
 	BlobPort          *int32                    `json:"blobPort,omitempty"`
@@ -84,14 +89,6 @@ func (in *FlinkConfig) DeepCopy() *FlinkConfig {
 	out := new(FlinkConfig)
 	in.DeepCopyInto(out)
 	return out
-}
-
-type FlinkJobInfo struct {
-	JarName       string        `json:"jarName"`
-	Parallelism   int32         `json:"parallelism"`
-	EntryClass    string        `json:"entryClass,omitempty"`
-	ProgramArgs   string        `json:"programArgs,omitempty"`
-	SavepointInfo SavepointInfo `json:"savepointInfo,omitempty"`
 }
 
 type JobManagerConfig struct {
