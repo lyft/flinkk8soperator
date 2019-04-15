@@ -160,10 +160,10 @@ metadata:
     environment: development
 spec:
   deploymentMode: Single
-  flinkJob:
-    jar_name: "$JAR"
-    parallelism: 1
-    entry_class: "$MAIN_CLASS"
+  jarName: "$JAR"
+  parallelism: 1
+  entryClass: "$MAIN_CLASS"
+  flinkVersion: "$FLINK_VERSION"
   image: $APP_NAME:latest
   imagePullPolicy: Never
   jobManagerConfig:
