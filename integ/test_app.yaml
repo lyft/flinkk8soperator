@@ -6,7 +6,7 @@ metadata:
   labels:
     environment: development
 spec:
-  image: lyft/operator-test-app:fce52d22e06f7747ae4aed1028ae09d96ba68812
+  image: lyft/operator-test-app:60d8f4e3d5c3e0e2848af294f932beeb2c1be2ca
   imagePullSecrets:
     - name: dockerhub
   flinkConfig:
@@ -34,7 +34,7 @@ spec:
       hostPath:
         path: /tmp/checkpoints
         type: Directory
-  flinkVersion: "1.7"
+  flinkVersion: "1.8"
   jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
   parallelism: 3
   entryClass: "com.lyft.streamingplatform.OperatorTestApp"
