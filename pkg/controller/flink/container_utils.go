@@ -25,6 +25,7 @@ const (
 	FlinkDeploymentType              = "flink-deployment-type"
 	FlinkAppHash                     = "flink-app-hash"
 	FlinkAppParallelism              = "flink-app-parallelism"
+	RestartNonce                     = "restart-nonce"
 )
 
 func getFlinkContainerName(containerName string) string {
@@ -43,6 +44,9 @@ func getCommonAppLabels(app *v1alpha1.FlinkApplication) map[string]string {
 func getCommonAnnotations(app *v1alpha1.FlinkApplication) map[string]string {
 	annotations := common.DuplicateMap(app.Annotations)
 	annotations[FlinkAppParallelism] = strconv.Itoa(int(app.Spec.Parallelism))
+	if app.Spec.RestartNonce != "" {
+		annotations[RestartNonce] = app.Spec.RestartNonce
+	}
 	return annotations
 }
 
@@ -182,6 +186,9 @@ func DeploymentsEqual(a *appsv1.Deployment, b *appsv1.Deployment) bool {
 		return false
 	}
 	if a.Annotations[FlinkAppParallelism] != b.Annotations[FlinkAppParallelism] {
+		return false
+	}
+	if a.Annotations[RestartNonce] != b.Annotations[RestartNonce] {
 		return false
 	}
 	return true

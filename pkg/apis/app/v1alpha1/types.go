@@ -45,6 +45,7 @@ type FlinkApplicationSpec struct {
 	MetricsQueryPort  *int32                    `json:"metricsQueryPort,omitempty"`
 	Volumes           []v1.Volume               `json:"volumes,omitempty"`
 	VolumeMounts      []v1.VolumeMount          `json:"volumeMounts,omitempty"`
+	RestartNonce      string                    `json:"restartNonce"`
 }
 
 type FlinkConfig map[string]interface{}

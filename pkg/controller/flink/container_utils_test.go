@@ -65,4 +65,8 @@ func TestContainersEqual(t *testing.T) {
 	replicas := int32(13)
 	d3.Spec.Replicas = &replicas
 	assert.False(t, DeploymentsEqual(d3, d2))
+
+	d3 = d1.DeepCopy()
+	d3.Annotations[RestartNonce] = "x"
+	assert.False(t, DeploymentsEqual(d3, d2))
 }
