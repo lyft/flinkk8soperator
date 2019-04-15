@@ -135,6 +135,21 @@ func TestGetCluster500Response(t *testing.T) {
 	assert.EqualError(t, err, "Get cluster overview failed with status 500")
 }
 
+
+func TestGetCluster503Response(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	ctx := context.Background()
+	responder, _ := httpmock.NewJsonResponder(503, nil)
+	fakeUrl := "http://abc.com/overview"
+	httpmock.RegisterResponder("GET", fakeUrl, responder)
+
+	client := getTestJobManagerClient()
+	resp, err := client.GetClusterOverview(ctx, "http://abc.com")
+	assert.Nil(t, resp)
+	assert.EqualError(t, err, "Get cluster overview failed with status 503")
+}
+
 func TestGetClusterOverviewError(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
