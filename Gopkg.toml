@@ -14,7 +14,6 @@ required = [
 
 [[override]]
   name = "k8s.io/code-generator"
-  # revision = "6702109cc68eb6fe6350b83e14407c8d7309fd1a"
   version = "kubernetes-1.11.2"
 
 [[override]]
