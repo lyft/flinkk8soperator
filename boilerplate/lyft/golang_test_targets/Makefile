@@ -5,7 +5,7 @@
 
 .PHONY: lint
 lint: #lints the package for common code smells
-	which golangci-lint || curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b $$GOPATH/bin v1.10
+	which golangci-lint || curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b $$GOPATH/bin v1.16.0
 	golangci-lint run
 
 # If code is failing goimports linter, this will fix.

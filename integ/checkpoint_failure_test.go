@@ -2,13 +2,14 @@ package integ
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"time"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
-	"io/ioutil"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"time"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
@@ -43,10 +44,10 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	// And the job should not have been updated
 	newApp, err := s.Util.GetFlinkApplication(config.Name)
 	c.Assert(err, IsNil)
-	c.Assert(newApp.Status.JobId, Equals, app.Status.JobId)
+	c.Assert(newApp.Status.JobID, Equals, app.Status.JobID)
 
-	endpoint := fmt.Sprintf("jobs/%s", app.Status.JobId)
-	_, err = s.Util.FlinkApiGet(app, endpoint)
+	endpoint := fmt.Sprintf("jobs/%s", app.Status.JobID)
+	_, err = s.Util.FlinkAPIGet(app, endpoint)
 	c.Assert(err, IsNil)
 
 	// delete the application and ensure everything is cleaned up successfully

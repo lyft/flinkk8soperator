@@ -10,7 +10,7 @@ import (
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	k8_err "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -35,20 +35,20 @@ const (
 )
 
 const (
-	FlinkRpcPortName            = "rpc"
+	FlinkRPCPortName            = "rpc"
 	FlinkQueryPortName          = "query"
 	FlinkBlobPortName           = "blob"
 	FlinkUIPortName             = "ui"
 	FlinkInternalMetricPortName = "metrics"
 )
 
-type FlinkJobManagerControllerInterface interface {
+type JobManagerControllerInterface interface {
 	CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error
 }
 
-func NewFlinkJobManagerController(scope promutils.Scope) FlinkJobManagerControllerInterface {
-	metrics := newFlinkJobManagerMetrics(scope)
-	return &FlinkJobManagerController{
+func NewJobManagerController(scope promutils.Scope) JobManagerControllerInterface {
+	metrics := newJobManagerMetrics(scope)
+	return &JobManagerController{
 		k8Cluster: k8.NewK8Cluster(),
 		metrics:   metrics,
 	}
@@ -58,14 +58,14 @@ func GetJobManagerExternalServiceName(app *v1alpha1.FlinkApplication) string {
 	return fmt.Sprintf(JobManagerExternalServiceNameFormat, app.Name, app.Namespace)
 }
 
-type FlinkJobManagerController struct {
-	k8Cluster k8.K8ClusterInterface
-	metrics   *flinkJobManagerMetrics
+type JobManagerController struct {
+	k8Cluster k8.ClusterInterface
+	metrics   *jobManagerMetrics
 }
 
-func newFlinkJobManagerMetrics(scope promutils.Scope) *flinkJobManagerMetrics {
+func newJobManagerMetrics(scope promutils.Scope) *jobManagerMetrics {
 	jobManagerControllerScope := scope.NewSubScope("job_manager_controller")
-	return &flinkJobManagerMetrics{
+	return &jobManagerMetrics{
 		scope:                     scope,
 		deploymentCreationSuccess: labeled.NewCounter("deployment_create_success", "Job manager deployment created successfully", jobManagerControllerScope),
 		deploymentCreationFailure: labeled.NewCounter("deployment_create_failure", "Job manager deployment creation failed", jobManagerControllerScope),
@@ -76,7 +76,7 @@ func newFlinkJobManagerMetrics(scope promutils.Scope) *flinkJobManagerMetrics {
 	}
 }
 
-type flinkJobManagerMetrics struct {
+type jobManagerMetrics struct {
 	scope                     promutils.Scope
 	deploymentCreationSuccess labeled.Counter
 	deploymentCreationFailure labeled.Counter
@@ -86,7 +86,7 @@ type flinkJobManagerMetrics struct {
 	ingressCreationFailure    labeled.Counter
 }
 
-func (j *FlinkJobManagerController) CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	jobManagerDeployment := FetchJobMangerDeploymentCreateObj(application)
 	err := j.k8Cluster.CreateK8Object(ctx, jobManagerDeployment)
 	if err != nil {
@@ -188,8 +188,8 @@ func getJobManagerServicePorts(app *v1alpha1.FlinkApplication) []coreV1.ServiceP
 func getJobManagerPorts(app *v1alpha1.FlinkApplication) []coreV1.ContainerPort {
 	return []coreV1.ContainerPort{
 		{
-			Name:          FlinkRpcPortName,
-			ContainerPort: getRpcPort(app),
+			Name:          FlinkRPCPortName,
+			ContainerPort: getRPCPort(app),
 		},
 		{
 			Name:          FlinkBlobPortName,
@@ -201,7 +201,7 @@ func getJobManagerPorts(app *v1alpha1.FlinkApplication) []coreV1.ContainerPort {
 		},
 		{
 			Name:          FlinkUIPortName,
-			ContainerPort: getUiPort(app),
+			ContainerPort: getUIPort(app),
 		},
 		{
 			Name:          FlinkInternalMetricPortName,
@@ -234,7 +234,7 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 			Handler: coreV1.Handler{
 				HTTPGet: &coreV1.HTTPGetAction{
 					Path: JobManagerReadinessPath,
-					Port: intstr.FromInt(int(getUiPort(application))),
+					Port: intstr.FromInt(int(getUIPort(application))),
 				},
 			},
 			InitialDelaySeconds: JobManagerReadinessInitialDelaySec,

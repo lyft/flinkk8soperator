@@ -8,18 +8,18 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-var inputRegex = regexp.MustCompile("{{\\s*[$]jobCluster\\s*}}")
+var inputRegex = regexp.MustCompile(`{{[$]jobCluster}}`)
 
-func ReplaceJobUrl(value string, input string) string {
+func ReplaceJobURL(value string, input string) string {
 	return inputRegex.ReplaceAllString(value, input)
 }
 
 func GetFlinkUIIngressURL(jobName string) string {
-	return ReplaceJobUrl(config.GetConfig().FlinkIngressUrlFormat, jobName)
+	return ReplaceJobURL(config.GetConfig().FlinkIngressURLFormat, jobName)
 }
 
 func FetchJobManagerIngressCreateObj(app *v1alpha1.FlinkApplication) *v1beta1.Ingress {
@@ -39,7 +39,7 @@ func FetchJobManagerIngressCreateObj(app *v1alpha1.FlinkApplication) *v1beta1.In
 		ServiceName: getJobManagerServiceName(app),
 		ServicePort: intstr.IntOrString{
 			Type:   intstr.Int,
-			IntVal: getUiPort(app),
+			IntVal: getUIPort(app),
 		},
 	}
 

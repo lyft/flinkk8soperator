@@ -51,7 +51,7 @@ type SavepointStatusResponse struct {
 
 type SavepointOperationResponse struct {
 	Location     string       `json:"location"`
-	FailureCause FailureCause `json"failure-cause"`
+	FailureCause FailureCause `json:"failure-cause"`
 }
 
 type FailureCause struct {
@@ -60,11 +60,11 @@ type FailureCause struct {
 }
 
 type CancelJobResponse struct {
-	TriggerId string `json:"request-id"`
+	TriggerID string `json:"request-id"`
 }
 
 type SubmitJobResponse struct {
-	JobId string `json:"jobid"`
+	JobID string `json:"jobid"`
 }
 
 type GetJobsResponse struct {
@@ -72,7 +72,7 @@ type GetJobsResponse struct {
 }
 
 type JobConfigResponse struct {
-	JobId           string             `json:"jid"`
+	JobID           string             `json:"jid"`
 	ExecutionConfig JobExecutionConfig `json:"execution-config"`
 }
 
@@ -81,7 +81,7 @@ type JobExecutionConfig struct {
 }
 
 type FlinkJob struct {
-	JobId  string         `json:"id"`
+	JobID  string         `json:"id"`
 	Status FlinkJobStatus `json:"status"`
 }
 
@@ -91,7 +91,7 @@ type ClusterOverviewResponse struct {
 }
 
 type CheckpointStatistics struct {
-	Id                 uint             `json:"id"`
+	ID                 uint             `json:"id"`
 	Status             CheckpointStatus `json:"status"`
 	IsSavepoint        bool             `json:"is_savepoint"`
 	TriggerTimestamp   int64            `json:"trigger_timestamp"`

@@ -1,9 +1,10 @@
 package flink
 
 import (
+	"testing"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestHashForApplication(t *testing.T) {

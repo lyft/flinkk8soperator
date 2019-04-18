@@ -18,6 +18,10 @@ jobs:
       name: unit tests
       install: make install
       script: make test_unit
+    - stage: build
+      install: make install
+      name: lint
+      script: make lint
     - stage: integ-test
       name: integration tests
       install: integ/install.sh

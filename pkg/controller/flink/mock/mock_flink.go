@@ -5,7 +5,7 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 )
 
 type CreateClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) error
@@ -20,7 +20,7 @@ type GetJobsForApplicationFunc func(ctx context.Context, application *v1alpha1.F
 type GetCurrentAndOldDeploymentsForAppFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error)
 type FindExternalizedCheckpointFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 
-type MockFlinkController struct {
+type FlinkController struct {
 	CreateClusterFunc                     CreateClusterFunc
 	DeleteOldClusterFunc                  DeleteOldClusterFunc
 	CancelWithSavepointFunc               CancelWithSavepointFunc
@@ -34,77 +34,77 @@ type MockFlinkController struct {
 	FindExternalizedCheckpointFunc        FindExternalizedCheckpointFunc
 }
 
-func (m *MockFlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error) {
+func (m *FlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error) {
 	if m.GetCurrentAndOldDeploymentsForAppFunc != nil {
 		return m.GetCurrentAndOldDeploymentsForAppFunc(ctx, application)
 	}
 	return nil, nil, nil
 }
 
-func (m *MockFlinkController) DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (m *FlinkController) DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	if m.DeleteOldClusterFunc != nil {
 		return m.DeleteOldClusterFunc(ctx, application)
 	}
 	return false, nil
 }
 
-func (m *MockFlinkController) CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+func (m *FlinkController) CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	if m.CreateClusterFunc != nil {
 		return m.CreateClusterFunc(ctx, application)
 	}
 	return nil
 }
 
-func (m *MockFlinkController) CancelWithSavepoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+func (m *FlinkController) CancelWithSavepoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
 	if m.CancelWithSavepointFunc != nil {
 		return m.CancelWithSavepointFunc(ctx, application)
 	}
 	return "", nil
 }
 
-func (m *MockFlinkController) StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+func (m *FlinkController) StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
 	if m.StartFlinkJobFunc != nil {
 		return m.StartFlinkJobFunc(ctx, application)
 	}
 	return "", nil
 }
 
-func (m *MockFlinkController) GetSavepointStatus(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error) {
+func (m *FlinkController) GetSavepointStatus(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error) {
 	if m.GetSavepointStatusFunc != nil {
 		return m.GetSavepointStatusFunc(ctx, application)
 	}
 	return nil, nil
 }
 
-func (m *MockFlinkController) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (m *FlinkController) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	if m.IsClusterReadyFunc != nil {
 		return m.IsClusterReadyFunc(ctx, application)
 	}
 	return false, nil
 }
 
-func (m *MockFlinkController) IsServiceReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (m *FlinkController) IsServiceReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	if m.IsServiceReadyFunc != nil {
 		return m.IsServiceReadyFunc(ctx, application)
 	}
 	return false, nil
 }
 
-func (m *MockFlinkController) HasApplicationChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (m *FlinkController) HasApplicationChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	if m.HasApplicationChangedFunc != nil {
 		return m.HasApplicationChangedFunc(ctx, application)
 	}
 	return false, nil
 }
 
-func (m *MockFlinkController) GetJobsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error) {
+func (m *FlinkController) GetJobsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error) {
 	if m.GetJobsForApplicationFunc != nil {
 		return m.GetJobsForApplicationFunc(ctx, application)
 	}
 	return nil, nil
 }
 
-func (m *MockFlinkController) FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+func (m *FlinkController) FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
 	if m.FindExternalizedCheckpointFunc != nil {
 		return m.FindExternalizedCheckpointFunc(ctx, application)
 	}

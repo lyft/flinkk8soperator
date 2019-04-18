@@ -7,8 +7,6 @@ import (
 
 	"reflect"
 
-	"fmt"
-
 	"github.com/lyft/flinkk8soperator/pkg/controller/errors"
 	"github.com/lyft/flytestdlib/contextutils"
 	"github.com/lyft/flytestdlib/logger"
@@ -49,7 +47,7 @@ func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 		}
 		ctx = contextutils.WithNamespace(ctx, o.Namespace)
 		ctx = contextutils.WithAppName(ctx, o.Name)
-		ctx = contextutils.WithPhase(ctx, fmt.Sprintf("%s", o.Status.Phase))
+		ctx = contextutils.WithPhase(ctx, string(o.Status.Phase))
 		err := h.flinkHandler.Handle(ctx, o)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to Handle Flink Job: %v", err)

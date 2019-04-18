@@ -2,17 +2,18 @@ package flink
 
 import (
 	"fmt"
+	"hash/fnv"
+	"strconv"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/pkg/errors"
-	"hash/fnv"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	"strconv"
 )
 
 const (
@@ -98,9 +99,8 @@ func GetFlinkContainerEnv(app *v1alpha1.FlinkApplication) []v1.EnvVar {
 func ImagePullPolicy(app *v1alpha1.FlinkApplication) v1.PullPolicy {
 	if app.Spec.ImagePullPolicy == "" {
 		return v1.PullIfNotPresent
-	} else {
-		return app.Spec.ImagePullPolicy
 	}
+	return app.Spec.ImagePullPolicy
 }
 
 // Returns an 8 character hash sensitive to the application name, labels, annotations, and spec.

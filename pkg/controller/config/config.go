@@ -8,7 +8,6 @@ import (
 
 const configSectionKey = "operator"
 
-// MustRegister Section will panic
 var ConfigSection = config.MustRegisterSection(configSectionKey, &Config{})
 
 type Config struct {
@@ -16,7 +15,7 @@ type Config struct {
 	LimitNamespace                string          `json:"limitNamespace" pflag:"\"\",Namespaces to watch for this propeller"`
 	MetricsPrefix                 string          `json:"metricsPrefix" pflag:"\"flinkk8soperator\",Prefix for metrics propagated to prometheus"`
 	ProfilerPort                  config.Port     `json:"prof-port" pflag:"\"10254\",Profiler port"`
-	FlinkIngressUrlFormat         string          `json:"ingressUrlFormat"`
+	FlinkIngressURLFormat         string          `json:"ingressUrlFormat"`
 	UseProxy                      bool            `json:"useKubectlProxy"`
 	ProxyPort                     config.Port     `json:"ProxyPort" pflag:"\"8001\",The port at which flink cluster runs locally"`
 	ContainerNameFormat           string          `json:"containerNameFormat"`

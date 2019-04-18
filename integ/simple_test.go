@@ -3,14 +3,16 @@ package integ
 import (
 	"encoding/json"
 	"fmt"
+
+	"os"
+	"time"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
-	"time"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const NewImage = "lyft/operator-test-app:c371d09946d7b328e5a8f5fdc5089f5247f60088"
@@ -32,13 +34,13 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1al
 	// check that it really updated
 	newApp, err := s.Util.GetFlinkApplication(name)
 	c.Assert(err, IsNil)
-	c.Assert(newApp.Status.JobId, Not(Equals), app.Status.JobId)
+	c.Assert(newApp.Status.JobID, Not(Equals), app.Status.JobID)
 
 	log.Info("New job started successfully")
 
 	// check that we savepointed and restored correctly
-	endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.JobId)
-	res, err := s.Util.FlinkApiGet(newApp, endpoint)
+	endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.JobID)
+	res, err := s.Util.FlinkAPIGet(newApp, endpoint)
 	c.Assert(err, IsNil)
 
 	body := res.(map[string]interface{})
@@ -93,7 +95,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 		app.Spec.FlinkConfig["akka.client.timeout"] = "23 s"
 	})
 	// validate the config has been applied
-	res, err := s.Util.FlinkApiGet(newApp, "/jobmanager/config")
+	res, err := s.Util.FlinkAPIGet(newApp, "/jobmanager/config")
 	c.Assert(err, IsNil)
 	body := res.([]interface{})
 	value := func() interface{} {
@@ -153,9 +155,9 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	app, err := s.Util.GetFlinkApplication(config.Name)
 	c.Assert(err, IsNil)
 
-	endpoint := fmt.Sprintf("jobs/%s/checkpoints", app.Status.JobId)
+	endpoint := fmt.Sprintf("jobs/%s/checkpoints", app.Status.JobID)
 	for {
-		res, err := s.Util.FlinkApiGet(app, endpoint)
+		res, err := s.Util.FlinkAPIGet(app, endpoint)
 		c.Assert(err, IsNil)
 
 		body, err := json.Marshal(res)
@@ -187,10 +189,10 @@ func (s *IntegSuite) TestRecovery(c *C) {
 		// wait until the new job is launched
 		newApp, err := s.Util.GetFlinkApplication(config.Name)
 		c.Assert(err, IsNil)
-		if newApp.Status.JobId != app.Status.JobId {
+		if newApp.Status.JobID != app.Status.JobID {
 			break
 		}
-		time.Sleep(100)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	c.Assert(err, IsNil)

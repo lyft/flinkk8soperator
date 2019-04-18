@@ -2,14 +2,15 @@ package flink
 
 import (
 	"fmt"
+	"sort"
+	"strings"
+	"testing"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sort"
-	"strings"
-	"testing"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestRenderFlinkConfigOverrides(t *testing.T) {
@@ -54,8 +55,8 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 		fmt.Sprintf("blob.server.port: %d", blobPort),
 		"jobmanager.heap.size: 1536", // defaults
 		"jobmanager.rpc.address: test-app-jm",
-		fmt.Sprintf("jobmanager.rpc.port: %d", RpcDefaultPort),
-		fmt.Sprintf("jobmanager.web.port: %d", UiDefaultPort),
+		fmt.Sprintf("jobmanager.rpc.port: %d", RPCDefaultPort),
+		fmt.Sprintf("jobmanager.web.port: %d", UIDefaultPort),
 		fmt.Sprintf("metrics.internal.query-service.port: %d", MetricsQueryDefaultPort),
 		fmt.Sprintf("query.server.port: %d", QueryDefaultPort),
 		"taskmanager.heap.size: 512", // defaults

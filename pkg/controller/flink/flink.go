@@ -14,17 +14,17 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 )
 
-const proxyUrl = "http://localhost:%d/api/v1/namespaces/%s/services/%s-jm:8081/proxy"
+const proxyURL = "http://localhost:%d/api/v1/namespaces/%s/services/%s-jm:8081/proxy"
 const port = 8081
 
 // Maximum age of an externalized checkpoint that we will attempt to restore
 const maxRestoreCheckpointAge = 24 * time.Hour
 
 // Interface to manage Flink Application in Kubernetes
-type FlinkInterface interface {
+type ControllerInterface interface {
 	// Creates a Flink cluster with necessary Job Manager, Task Managers and services for UI
 	CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error
 
@@ -38,7 +38,7 @@ type FlinkInterface interface {
 	StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 
 	// Savepoint creation is asynchronous.
-	// Polls the status of the Savepoint, using the triggerId
+	// Polls the status of the Savepoint, using the triggerID
 	GetSavepointStatus(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error)
 
 	// Check if the Flink Kubernetes Cluster is Ready.
@@ -61,20 +61,20 @@ type FlinkInterface interface {
 	FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 }
 
-func NewFlinkController(scope promutils.Scope) FlinkInterface {
-	metrics := newFlinkControllerMetrics(scope)
-	return &FlinkController{
-		k8Cluster:        k8.NewK8Cluster(),
-		flinkJobManager:  NewFlinkJobManagerController(scope),
-		FlinkTaskManager: NewFlinkTaskManagerController(scope),
-		flinkClient:      client.NewFlinkJobManagerClient(scope),
-		metrics:          metrics,
+func NewController(scope promutils.Scope) ControllerInterface {
+	metrics := newControllerMetrics(scope)
+	return &Controller{
+		k8Cluster:   k8.NewK8Cluster(),
+		jobManager:  NewJobManagerController(scope),
+		taskManager: NewTaskManagerController(scope),
+		flinkClient: client.NewFlinkJobManagerClient(scope),
+		metrics:     metrics,
 	}
 }
 
-func newFlinkControllerMetrics(scope promutils.Scope) *flinkControllerMetrics {
+func newControllerMetrics(scope promutils.Scope) *controllerMetrics {
 	flinkControllerScope := scope.NewSubScope("flink_controller")
-	return &flinkControllerMetrics{
+	return &controllerMetrics{
 		scope:                       scope,
 		deleteClusterSuccessCounter: labeled.NewCounter("delete_cluster_success", "Flink cluster deleted successfully", flinkControllerScope),
 		deleteClusterFailedCounter:  labeled.NewCounter("delete_cluster_failure", "Flink cluster deletion failed", flinkControllerScope),
@@ -82,28 +82,27 @@ func newFlinkControllerMetrics(scope promutils.Scope) *flinkControllerMetrics {
 	}
 }
 
-type flinkControllerMetrics struct {
+type controllerMetrics struct {
 	scope                       promutils.Scope
 	deleteClusterSuccessCounter labeled.Counter
 	deleteClusterFailedCounter  labeled.Counter
 	applicationChangedCounter   labeled.Counter
 }
 
-type FlinkController struct {
-	k8Cluster        k8.K8ClusterInterface
-	flinkJobManager  FlinkJobManagerControllerInterface
-	FlinkTaskManager FlinkTaskManagerControllerInterface
-	flinkClient      client.FlinkAPIInterface
-	metrics          *flinkControllerMetrics
+type Controller struct {
+	k8Cluster   k8.ClusterInterface
+	jobManager  JobManagerControllerInterface
+	taskManager TaskManagerControllerInterface
+	flinkClient client.FlinkAPIInterface
+	metrics     *controllerMetrics
 }
 
-func getUrlFromApp(application *v1alpha1.FlinkApplication) string {
+func getURLFromApp(application *v1alpha1.FlinkApplication) string {
 	cfg := config.GetConfig()
 	if cfg.UseProxy {
-		return fmt.Sprintf(proxyUrl, cfg.ProxyPort.Port, application.Namespace, application.Name)
-	} else {
-		return fmt.Sprintf("http://%s:%d", GetJobManagerExternalServiceName(application), port)
+		return fmt.Sprintf(proxyURL, cfg.ProxyPort.Port, application.Namespace, application.Name)
 	}
+	return fmt.Sprintf("http://%s:%d", GetJobManagerExternalServiceName(application), port)
 }
 
 func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
@@ -120,7 +119,7 @@ func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
 }
 
 // returns true iff the deployment exactly matches the flink application
-func (f *FlinkController) deploymentMatches(ctx context.Context, deployment *v1.Deployment, application *v1alpha1.FlinkApplication) bool {
+func (f *Controller) deploymentMatches(ctx context.Context, deployment *v1.Deployment, application *v1alpha1.FlinkApplication) bool {
 	if DeploymentIsTaskmanager(deployment) {
 		return TaskManagerDeploymentMatches(deployment, application)
 	}
@@ -132,8 +131,8 @@ func (f *FlinkController) deploymentMatches(ctx context.Context, deployment *v1.
 	return false
 }
 
-func (f *FlinkController) GetJobsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error) {
-	jobResponse, err := f.flinkClient.GetJobs(ctx, getUrlFromApp(application))
+func (f *Controller) GetJobsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error) {
+	jobResponse, err := f.flinkClient.GetJobs(ctx, getURLFromApp(application))
 	if err != nil {
 		return nil, err
 	}
@@ -142,29 +141,29 @@ func (f *FlinkController) GetJobsForApplication(ctx context.Context, application
 
 // The operator for now assumes and is intended to run single application per Flink Cluster.
 // Once we move to run multiple applications, this has to be removed/updated
-func (f *FlinkController) getJobIdForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
-	if application.Status.JobId != "" {
-		return application.Status.JobId, nil
+func (f *Controller) getJobIDForApplication(application *v1alpha1.FlinkApplication) (string, error) {
+	if application.Status.JobID != "" {
+		return application.Status.JobID, nil
 	}
 
 	return "", errors.New("active job id not available")
 }
 
-func (f *FlinkController) CancelWithSavepoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
-	jobId, err := f.getJobIdForApplication(ctx, application)
+func (f *Controller) CancelWithSavepoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+	jobID, err := f.getJobIDForApplication(application)
 	if err != nil {
 		return "", err
 	}
-	return f.flinkClient.CancelJobWithSavepoint(ctx, getUrlFromApp(application), jobId)
+	return f.flinkClient.CancelJobWithSavepoint(ctx, getURLFromApp(application), jobID)
 }
 
-func (f *FlinkController) CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error {
-	err := f.flinkJobManager.CreateIfNotExist(ctx, application)
+func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+	err := f.jobManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Job manager cluster creation did not succeed %v", err)
 		return err
 	}
-	err = f.FlinkTaskManager.CreateIfNotExist(ctx, application)
+	err = f.taskManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Task manager cluster creation did not succeed %v", err)
 		return err
@@ -172,10 +171,10 @@ func (f *FlinkController) CreateCluster(ctx context.Context, application *v1alph
 	return nil
 }
 
-func (f *FlinkController) StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+func (f *Controller) StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
 	response, err := f.flinkClient.SubmitJob(
 		ctx,
-		getUrlFromApp(application),
+		getURLFromApp(application),
 		application.Spec.JarName,
 		client.SubmitJobRequest{
 			Parallelism:   application.Spec.Parallelism,
@@ -186,22 +185,22 @@ func (f *FlinkController) StartFlinkJob(ctx context.Context, application *v1alph
 	if err != nil {
 		return "", err
 	}
-	if response.JobId == "" {
+	if response.JobID == "" {
 		logger.Errorf(ctx, "Job id in the submit job response was empty")
 		return "", errors.New("unable to submit job: invalid job id")
 	}
-	return response.JobId, nil
+	return response.JobID, nil
 }
 
-func (f *FlinkController) GetSavepointStatus(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error) {
-	jobId, err := f.getJobIdForApplication(ctx, application)
+func (f *Controller) GetSavepointStatus(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error) {
+	jobID, err := f.getJobIDForApplication(application)
 	if err != nil {
 		return nil, err
 	}
-	return f.flinkClient.CheckSavepointStatus(ctx, getUrlFromApp(application), jobId, application.Spec.SavepointInfo.TriggerId)
+	return f.flinkClient.CheckSavepointStatus(ctx, getURLFromApp(application), jobID, application.Spec.SavepointInfo.TriggerID)
 }
 
-func (f *FlinkController) DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (f *Controller) DeleteOldCluster(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	_, oldDeployments, err := f.GetCurrentAndOldDeploymentsForApp(ctx, application)
 	if err != nil {
 		return false, err
@@ -221,13 +220,13 @@ func (f *FlinkController) DeleteOldCluster(ctx context.Context, application *v1a
 	return true, nil
 }
 
-func (f *FlinkController) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (f *Controller) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	appHashLabel := GetAppHashSelector(application)
 	return f.k8Cluster.AreAllPodsRunning(ctx, application.Namespace, appHashLabel)
 }
 
-func (f *FlinkController) IsServiceReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	_, err := f.flinkClient.GetClusterOverview(ctx, getUrlFromApp(application))
+func (f *Controller) IsServiceReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	_, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application))
 	if err != nil {
 		logger.Infof(ctx, "Error response indicating flink API is not ready to handle request %v", err)
 		return false, err
@@ -235,7 +234,7 @@ func (f *FlinkController) IsServiceReady(ctx context.Context, application *v1alp
 	return true, nil
 }
 
-func (f *FlinkController) HasApplicationChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (f *Controller) HasApplicationChanged(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	cur, _, err := f.GetCurrentAndOldDeploymentsForApp(ctx, application)
 	if err != nil {
 		return false, err
@@ -244,7 +243,7 @@ func (f *FlinkController) HasApplicationChanged(ctx context.Context, application
 	return len(cur) == 0, nil
 }
 
-func (f *FlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error) {
+func (f *Controller) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error) {
 	appLabels := k8.GetAppLabel(application.Name)
 	deployments, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, appLabels)
 	if err != nil {
@@ -272,8 +271,8 @@ func (f *FlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context,
 
 // Attempts to find an externalized checkpoint for the job. This can be used to recover an application that is not
 // able to savepoint for some reason.
-func (f *FlinkController) FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
-	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, getUrlFromApp(application), application.Status.JobId)
+func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, getURLFromApp(application), application.Status.JobID)
 	if err != nil {
 		return "", err
 	}
@@ -281,7 +280,7 @@ func (f *FlinkController) FindExternalizedCheckpoint(ctx context.Context, applic
 		return "", nil
 	}
 
-	if time.Now().Sub(time.Unix(checkpoint.TriggerTimestamp, 0)) > maxRestoreCheckpointAge {
+	if time.Since(time.Unix(checkpoint.TriggerTimestamp, 0)) > maxRestoreCheckpointAge {
 		logger.Info(ctx, "Found checkpoint to restore from, but was too old")
 		return "", nil
 	}

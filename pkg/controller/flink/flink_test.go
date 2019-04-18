@@ -2,6 +2,10 @@ package flink
 
 import (
 	"context"
+	"testing"
+
+	"time"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
@@ -12,28 +16,26 @@ import (
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"testing"
-	"time"
 )
 
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
 const testAppHash = "79f298cd"
 const testAppName = "app-name"
 const testNamespace = "ns"
-const testJobId = "j1"
+const testJobID = "j1"
 const testFlinkVersion = "1.7"
 
-func getTestFlinkController() FlinkController {
+func getTestFlinkController() Controller {
 	testScope := mockScope.NewTestScope()
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
-	return FlinkController{
-		flinkJobManager:  &mock.MockJobManagerController{},
-		FlinkTaskManager: &mock.MockTaskManagerController{},
-		k8Cluster:        &k8mock.MockK8Cluster{},
-		flinkClient:      &clientMock.MockJobManagerClient{},
-		metrics:          newFlinkControllerMetrics(testScope),
+	return Controller{
+		jobManager:  &mock.JobManagerController{},
+		taskManager: &mock.TaskManagerController{},
+		k8Cluster:   &k8mock.K8Cluster{},
+		flinkClient: &clientMock.JobManagerClient{},
+		metrics:     newControllerMetrics(testScope),
 	}
 }
 
@@ -42,7 +44,7 @@ func getFlinkTestApp() v1alpha1.FlinkApplication {
 	app.Spec.Parallelism = 8
 	app.Name = testAppName
 	app.Namespace = testNamespace
-	app.Status.JobId = testJobId
+	app.Status.JobID = testJobID
 	app.Spec.Image = testImage
 	app.Spec.FlinkVersion = testFlinkVersion
 
@@ -77,7 +79,7 @@ func TestFlinkIsClusterReady(t *testing.T) {
 	labelMapVal := map[string]string{
 		"flink-app-hash": testAppHash,
 	}
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.IsAllPodsRunningFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
@@ -103,7 +105,7 @@ func TestFlinkApplicationChangedReplicas(t *testing.T) {
 	flinkApp.Spec.TaskManagerConfig.TaskSlots = &taskSlots
 	flinkApp.Spec.Parallelism = 8
 
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
@@ -130,7 +132,7 @@ func TestFlinkApplicationNotChanged(t *testing.T) {
 		"app": testAppName,
 	}
 	flinkApp := getFlinkTestApp()
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
@@ -150,7 +152,7 @@ func TestFlinkApplicationChanged(t *testing.T) {
 	labelMapVal := map[string]string{
 		"app": testAppName,
 	}
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
@@ -168,7 +170,7 @@ func TestFlinkApplicationChangedParallelism(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		if val, ok := labelMap["flink-app-hash"]; ok {
@@ -197,7 +199,7 @@ func TestFlinkApplicationChangedParallelism(t *testing.T) {
 func TestFlinkApplicationNeedsUpdate(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	numberOfTaskManagers := int32(2)
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		if val, ok := labelMap["flink-app-hash"]; ok {
@@ -233,7 +235,7 @@ func TestFlinkIsServiceReady(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
 		assert.Equal(t, url, "http://app-name-jm.ns:8081")
 		return &client.ClusterOverviewResponse{
@@ -249,7 +251,7 @@ func TestFlinkIsServiceReadyErr(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
 		assert.Equal(t, url, "http://app-name-jm.ns:8081")
 		return nil, errors.New("Get cluster failed")
@@ -262,13 +264,13 @@ func TestFlinkIsServiceReadyErr(t *testing.T) {
 func TestFlinkGetSavepointStatus(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Spec.SavepointInfo.TriggerId = "t1"
+	flinkApp.Spec.SavepointInfo.TriggerID = "t1"
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockJmClient.CheckSavepointStatusFunc = func(ctx context.Context, url string, jobId, triggerId string) (*client.SavepointResponse, error) {
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.CheckSavepointStatusFunc = func(ctx context.Context, url string, jobID, triggerID string) (*client.SavepointResponse, error) {
 		assert.Equal(t, url, "http://app-name-jm.ns:8081")
-		assert.Equal(t, jobId, testJobId)
-		assert.Equal(t, triggerId, "t1")
+		assert.Equal(t, jobID, testJobID)
+		assert.Equal(t, triggerID, "t1")
 		return &client.SavepointResponse{
 			SavepointStatus: client.SavepointStatusResponse{
 				Status: client.SavePointInProgress,
@@ -286,10 +288,10 @@ func TestFlinkGetSavepointStatusErr(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockJmClient.CheckSavepointStatusFunc = func(ctx context.Context, url string, jobId, triggerId string) (*client.SavepointResponse, error) {
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.CheckSavepointStatusFunc = func(ctx context.Context, url string, jobID, triggerID string) (*client.SavepointResponse, error) {
 		assert.Equal(t, url, "http://app-name-jm.ns:8081")
-		assert.Equal(t, jobId, testJobId)
+		assert.Equal(t, jobID, testJobID)
 		return nil, errors.New("Savepoint error")
 	}
 	status, err := flinkControllerForTest.GetSavepointStatus(context.Background(), &flinkApp)
@@ -302,7 +304,7 @@ func TestFlinkGetSavepointStatusErr(t *testing.T) {
 func TestGetActiveJob(t *testing.T) {
 	job := client.FlinkJob{
 		Status: client.FlinkJobRunning,
-		JobId:  "j1",
+		JobID:  "j1",
 	}
 	jobs := []client.FlinkJob{
 		job,
@@ -315,7 +317,7 @@ func TestGetActiveJob(t *testing.T) {
 func TestGetActiveJobNil(t *testing.T) {
 	job := client.FlinkJob{
 		Status: client.FlinkJobCancelling,
-		JobId:  "j1",
+		JobID:  "j1",
 	}
 	jobs := []client.FlinkJob{
 		job,
@@ -341,7 +343,7 @@ func TestDeleteOldCluster(t *testing.T) {
 	d2.Labels = map[string]string{
 		"flink-app-hash": testAppHash + "3",
 	}
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
@@ -367,7 +369,7 @@ func TestDeleteOldClusterNoOldDeployment(t *testing.T) {
 	labelMapVal := map[string]string{
 		"app": testAppName,
 	}
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
@@ -392,7 +394,7 @@ func TestDeleteOldClusterNoDeployment(t *testing.T) {
 	labelMapVal := map[string]string{
 		"app": testAppName,
 	}
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
@@ -416,7 +418,7 @@ func TestDeleteOldClusterErr(t *testing.T) {
 	d1 := v1.Deployment{}
 	d1.Labels = labelMapVal
 
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
@@ -438,8 +440,8 @@ func TestDeleteOldClusterErr(t *testing.T) {
 func TestCreateCluster(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	mockJobManager := flinkControllerForTest.flinkJobManager.(*mock.MockJobManagerController)
-	mockTaskManager := flinkControllerForTest.FlinkTaskManager.(*mock.MockTaskManagerController)
+	mockJobManager := flinkControllerForTest.jobManager.(*mock.JobManagerController)
+	mockTaskManager := flinkControllerForTest.taskManager.(*mock.TaskManagerController)
 
 	mockJobManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 		return nil
@@ -454,8 +456,8 @@ func TestCreateCluster(t *testing.T) {
 func TestCreateClusterJmErr(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	mockJobManager := flinkControllerForTest.flinkJobManager.(*mock.MockJobManagerController)
-	mockTaskManager := flinkControllerForTest.FlinkTaskManager.(*mock.MockTaskManagerController)
+	mockJobManager := flinkControllerForTest.jobManager.(*mock.JobManagerController)
+	mockTaskManager := flinkControllerForTest.taskManager.(*mock.TaskManagerController)
 
 	mockJobManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 		return errors.New("jm failed")
@@ -471,8 +473,8 @@ func TestCreateClusterJmErr(t *testing.T) {
 func TestCreateClusterTmErr(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	mockJobManager := flinkControllerForTest.flinkJobManager.(*mock.MockJobManagerController)
-	mockTaskManager := flinkControllerForTest.FlinkTaskManager.(*mock.MockTaskManagerController)
+	mockJobManager := flinkControllerForTest.jobManager.(*mock.JobManagerController)
+	mockTaskManager := flinkControllerForTest.taskManager.(*mock.TaskManagerController)
 
 	mockJobManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 		return nil
@@ -494,90 +496,90 @@ func TestStartFlinkJob(t *testing.T) {
 	flinkApp.Spec.SavepointInfo.SavepointLocation = "location//"
 	flinkApp.Spec.FlinkVersion = "1.7"
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarId string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
 		assert.Equal(t, url, "http://app-name-jm.ns:8081")
-		assert.Equal(t, jarId, "jar-name")
+		assert.Equal(t, jarID, "jar-name")
 		assert.Equal(t, submitJobRequest.Parallelism, int32(4))
 		assert.Equal(t, submitJobRequest.ProgramArgs, "args")
 		assert.Equal(t, submitJobRequest.EntryClass, "class")
 		assert.Equal(t, submitJobRequest.SavepointPath, "location//")
 
 		return &client.SubmitJobResponse{
-			JobId: testJobId,
+			JobID: testJobID,
 		}, nil
 	}
-	jobId, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp)
+	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp)
 	assert.Nil(t, err)
-	assert.Equal(t, jobId, testJobId)
+	assert.Equal(t, jobID, testJobID)
 }
 
-func TestStartFlinkJobEmptyJobId(t *testing.T) {
+func TestStartFlinkJobEmptyJobID(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarId string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
 
 		return &client.SubmitJobResponse{}, nil
 	}
-	jobId, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp)
+	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp)
 	assert.EqualError(t, err, "unable to submit job: invalid job id")
-	assert.Empty(t, jobId)
+	assert.Empty(t, jobID)
 }
 
 func TestStartFlinkJobErr(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarId string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
 		return nil, errors.New("submit error")
 	}
-	jobId, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp)
+	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp)
 	assert.EqualError(t, err, "submit error")
-	assert.Empty(t, jobId)
+	assert.Empty(t, jobID)
 }
 
 func TestCancelWithSavepoint(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobId string) (string, error) {
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobID string) (string, error) {
 		assert.Equal(t, url, "http://app-name-jm.ns:8081")
-		assert.Equal(t, jobId, testJobId)
+		assert.Equal(t, jobID, testJobID)
 		return "t1", nil
 	}
-	triggerId, err := flinkControllerForTest.CancelWithSavepoint(context.Background(), &flinkApp)
+	triggerID, err := flinkControllerForTest.CancelWithSavepoint(context.Background(), &flinkApp)
 	assert.Nil(t, err)
-	assert.Equal(t, triggerId, "t1")
+	assert.Equal(t, triggerID, "t1")
 }
 
 func TestCancelWithSavepointErr(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
-	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobId string) (string, error) {
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobID string) (string, error) {
 		return "", errors.New("cancel error")
 	}
-	triggerId, err := flinkControllerForTest.CancelWithSavepoint(context.Background(), &flinkApp)
+	triggerID, err := flinkControllerForTest.CancelWithSavepoint(context.Background(), &flinkApp)
 	assert.EqualError(t, err, "cancel error")
-	assert.Empty(t, triggerId)
+	assert.Empty(t, triggerID)
 }
 
 func TestGetJobsForApplication(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetJobsFunc = func(ctx context.Context, url string) (*client.GetJobsResponse, error) {
 		assert.Equal(t, url, "http://app-name-jm.ns:8081")
 		return &client.GetJobsResponse{
 			Jobs: []client.FlinkJob{
 				{
-					JobId: testJobId,
+					JobID: testJobID,
 				},
 			},
 		}, nil
@@ -585,14 +587,14 @@ func TestGetJobsForApplication(t *testing.T) {
 	jobs, err := flinkControllerForTest.GetJobsForApplication(context.Background(), &flinkApp)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(jobs))
-	assert.Equal(t, jobs[0].JobId, testJobId)
+	assert.Equal(t, jobs[0].JobID, testJobID)
 }
 
 func TestGetJobsForApplicationErr(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetJobsFunc = func(ctx context.Context, url string) (*client.GetJobsResponse, error) {
 		return nil, errors.New("get jobs error")
 	}
@@ -604,9 +606,9 @@ func TestGetJobsForApplicationErr(t *testing.T) {
 func TestFindExternalizedCheckpoint(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Status.JobId = "jobid"
+	flinkApp.Status.JobID = "jobid"
 
-	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetLatestCheckpointFunc = func(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error) {
 		assert.Equal(t, url, "http://app-name-jm.ns:8081")
 		assert.Equal(t, "jobid", jobId)

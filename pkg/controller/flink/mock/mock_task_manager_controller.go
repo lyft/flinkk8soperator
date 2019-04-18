@@ -8,11 +8,11 @@ import (
 
 type CreateIfNotExistFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) error
 
-type MockTaskManagerController struct {
+type TaskManagerController struct {
 	CreateIfNotExistFunc CreateIfNotExistFunc
 }
 
-func (m *MockTaskManagerController) CreateIfNotExist(
+func (m *TaskManagerController) CreateIfNotExist(
 	ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	if m.CreateIfNotExistFunc != nil {
 		return m.CreateIfNotExistFunc(ctx, application)

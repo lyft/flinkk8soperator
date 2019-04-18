@@ -4,13 +4,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/go-resty/resty"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	v1alpha12 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1alpha1"
 	"github.com/prometheus/common/log"
-	"io"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsClientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -18,17 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 )
 import clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
 
 type TestUtil struct {
 	KubeClient             kubernetes.Interface
 	FlinkApplicationClient clientset.Interface
-	ApiExtensionsClient    apiextensionsClientset.Interface
+	APIExtensionsClient    apiextensionsClientset.Interface
 	Namespace              *v1.Namespace
 	Image                  string
 	CheckpointDir          string
@@ -75,7 +76,7 @@ func New(namespaceName string, kubeconfig string, image string, checkpointDir st
 	return &TestUtil{
 		KubeClient:             client,
 		FlinkApplicationClient: crdClient,
-		ApiExtensionsClient:    apiextensionsClient,
+		APIExtensionsClient:    apiextensionsClient,
 		Namespace:              namespace,
 		Image:                  image,
 		CheckpointDir:          checkpointDir,
@@ -115,7 +116,7 @@ func (f *TestUtil) CreateCRD() error {
 	crd.Namespace = f.Namespace.Name
 	fmt.Printf("crd %v", crd)
 
-	_, err = f.ApiExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
+	_, err = f.APIExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
 	if err != nil {
 		return err
 	}
@@ -359,7 +360,7 @@ func (f *TestUtil) WaitForPhase(name string, phase v1alpha1.FlinkApplicationPhas
 
 		for _, p := range failurePhases {
 			if app.Status.Phase == p {
-				return errors.New(fmt.Sprintf("application entered %s phase", p))
+				return fmt.Errorf("application entered %s phase", p)
 			}
 		}
 
@@ -367,7 +368,7 @@ func (f *TestUtil) WaitForPhase(name string, phase v1alpha1.FlinkApplicationPhas
 	}
 }
 
-func (f *TestUtil) FlinkApiGet(app *v1alpha1.FlinkApplication, endpoint string) (interface{}, error) {
+func (f *TestUtil) FlinkAPIGet(app *v1alpha1.FlinkApplication, endpoint string) (interface{}, error) {
 	url := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/"+
 		"services/%s-jm:8081/proxy/%s",
 		f.Namespace.Name, app.Name, endpoint)
@@ -378,7 +379,7 @@ func (f *TestUtil) FlinkApiGet(app *v1alpha1.FlinkApplication, endpoint string) 
 	}
 
 	if !resp.IsSuccess() {
-		return nil, errors.New(fmt.Sprintf("request failed with code %d", resp.StatusCode()))
+		return nil, fmt.Errorf("request failed with code %d", resp.StatusCode())
 	}
 
 	var result interface{}
@@ -396,9 +397,9 @@ func (f *TestUtil) WaitForAllTasksInState(name string, state string) error {
 		return err
 	}
 
-	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.JobId)
+	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.JobID)
 	for {
-		res, err := f.FlinkApiGet(flinkApp, endpoint)
+		res, err := f.FlinkAPIGet(flinkApp, endpoint)
 		if err != nil {
 			return err
 		}

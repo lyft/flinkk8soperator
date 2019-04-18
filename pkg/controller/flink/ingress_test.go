@@ -10,16 +10,17 @@ import (
 func TestReplaceJobUrl(t *testing.T) {
 	assert.Equal(t,
 		"ABC.lyft.xyz",
-		ReplaceJobUrl("{{$jobCluster}}.lyft.xyz", "ABC"))
+		ReplaceJobURL("{{$jobCluster}}.lyft.xyz", "ABC"))
 }
 
-func initTestConfig() {
-	config2.ConfigSection.SetConfig(&config2.Config{
-		FlinkIngressUrlFormat: "{{$jobCluster}}.lyft.xyz",
+func initTestConfig() error {
+	return config2.ConfigSection.SetConfig(&config2.Config{
+		FlinkIngressURLFormat: "{{$jobCluster}}.lyft.xyz",
 	})
 }
 func TestGetFlinkUIIngressURL(t *testing.T) {
-	initTestConfig()
+	err := initTestConfig()
+	assert.Nil(t, err)
 	assert.Equal(t,
 		"ABC.lyft.xyz",
 		GetFlinkUIIngressURL("ABC"))

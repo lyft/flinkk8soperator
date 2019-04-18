@@ -202,7 +202,7 @@ func TestConfig_SetFlags(t *testing.T) {
 
 			cmdFlags.Set("ingressUrlFormat", testValue)
 			if vString, err := cmdFlags.GetString("ingressUrlFormat"); err == nil {
-				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.FlinkIngressUrlFormat)
+				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.FlinkIngressURLFormat)
 
 			} else {
 				assert.FailNow(t, err.Error())

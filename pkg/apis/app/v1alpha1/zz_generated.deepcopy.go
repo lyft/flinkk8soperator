@@ -112,8 +112,8 @@ func (in *FlinkApplicationSpec) DeepCopyInto(out *FlinkApplicationSpec) {
 	in.TaskManagerConfig.DeepCopyInto(&out.TaskManagerConfig)
 	in.JobManagerConfig.DeepCopyInto(&out.JobManagerConfig)
 	out.SavepointInfo = in.SavepointInfo
-	if in.RpcPort != nil {
-		in, out := &in.RpcPort, &out.RpcPort
+	if in.RPCPort != nil {
+		in, out := &in.RPCPort, &out.RPCPort
 		*out = new(int32)
 		**out = **in
 	}
@@ -127,8 +127,8 @@ func (in *FlinkApplicationSpec) DeepCopyInto(out *FlinkApplicationSpec) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.UiPort != nil {
-		in, out := &in.UiPort, &out.UiPort
+	if in.UIPort != nil {
+		in, out := &in.UIPort, &out.UIPort
 		*out = new(int32)
 		**out = **in
 	}

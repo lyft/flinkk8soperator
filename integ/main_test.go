@@ -2,6 +2,11 @@ package integ
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
 	"github.com/lyft/flinkk8soperator/cmd/flinkk8soperator/cmd"
 	integFramework "github.com/lyft/flinkk8soperator/integ/utils"
 	controllerConfig "github.com/lyft/flinkk8soperator/pkg/controller/config"
@@ -9,12 +14,8 @@ import (
 	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/homedir"
-	"os"
-	"path/filepath"
-	"testing"
-	"time"
 )
 
 type IntegSuite struct {

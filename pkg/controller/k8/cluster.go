@@ -5,7 +5,7 @@ import (
 
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -18,7 +18,7 @@ const (
 	Ingress    = "Ingress"
 )
 
-type K8ClusterInterface interface {
+type ClusterInterface interface {
 	GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
 	AreAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error)
 	CreateK8Object(ctx context.Context, object sdk.Object) error
@@ -26,14 +26,14 @@ type K8ClusterInterface interface {
 	DeleteDeployments(ctx context.Context, deploymentList v1.DeploymentList) error
 }
 
-func NewK8Cluster() K8ClusterInterface {
-	return &K8Cluster{}
+func NewK8Cluster() ClusterInterface {
+	return &Cluster{}
 }
 
-type K8Cluster struct {
+type Cluster struct {
 }
 
-func (k *K8Cluster) GetPodsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.PodList, error) {
+func (k *Cluster) GetPodsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.PodList, error) {
 	podList := &coreV1.PodList{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -52,7 +52,7 @@ func (k *K8Cluster) GetPodsWithLabel(ctx context.Context, namespace string, labe
 	return podList, nil
 }
 
-func (k *K8Cluster) GetDeployment(ctx context.Context, namespace string, name string) (*v1.Deployment, error) {
+func (k *Cluster) GetDeployment(ctx context.Context, namespace string, name string) (*v1.Deployment, error) {
 	deployment := &v1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
@@ -72,7 +72,7 @@ func (k *K8Cluster) GetDeployment(ctx context.Context, namespace string, name st
 	return deployment, nil
 }
 
-func (k *K8Cluster) GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error) {
+func (k *Cluster) GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error) {
 	service := &coreV1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
@@ -92,7 +92,7 @@ func (k *K8Cluster) GetService(ctx context.Context, namespace string, name strin
 	return service, nil
 }
 
-func (k *K8Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
+func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 	deploymentList := &v1.DeploymentList{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
@@ -111,7 +111,7 @@ func (k *K8Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace strin
 	return deploymentList, nil
 }
 
-func (k *K8Cluster) AreAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
+func (k *Cluster) AreAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
 	podList, err := k.GetPodsWithLabel(ctx, namespace, labelMap)
 	if err != nil {
 		logger.Warnf(ctx, "Failed to get pods for label map %v", labelMap)
@@ -130,15 +130,15 @@ func (k *K8Cluster) AreAllPodsRunning(ctx context.Context, namespace string, lab
 	return true, nil
 }
 
-func (k *K8Cluster) CreateK8Object(ctx context.Context, object sdk.Object) error {
+func (k *Cluster) CreateK8Object(ctx context.Context, object sdk.Object) error {
 	return sdk.Create(object)
 }
 
-func (k *K8Cluster) UpdateK8Object(ctx context.Context, object sdk.Object) error {
+func (k *Cluster) UpdateK8Object(ctx context.Context, object sdk.Object) error {
 	return sdk.Update(object)
 }
 
-func (k *K8Cluster) DeleteDeployments(ctx context.Context, deploymentList v1.DeploymentList) error {
+func (k *Cluster) DeleteDeployments(ctx context.Context, deploymentList v1.DeploymentList) error {
 	for _, item := range deploymentList.Items {
 		err := sdk.Delete(&item)
 		if err != nil {

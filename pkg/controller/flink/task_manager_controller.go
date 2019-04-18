@@ -11,7 +11,7 @@ import (
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
-	"k8s.io/api/apps/v1"
+	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	k8_err "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -26,33 +26,33 @@ const (
 	TaskManagerHostnameEnvVar = "TASKMANAGER_HOSTNAME"
 )
 
-type FlinkTaskManagerControllerInterface interface {
+type TaskManagerControllerInterface interface {
 	CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error
 }
 
-func NewFlinkTaskManagerController(scope promutils.Scope) FlinkTaskManagerControllerInterface {
-	metrics := newFlinkTaskManagerMetrics(scope)
-	return &FlinkTaskManagerController{
+func NewTaskManagerController(scope promutils.Scope) TaskManagerControllerInterface {
+	metrics := newTaskManagerMetrics(scope)
+	return &TaskManagerController{
 		k8Cluster: k8.NewK8Cluster(),
 		metrics:   metrics,
 	}
 }
 
-type FlinkTaskManagerController struct {
-	k8Cluster k8.K8ClusterInterface
-	metrics   *flinkTaskManagerMetrics
+type TaskManagerController struct {
+	k8Cluster k8.ClusterInterface
+	metrics   *taskManagerMetrics
 }
 
-func newFlinkTaskManagerMetrics(scope promutils.Scope) *flinkTaskManagerMetrics {
+func newTaskManagerMetrics(scope promutils.Scope) *taskManagerMetrics {
 	taskManagerControllerScope := scope.NewSubScope("task_manager_controller")
-	return &flinkTaskManagerMetrics{
+	return &taskManagerMetrics{
 		scope:                     scope,
 		deploymentCreationSuccess: labeled.NewCounter("deployment_create_success", "Task manager deployment created successfully", taskManagerControllerScope),
 		deploymentCreationFailure: labeled.NewCounter("deployment_create_failure", "Task manager deployment creation failed", taskManagerControllerScope),
 	}
 }
 
-type flinkTaskManagerMetrics struct {
+type taskManagerMetrics struct {
 	scope                     promutils.Scope
 	deploymentCreationSuccess labeled.Counter
 	deploymentCreationFailure labeled.Counter
@@ -69,7 +69,7 @@ var TaskManagerDefaultResources = coreV1.ResourceRequirements{
 	},
 }
 
-func (t *FlinkTaskManagerController) CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+func (t *TaskManagerController) CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	taskManagerDeployment := FetchTaskMangerDeploymentCreateObj(application)
 	err := t.k8Cluster.CreateK8Object(ctx, taskManagerDeployment)
 	if err != nil {
@@ -103,8 +103,8 @@ func getTaskManagerCount(deployments []v1.Deployment, application *v1alpha1.Flin
 func GetTaskManagerPorts(app *v1alpha1.FlinkApplication) []coreV1.ContainerPort {
 	return []coreV1.ContainerPort{
 		{
-			Name:          FlinkRpcPortName,
-			ContainerPort: getRpcPort(app),
+			Name:          FlinkRPCPortName,
+			ContainerPort: getRPCPort(app),
 		},
 		{
 			Name:          FlinkBlobPortName,

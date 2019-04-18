@@ -6,11 +6,11 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 )
 
-type MockJobManagerController struct {
+type JobManagerController struct {
 	CreateIfNotExistFunc CreateIfNotExistFunc
 }
 
-func (m *MockJobManagerController) CreateIfNotExist(
+func (m *JobManagerController) CreateIfNotExist(
 	ctx context.Context,
 	application *v1alpha1.FlinkApplication) error {
 	if m.CreateIfNotExistFunc != nil {

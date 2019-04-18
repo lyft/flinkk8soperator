@@ -2,7 +2,9 @@ package v1alpha1
 
 import (
 	"fmt"
-	"k8s.io/api/core/v1"
+
+	v1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,7 +31,7 @@ type FlinkApplicationSpec struct {
 	ImagePullPolicy   v1.PullPolicy             `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
 	ImagePullSecrets  []v1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
 	FlinkConfig       FlinkConfig               `json:"flinkConfig"`
-	FlinkVersion      string					`json:"flinkVersion"`
+	FlinkVersion      string                    `json:"flinkVersion"`
 	TaskManagerConfig TaskManagerConfig         `json:"taskManagerConfig,omitempty"`
 	JobManagerConfig  JobManagerConfig          `json:"jobManagerConfig,omitempty"`
 	JarName           string                    `json:"jarName"`
@@ -38,10 +40,10 @@ type FlinkApplicationSpec struct {
 	ProgramArgs       string                    `json:"programArgs,omitempty"`
 	SavepointInfo     SavepointInfo             `json:"savepointInfo,omitempty"`
 	DeploymentMode    DeploymentMode            `json:"deploymentMode"`
-	RpcPort           *int32                    `json:"rpcPort,omitempty"`
+	RPCPort           *int32                    `json:"rpcPort,omitempty"`
 	BlobPort          *int32                    `json:"blobPort,omitempty"`
 	QueryPort         *int32                    `json:"queryPort,omitempty"`
-	UiPort            *int32                    `json:"uiPort,omitempty"`
+	UIPort            *int32                    `json:"uiPort,omitempty"`
 	MetricsQueryPort  *int32                    `json:"metricsQueryPort,omitempty"`
 	Volumes           []v1.Volume               `json:"volumes,omitempty"`
 	VolumeMounts      []v1.VolumeMount          `json:"volumeMounts,omitempty"`
@@ -113,7 +115,7 @@ type EnvironmentConfig struct {
 
 type SavepointInfo struct {
 	SavepointLocation string `json:"savepointLocation,omitempty"`
-	TriggerId         string `json:"triggerId,omitempty"`
+	TriggerID         string `json:"triggerId,omitempty"`
 }
 
 type FlinkApplicationStatus struct {
@@ -122,7 +124,7 @@ type FlinkApplicationStatus struct {
 	StoppedAt     *metav1.Time          `json:"stoppedAt,omitempty"`
 	LastUpdatedAt *metav1.Time          `json:"lastUpdatedAt,omitempty"`
 	Reason        string                `json:"reason,omitempty"`
-	JobId         string                `json:"jobId,omitempty"`
+	JobID         string                `json:"jobId,omitempty"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
@@ -155,7 +157,7 @@ func (p FlinkApplicationPhase) IsTerminal() bool {
 }
 
 func (p FlinkApplicationPhase) VerboseString() string {
-	phaseName := fmt.Sprintf("%s", p)
+	phaseName := string(p)
 	if p == FlinkApplicationNew {
 		phaseName = "New"
 	}

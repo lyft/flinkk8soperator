@@ -2,6 +2,7 @@ package flink
 
 import (
 	"fmt"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"gopkg.in/yaml.v2"
 )
@@ -9,10 +10,10 @@ import (
 const (
 	JobManagerDefaultReplicaCount = 1
 	TaskManagerDefaultSlots       = 16
-	RpcDefaultPort                = 6123
+	RPCDefaultPort                = 6123
 	QueryDefaultPort              = 6124
 	BlobDefaultPort               = 6125
-	UiDefaultPort                 = 8081
+	UIDefaultPort                 = 8081
 	MetricsQueryDefaultPort       = 50101
 	OffHeapMemoryDefaultFraction  = 0.5
 )
@@ -39,12 +40,12 @@ func getJobmanagerReplicas(app *v1alpha1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.JobManagerConfig.Replicas, JobManagerDefaultReplicaCount)
 }
 
-func getRpcPort(app *v1alpha1.FlinkApplication) int32 {
-	return firstNonNil(app.Spec.RpcPort, RpcDefaultPort)
+func getRPCPort(app *v1alpha1.FlinkApplication) int32 {
+	return firstNonNil(app.Spec.RPCPort, RPCDefaultPort)
 }
 
-func getUiPort(app *v1alpha1.FlinkApplication) int32 {
-	return firstNonNil(app.Spec.UiPort, UiDefaultPort)
+func getUIPort(app *v1alpha1.FlinkApplication) int32 {
+	return firstNonNil(app.Spec.UIPort, UIDefaultPort)
 }
 
 func getQueryPort(app *v1alpha1.FlinkApplication) int32 {
@@ -107,8 +108,8 @@ func renderFlinkConfig(app *v1alpha1.FlinkApplication) (string, error) {
 
 	(*config)["jobmanager.rpc.address"] = getJobManagerServiceName(app)
 	(*config)["taskmanager.numberOfTaskSlots"] = getTaskmanagerSlots(app)
-	(*config)["jobmanager.rpc.port"] = getRpcPort(app)
-	(*config)["jobmanager.web.port"] = getUiPort(app)
+	(*config)["jobmanager.rpc.port"] = getRPCPort(app)
+	(*config)["jobmanager.web.port"] = getUIPort(app)
 	(*config)["query.server.port"] = getQueryPort(app)
 	(*config)["blob.server.port"] = getBlobPort(app)
 	(*config)["metrics.internal.query-service.port"] = getInternalMetricsQueryPort(app)

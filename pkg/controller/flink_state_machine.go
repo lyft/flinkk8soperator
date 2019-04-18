@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"fmt"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
@@ -13,7 +14,7 @@ import (
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
 )
 
@@ -57,8 +58,8 @@ type FlinkHandlerInterface interface {
 //|                                                                                                                 |
 //+-----------------------------------------------------------------------------------------------------------------+
 type FlinkStateMachine struct {
-	flinkController flink.FlinkInterface
-	k8Cluster       k8.K8ClusterInterface
+	flinkController flink.ControllerInterface
+	k8Cluster       k8.ClusterInterface
 	clock           clock.Clock
 	metrics         *stateMachineMetrics
 }
@@ -167,12 +168,12 @@ func (s *FlinkStateMachine) handleNewOrCreating(ctx context.Context, application
 }
 
 func (s *FlinkStateMachine) cancelWithSavepointAndTransitionState(ctx context.Context, application *v1alpha1.FlinkApplication) error {
-	triggerId, err := s.flinkController.CancelWithSavepoint(ctx, application)
+	triggerID, err := s.flinkController.CancelWithSavepoint(ctx, application)
 	if err != nil {
 		return err
 	}
-	logger.Infof(ctx, "Flink job cancelled with savepoint, trigger id: %s", triggerId)
-	application.Spec.SavepointInfo.TriggerId = triggerId
+	logger.Infof(ctx, "Flink job cancelled with savepoint, trigger id: %s", triggerID)
+	application.Spec.SavepointInfo.TriggerID = triggerID
 	return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationSavepointing)
 }
 
@@ -220,15 +221,15 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 	activeJob := flink.GetActiveFlinkJob(jobs)
 	if activeJob == nil {
 		logger.Infof(ctx, "No active job found for the application %v", jobs)
-		jobId, err := s.flinkController.StartFlinkJob(ctx, application)
+		jobID, err := s.flinkController.StartFlinkJob(ctx, application)
 		if err != nil {
 			return err
 		}
-		logger.Infof(ctx, "New flink job submitted successfully, jobId: %s", jobId)
-		application.Status.JobId = jobId
+		logger.Infof(ctx, "New flink job submitted successfully, jobID: %s", jobID)
+		application.Status.JobID = jobID
 	} else {
 		logger.Infof(ctx, "Active job found for the application, job info: %v", activeJob)
-		application.Status.JobId = activeJob.JobId
+		application.Status.JobID = activeJob.JobID
 	}
 
 	// Clear the savepoint info
@@ -248,7 +249,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	// In the Running state, there must be a job already started in the cluster.
 	activeJob := flink.GetActiveFlinkJob(jobs)
 	if activeJob != nil {
-		application.Status.JobId = activeJob.JobId
+		application.Status.JobID = activeJob.JobID
 
 		if activeJob.Status == client.FlinkJobFinished {
 			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationCompleted)
@@ -362,7 +363,7 @@ func NewFlinkStateMachine(scope promutils.Scope) FlinkHandlerInterface {
 	metrics := newStateMachineMetrics(scope)
 	return &FlinkStateMachine{
 		k8Cluster:       k8.NewK8Cluster(),
-		flinkController: flink.NewFlinkController(scope),
+		flinkController: flink.NewController(scope),
 		clock:           clock.RealClock{},
 		metrics:         metrics,
 	}
