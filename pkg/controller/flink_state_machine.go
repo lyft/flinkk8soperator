@@ -244,8 +244,8 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		return err
 	}
 	// The jobid in Flink can change if there is a Job manager failover.
-	// The Operator needs to update it's state with the right value.
-	// In the Running state, there must be a job already kickedoff in the cluster.
+	// The Operator needs to update its state with the right value.
+	// In the Running state, there must be a job already started in the cluster.
 	activeJob := flink.GetActiveFlinkJob(jobs)
 	if activeJob != nil {
 		application.Status.JobId = activeJob.JobId
@@ -276,16 +276,30 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		return err
 	}
 
+	var restorePath string
 	if savepointStatusResponse.Operation.Location == "" &&
 		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
 		// Savepointing failed
 		// TODO: this should probably be a kubernetes message
 		logger.Infof(ctx, "savepoint failed: %v", savepointStatusResponse.Operation.FailureCause)
-		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
+
+		// try to find an externalized checkpoint
+		path, err := s.flinkController.FindExternalizedCheckpoint(ctx, application)
+		if err != nil {
+			logger.Infof(ctx, "error while fetching externalized checkpoint path: %v", err)
+			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
+		} else if path == "" {
+			logger.Infof(ctx, "no externalized checkpoint found")
+			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
+		}
+		logger.Infof(ctx, "restoring from externalized checkpoint %s", path)
+		restorePath = path
+	} else if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
+		logger.Infof(ctx, "Application savepoint operation succeeded %v", savepointStatusResponse)
+		restorePath = savepointStatusResponse.Operation.Location
 	}
 
-	if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
-		logger.Infof(ctx, "Application savepoint operation succeeded %v", savepointStatusResponse)
+	if restorePath != "" {
 		isDeleted, err := s.flinkController.DeleteOldCluster(ctx, application)
 		if err != nil {
 			return err
@@ -293,13 +307,15 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		if !isDeleted {
 			return nil
 		}
-		application.Spec.SavepointInfo.SavepointLocation = savepointStatusResponse.Operation.Location
+
+		application.Spec.SavepointInfo.SavepointLocation = restorePath
 		// In single deployment mode, after the cluster is deleted, no extra cluster exists
 		if application.Spec.DeploymentMode == v1alpha1.DeploymentModeSingle {
 			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationNew)
 		}
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationReady)
 	}
+
 	return nil
 }
 

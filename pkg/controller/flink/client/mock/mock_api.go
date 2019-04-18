@@ -12,6 +12,7 @@ type CheckSavepointStatusFunc func(ctx context.Context, url string, jobId, trigg
 type GetJobsFunc func(ctx context.Context, url string) (*client.GetJobsResponse, error)
 type GetClusterOverviewFunc func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error)
 type GetJobConfigFunc func(ctx context.Context, url string, jobId string) (*client.JobConfigResponse, error)
+type GetLatestCheckpointFunc func(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error)
 
 type MockJobManagerClient struct {
 	CancelJobWithSavepointFunc CancelJobWithSavepointFunc
@@ -20,6 +21,7 @@ type MockJobManagerClient struct {
 	GetJobsFunc                GetJobsFunc
 	GetClusterOverviewFunc     GetClusterOverviewFunc
 	GetJobConfigFunc           GetJobConfigFunc
+	GetLatestCheckpointFunc    GetLatestCheckpointFunc
 }
 
 func (m *MockJobManagerClient) SubmitJob(ctx context.Context, url string, jarId string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
@@ -60,6 +62,13 @@ func (m *MockJobManagerClient) GetClusterOverview(ctx context.Context, url strin
 func (m *MockJobManagerClient) GetJobConfig(ctx context.Context, url string, jobId string) (*client.JobConfigResponse, error) {
 	if m.GetJobConfigFunc != nil {
 		return m.GetJobConfigFunc(ctx, url, jobId)
+	}
+	return nil, nil
+}
+
+func (m *MockJobManagerClient) GetLatestCheckpoint(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error) {
+	if m.GetLatestCheckpointFunc != nil {
+		return m.GetLatestCheckpointFunc(ctx, url, jobId)
 	}
 	return nil, nil
 }

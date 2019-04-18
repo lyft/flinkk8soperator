@@ -55,8 +55,8 @@ func TestHandleNewOrCreate(t *testing.T) {
 	}
 	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{
 		Spec: v1alpha1.FlinkApplicationSpec{
-				JarName: jobJarName,
-			},
+			JarName: jobJarName,
+		},
 	})
 	assert.Nil(t, err)
 }
@@ -236,9 +236,9 @@ func TestHandleApplicationReadyNotRunning(t *testing.T) {
 			Phase: v1alpha1.FlinkApplicationReady,
 		},
 		Spec: v1alpha1.FlinkApplicationSpec{
-				SavepointInfo: v1alpha1.SavepointInfo{
-					SavepointLocation: savePointLoc,
-				},
+			SavepointInfo: v1alpha1.SavepointInfo{
+				SavepointLocation: savePointLoc,
+			},
 		},
 	})
 	assert.True(t, updateInvoked)
@@ -448,6 +448,45 @@ func TestHandleApplicationSavepointingFailed(t *testing.T) {
 	})
 	assert.True(t, updateInvoked)
 	assert.False(t, deleteInvoked)
+	assert.Nil(t, err)
+}
+
+func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
+	updateInvoked := false
+	deleteInvoked := false
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.MockFlinkController)
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error) {
+		return &client.SavepointResponse{
+			SavepointStatus: client.SavepointStatusResponse{
+				Status: client.SavePointCompleted,
+			},
+		}, nil
+	}
+
+	mockFlinkController.FindExternalizedCheckpointFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+		return "/tmp/checkpoint", nil
+	}
+
+	mockFlinkController.DeleteOldClusterFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+		deleteInvoked = true
+		return true, nil
+	}
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.MockK8Cluster)
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+		application := object.(*v1alpha1.FlinkApplication)
+		assert.Equal(t, "/tmp/checkpoint", application.Spec.SavepointInfo.SavepointLocation)
+		assert.Equal(t, v1alpha1.FlinkApplicationReady, application.Status.Phase)
+		updateInvoked = true
+		return nil
+	}
+	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{
+		Status: v1alpha1.FlinkApplicationStatus{
+			Phase: v1alpha1.FlinkApplicationSavepointing,
+		},
+	})
+	assert.True(t, updateInvoked)
+	assert.True(t, deleteInvoked)
 	assert.Nil(t, err)
 }
 

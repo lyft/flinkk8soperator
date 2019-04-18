@@ -17,6 +17,7 @@ import (
 
 const submitJobUrl = "/jars/%s/run"
 const cancelJobUrl = "/jobs/%s/savepoints"
+const checkpointsUrl = "/jobs/%s/checkpoints"
 const checkSavepointStatusUrl = "/jobs/%s/savepoints/%s"
 const getJobsUrl = "/jobs"
 const getJobConfigUrl = "/jobs/%s/config"
@@ -32,6 +33,7 @@ type FlinkAPIInterface interface {
 	GetJobs(ctx context.Context, url string) (*GetJobsResponse, error)
 	GetClusterOverview(ctx context.Context, url string) (*ClusterOverviewResponse, error)
 	GetJobConfig(ctx context.Context, url string, jobId string) (*JobConfigResponse, error)
+	GetLatestCheckpoint(ctx context.Context, url string, jobId string) (*CheckpointStatistics, error)
 }
 
 type FlinkJobManagerClient struct {
@@ -53,6 +55,8 @@ type flinkJobManagerClientMetrics struct {
 	getJobConfigFailureCounter   labeled.Counter
 	getClusterSuccessCounter     labeled.Counter
 	getClusterFailureCounter     labeled.Counter
+	getCheckpointsSuccessCounter labeled.Counter
+	getCheckpointsFailureCounter labeled.Counter
 }
 
 func newFlinkJobManagerClientMetrics(scope promutils.Scope) *flinkJobManagerClientMetrics {
@@ -71,6 +75,8 @@ func newFlinkJobManagerClientMetrics(scope promutils.Scope) *flinkJobManagerClie
 		getJobConfigFailureCounter:   labeled.NewCounter("get_job_config_failure", "Get flink job config failed", flinkJmClientScope),
 		getClusterSuccessCounter:     labeled.NewCounter("get_cluster_success", "Get cluster overview succeeded", flinkJmClientScope),
 		getClusterFailureCounter:     labeled.NewCounter("get_cluster_failure", "Get cluster overview failed", flinkJmClientScope),
+		getCheckpointsSuccessCounter: labeled.NewCounter("get_checkpoints_success", "Get checkpoint request succeeded", flinkJmClientScope),
+		getCheckpointsFailureCounter: labeled.NewCounter("get_checkpoints_failed", "Get checkpoint request failed", flinkJmClientScope),
 	}
 }
 
@@ -234,6 +240,27 @@ func (c *FlinkJobManagerClient) GetJobs(ctx context.Context, url string) (*GetJo
 	}
 	c.metrics.getJobsSuccessCounter.Inc(ctx)
 	return &getJobsResponse, nil
+}
+
+func (c *FlinkJobManagerClient) GetLatestCheckpoint(ctx context.Context, url string, jobId string) (*CheckpointStatistics, error) {
+	endpoint := fmt.Sprintf(url+checkpointsUrl, jobId)
+	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
+	if err != nil {
+		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
+		return nil, errors.Wrap(err, "get checkpoints failed")
+	}
+	if response != nil && !response.IsSuccess() {
+		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
+		return nil, errors.New(fmt.Sprintf("get checkpoints failed with response %v", response))
+	}
+
+	var checkpointResponse CheckpointResponse
+	if err = json.Unmarshal(response.Body(), &checkpointResponse); err != nil {
+		logger.Errorf(ctx, "Failed to unmarshal checkpointResponse %v, err %v", response, err)
+	}
+
+	c.metrics.getCheckpointsSuccessCounter.Inc(ctx)
+	return checkpointResponse.Latest.Completed, nil
 }
 
 func NewFlinkJobManagerClient(scope promutils.Scope) FlinkAPIInterface {

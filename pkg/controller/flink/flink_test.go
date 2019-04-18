@@ -15,6 +15,7 @@ import (
 	"k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"testing"
+	"time"
 )
 
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
@@ -598,4 +599,24 @@ func TestGetJobsForApplicationErr(t *testing.T) {
 	jobs, err := flinkControllerForTest.GetJobsForApplication(context.Background(), &flinkApp)
 	assert.EqualError(t, err, "get jobs error")
 	assert.Nil(t, jobs)
+}
+
+func TestFindExternalizedCheckpoint(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	flinkApp := getFlinkTestApp()
+	flinkApp.Status.JobId = "jobid"
+
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.MockJobManagerClient)
+	mockJmClient.GetLatestCheckpointFunc = func(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, "jobid", jobId)
+		return &client.CheckpointStatistics{
+			TriggerTimestamp: time.Now().Unix(),
+			ExternalPath:     "/tmp/checkpoint",
+		}, nil
+	}
+
+	checkpoint, err := flinkControllerForTest.FindExternalizedCheckpoint(context.Background(), &flinkApp)
+	assert.Nil(t, err)
+	assert.Equal(t, "/tmp/checkpoint", checkpoint)
 }

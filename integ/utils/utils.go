@@ -256,6 +256,9 @@ func (f *TestUtil) GetLogs(podName string, lines *int64) error {
 			})
 
 	readCloser, err := req.Stream()
+	if err != nil {
+		return err
+	}
 
 	defer readCloser.Close()
 	_, err = io.Copy(os.Stdout, readCloser)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flytestdlib/logger"
@@ -18,6 +19,9 @@ import (
 
 const proxyUrl = "http://localhost:%d/api/v1/namespaces/%s/services/%s-jm:8081/proxy"
 const port = 8081
+
+// Maximum age of an externalized checkpoint that we will attempt to restore
+const maxRestoreCheckpointAge = 24 * time.Hour
 
 // Interface to manage Flink Application in Kubernetes
 type FlinkInterface interface {
@@ -53,6 +57,8 @@ type FlinkInterface interface {
 
 	// For the application, a deployment corresponds to an image. This returns the current and older deployments for the app.
 	GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error)
+
+	FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 }
 
 func NewFlinkController(scope promutils.Scope) FlinkInterface {
@@ -262,5 +268,23 @@ func (f *FlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context,
 	}
 
 	return cur, old, nil
+}
 
+// Attempts to find an externalized checkpoint for the job. This can be used to recover an application that is not
+// able to savepoint for some reason.
+func (f *FlinkController) FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, getUrlFromApp(application), application.Status.JobId)
+	if err != nil {
+		return "", err
+	}
+	if checkpoint == nil {
+		return "", nil
+	}
+
+	if time.Now().Sub(time.Unix(checkpoint.TriggerTimestamp, 0)) > maxRestoreCheckpointAge {
+		logger.Info(ctx, "Found checkpoint to restore from, but was too old")
+		return "", nil
+	}
+
+	return checkpoint.ExternalPath, nil
 }

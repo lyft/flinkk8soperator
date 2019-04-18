@@ -18,6 +18,7 @@ type IsServiceReadyFunc func(ctx context.Context, application *v1alpha1.FlinkApp
 type HasApplicationChangedFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type GetJobsForApplicationFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error)
 type GetCurrentAndOldDeploymentsForAppFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error)
+type FindExternalizedCheckpointFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 
 type MockFlinkController struct {
 	CreateClusterFunc                     CreateClusterFunc
@@ -30,6 +31,7 @@ type MockFlinkController struct {
 	HasApplicationChangedFunc             HasApplicationChangedFunc
 	GetJobsForApplicationFunc             GetJobsForApplicationFunc
 	GetCurrentAndOldDeploymentsForAppFunc GetCurrentAndOldDeploymentsForAppFunc
+	FindExternalizedCheckpointFunc        FindExternalizedCheckpointFunc
 }
 
 func (m *MockFlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error) {
@@ -100,4 +102,11 @@ func (m *MockFlinkController) GetJobsForApplication(ctx context.Context, applica
 		return m.GetJobsForApplicationFunc(ctx, application)
 	}
 	return nil, nil
+}
+
+func (m *MockFlinkController) FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+	if m.FindExternalizedCheckpointFunc != nil {
+		return m.FindExternalizedCheckpointFunc(ctx, application)
+	}
+	return "", nil
 }

@@ -8,6 +8,14 @@ const (
 	SavePointCompleted  SavepointStatus = "COMPLETED"
 )
 
+type CheckpointStatus string
+
+const (
+	CheckpointInProgress CheckpointStatus = "IN_PROGRESS"
+	CheckpointFailed     CheckpointStatus = "FAILED"
+	CheckpointCompleted  CheckpointStatus = "COMPLETED"
+)
+
 type FlinkJobStatus string
 
 const (
@@ -80,4 +88,33 @@ type FlinkJob struct {
 type ClusterOverviewResponse struct {
 	TaskManagerCount uint `json:"taskmanagers"`
 	SlotsAvailable   uint `json:"slots-available"`
+}
+
+type CheckpointStatistics struct {
+	Id                 uint             `json:"id"`
+	Status             CheckpointStatus `json:"status"`
+	IsSavepoint        bool             `json:"is_savepoint"`
+	TriggerTimestamp   int64            `json:"trigger_timestamp"`
+	LatestAckTimestamp int64            `json:"latest_ack_timestamp"`
+	StateSize          int64            `json:"state_size"`
+	EndToEndDuration   int64            `json:"end_to_end_duration"`
+	AlignmentBuffered  int64            `json:"alignment_buffered"`
+	NumSubtasks        int64            `json:"num_subtasks"`
+	FailureTimestamp   int64            `json:"failure_timestamp"`
+	FailureMessage     string           `json:"failure_message"`
+	ExternalPath       string           `json:"external_path"`
+	Discarded          bool             `json:"discarded"`
+}
+
+type LatestCheckpoints struct {
+	Completed *CheckpointStatistics `json:"completed,omitempty"`
+	Savepoint *CheckpointStatistics `json:"savepoint,omitempty"`
+	Failed    *CheckpointStatistics `json:"failed,omitempty"`
+	Restored  *CheckpointStatistics `json:"restored,omitempty"`
+}
+
+type CheckpointResponse struct {
+	Counts  map[string]int32       `json:"counts"`
+	Latest  LatestCheckpoints      `json:"latest"`
+	History []CheckpointStatistics `json:"history"`
 }

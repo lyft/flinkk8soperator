@@ -22,20 +22,18 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationFailed), IsNil)
-	c.Assert(s.Util.WaitForAllTasksInState(config.Name, "RUNNING"), IsNil)
-	log.Info("App is running")
-
 	// Cause it to fail
 	causeFailure()
 
+	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationFailed), IsNil)
+
 	// wait a bit for it to start failing
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Try to update it
 	app, err := s.Util.GetFlinkApplication(config.Name)
 	c.Assert(err, IsNil)
-	app.Spec.Image = NEW_IMAGE
+	app.Spec.Image = NewImage
 	_, err = s.Util.FlinkApps().Update(app)
 	c.Assert(err, IsNil)
 
