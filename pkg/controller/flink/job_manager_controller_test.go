@@ -70,7 +70,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		"flink-app-parallelism": "8",
 	}
 	app.Annotations = annotations
-	hash := "84018cf1"
+	hash := "2c193a3b"
 	expectedLabels := map[string]string{
 		"app":                   "app-name",
 		"flink-app-hash":        hash,

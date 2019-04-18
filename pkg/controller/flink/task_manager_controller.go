@@ -128,6 +128,7 @@ func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV
 	if resources == nil {
 		resources = &TaskManagerDefaultResources
 	}
+
 	operatorEnv := GetFlinkContainerEnv(application)
 
 	operatorEnv = append(operatorEnv, coreV1.EnvVar{
@@ -232,7 +233,7 @@ func taskmanagerTemplate(app *v1alpha1.FlinkApplication) *v1.Deployment {
 }
 
 func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) *v1.Deployment {
-	template := taskmanagerTemplate(app)
+	template := taskmanagerTemplate(app.DeepCopy())
 	hash := HashForApplication(app)
 
 	template.Name = getTaskManagerName(app, hash)

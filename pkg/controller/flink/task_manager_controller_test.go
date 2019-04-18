@@ -74,7 +74,7 @@ func TestGetTaskManagerReplicaCount(t *testing.T) {
 func TestTaskManagerCreateSuccess(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
-	hash := "84018cf1"
+	hash := "2c193a3b"
 	annotations := map[string]string{
 		"key":                   "annotation",
 		"flink-app-parallelism": "8",

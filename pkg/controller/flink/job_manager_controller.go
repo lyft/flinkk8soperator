@@ -216,6 +216,7 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 	if resources == nil {
 		resources = &JobManagerDefaultResources
 	}
+
 	ports := getJobManagerPorts(application)
 	operatorEnv := GetFlinkContainerEnv(application)
 	operatorEnv = append(operatorEnv, jmConfig.Environment.Env...)
@@ -307,7 +308,7 @@ func jobmanagerTemplate(app *v1alpha1.FlinkApplication) *v1.Deployment {
 }
 
 func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) *v1.Deployment {
-	template := jobmanagerTemplate(app)
+	template := jobmanagerTemplate(app.DeepCopy())
 	hash := HashForApplication(app)
 
 	template.Name = getJobManagerName(app, hash)

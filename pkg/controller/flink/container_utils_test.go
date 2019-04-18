@@ -5,6 +5,8 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestHashForApplication(t *testing.T) {
@@ -44,6 +46,34 @@ func TestHashForApplication(t *testing.T) {
 	app.Spec.Parallelism = 7
 	h6 := HashForApplication(&app)
 	assert.NotEqual(t, h5, h6)
+}
+
+func TestHashForDifferentResourceScales(t *testing.T) {
+	app1 := v1alpha1.FlinkApplication{}
+	app1.Spec.TaskManagerConfig.Resources = &v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("0.5"),
+			v1.ResourceMemory: resource.MustParse("1024Mi"),
+		},
+		Limits: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("0.5"),
+			v1.ResourceMemory: resource.MustParse("1024Mi"),
+		},
+	}
+
+	app2 := v1alpha1.FlinkApplication{}
+	app2.Spec.TaskManagerConfig.Resources = &v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("500m"),
+			v1.ResourceMemory: resource.MustParse("1024Mi"),
+		},
+		Limits: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("500m"),
+			v1.ResourceMemory: resource.MustParse("1024Mi"),
+		},
+	}
+
+	assert.Equal(t, HashForApplication(&app1), HashForApplication(&app2))
 }
 
 func TestContainersEqual(t *testing.T) {

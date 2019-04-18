@@ -14,6 +14,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 const (
@@ -110,21 +112,44 @@ func HashForApplication(app *v1alpha1.FlinkApplication) string {
 		Indent:                  " ",
 		SortKeys:                true,
 		DisableMethods:          true,
+		DisableCapacities:       true,
 		SpewKeys:                true,
 		DisablePointerAddresses: true,
 	}
 
+	// we round-trip through json to normalize the deployment objects
 	jmDeployment := jobmanagerTemplate(app)
+	jmDeployment.OwnerReferences = make([]metav1.OwnerReference, 0)
+
+	// these steps should not be able to fail, so we panic instead of returning an error
+	jm, err := json.Marshal(jmDeployment)
+	if err != nil {
+		panic("failed to marshal deployment")
+	}
+	err = json.Unmarshal(jm, &jmDeployment)
+	if err != nil {
+		panic("failed to unmarshal deployment")
+	}
+
 	tmDeployment := taskmanagerTemplate(app)
+	tmDeployment.OwnerReferences = make([]metav1.OwnerReference, 0)
+	tm, err := json.Marshal(tmDeployment)
+	if err != nil {
+		panic("failed to marshal deployment")
+	}
+	err = json.Unmarshal(tm, &tmDeployment)
+	if err != nil {
+		panic("failed to unmarshal deployment")
+	}
 
 	hasher := fnv.New32a()
-	_, err := printer.Fprintf(hasher, "%#v%#v", jmDeployment, tmDeployment)
+	_, err = printer.Fprintf(hasher, "%#v%#v", jmDeployment, tmDeployment)
 	if err != nil {
 		// the hasher cannot actually throw an error on write
 		panic(fmt.Sprintf("got error trying when writing to hash %v", err))
 	}
 
-	return fmt.Sprintf("%x", hasher.Sum32())
+	return fmt.Sprintf("%08x", hasher.Sum32())
 }
 
 func GetAppHashSelector(app *v1alpha1.FlinkApplication) map[string]string {
