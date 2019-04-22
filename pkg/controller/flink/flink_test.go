@@ -82,10 +82,19 @@ func TestFlinkIsClusterReady(t *testing.T) {
 		"flink-app-hash": testAppHash,
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.IsAllPodsRunningFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
+	mockK8Cluster.GetPodsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.PodList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
-		return true, nil
+
+		return &corev1.PodList{
+			Items: []corev1.Pod{
+				{
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+					},
+				},
+			},
+		}, nil
 	}
 
 	flinkApp := getFlinkTestApp()

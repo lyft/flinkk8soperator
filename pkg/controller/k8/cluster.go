@@ -20,7 +20,7 @@ const (
 
 type ClusterInterface interface {
 	GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
-	AreAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error)
+	GetPodsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.PodList, error)
 	CreateK8Object(ctx context.Context, object sdk.Object) error
 	UpdateK8Object(ctx context.Context, object sdk.Object) error
 	DeleteDeployments(ctx context.Context, deploymentList v1.DeploymentList) error
@@ -109,25 +109,6 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 		return nil, err
 	}
 	return deploymentList, nil
-}
-
-func (k *Cluster) AreAllPodsRunning(ctx context.Context, namespace string, labelMap map[string]string) (bool, error) {
-	podList, err := k.GetPodsWithLabel(ctx, namespace, labelMap)
-	if err != nil {
-		logger.Warnf(ctx, "Failed to get pods for label map %v", labelMap)
-		return false, err
-	}
-	if podList == nil || len(podList.Items) == 0 {
-		logger.Infof(ctx, "No pods present for label map %v", labelMap)
-		return false, nil
-	}
-
-	for _, pod := range podList.Items {
-		if pod.Status.Phase != coreV1.PodRunning {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 func (k *Cluster) CreateK8Object(ctx context.Context, object sdk.Object) error {

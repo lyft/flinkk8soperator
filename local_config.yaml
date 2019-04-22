@@ -12,3 +12,5 @@ operator:
 logger:
   show-source: true
   level: 5
+  formatter:
+    type: text

@@ -5,7 +5,9 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
+	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type CreateClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) error
@@ -32,6 +34,7 @@ type FlinkController struct {
 	GetJobsForApplicationFunc             GetJobsForApplicationFunc
 	GetCurrentAndOldDeploymentsForAppFunc GetCurrentAndOldDeploymentsForAppFunc
 	FindExternalizedCheckpointFunc        FindExternalizedCheckpointFunc
+	Events                                []corev1.Event
 }
 
 func (m *FlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error) {
@@ -109,4 +112,8 @@ func (m *FlinkController) FindExternalizedCheckpoint(ctx context.Context, applic
 		return m.FindExternalizedCheckpointFunc(ctx, application)
 	}
 	return "", nil
+}
+
+func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, fieldPath string, eventType string, reason string, message string) {
+	m.Events = append(m.Events, k8.CreateEvent(app, fieldPath, eventType, reason, message))
 }

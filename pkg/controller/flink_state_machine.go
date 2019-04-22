@@ -14,6 +14,7 @@ import (
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
 )
@@ -107,7 +108,9 @@ func (s *FlinkStateMachine) isApplicationStuck(ctx context.Context, application 
 		application.Status.Phase != v1alpha1.FlinkApplicationRunning {
 		elapsedTime := s.clock.Since(appLastUpdated.Time)
 		if s.getStalenessDuration() > 0 && elapsedTime > s.getStalenessDuration() {
-			logger.Errorf(ctx, "Flink Application stuck for %v (staleness %v)", elapsedTime, s.getStalenessDuration())
+			s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning,
+				"Update", fmt.Sprintf("Application stuck for %v", elapsedTime))
+
 			return true
 		}
 	}
@@ -132,7 +135,11 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 	if s.isApplicationStuck(ctx, application) {
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
 	}
-	logger.Infof(ctx, "Handling state %s for application", application.Status.Phase)
+
+	if application.Status.Phase != v1alpha1.FlinkApplicationRunning {
+		logger.Infof(ctx, "Handling state %s for application", application.Status.Phase)
+	}
+
 	switch application.Status.Phase {
 	case v1alpha1.FlinkApplicationNew:
 		// In this state, we need a new flink cluster to be created or existing cluster to be updated
@@ -213,6 +220,10 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 		return nil
 	}
 	logger.Infof(ctx, "Flink cluster is ready to start the job")
+
+	s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeNormal, "Update",
+		"Flink cluster is ready")
+
 	// Check that there are no jobs running before starting the job
 	jobs, err := s.flinkController.GetJobsForApplication(ctx, application)
 	if err != nil {
@@ -223,9 +234,14 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 		logger.Infof(ctx, "No active job found for the application %v", jobs)
 		jobID, err := s.flinkController.StartFlinkJob(ctx, application)
 		if err != nil {
+			s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning,
+				"Update", fmt.Sprintf("Failed to submit job to cluster: %v", err))
+
 			return err
 		}
-		logger.Infof(ctx, "New flink job submitted successfully, jobID: %s", jobID)
+
+		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeNormal,
+			"Update", "Flink job submitted to cluster")
 		application.Status.JobID = jobID
 	} else {
 		logger.Infof(ctx, "Active job found for the application, job info: %v", activeJob)
@@ -255,7 +271,8 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationCompleted)
 		}
 	}
-	logger.Infof(ctx, "Application running with job %v", activeJob)
+
+	logger.Debugf(ctx, "Application running with job %v", activeJob)
 	hasAppChanged, err := s.flinkController.HasApplicationChanged(ctx, application)
 	if err != nil {
 		return err
@@ -281,8 +298,9 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	if savepointStatusResponse.Operation.Location == "" &&
 		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
 		// Savepointing failed
-		// TODO: this should probably be a kubernetes message
-		logger.Infof(ctx, "savepoint failed: %v", savepointStatusResponse.Operation.FailureCause)
+		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning,
+			"Update", fmt.Sprintf("Failed to take savepoint: %v",
+				savepointStatusResponse.Operation.FailureCause))
 
 		// try to find an externalized checkpoint
 		path, err := s.flinkController.FindExternalizedCheckpoint(ctx, application)
@@ -293,10 +311,15 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 			logger.Infof(ctx, "no externalized checkpoint found")
 			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
 		}
-		logger.Infof(ctx, "restoring from externalized checkpoint %s", path)
+
+		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeNormal,
+			"Update", fmt.Sprintf("Restoring from externalized checkpoint %s", path))
+
 		restorePath = path
 	} else if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
-		logger.Infof(ctx, "Application savepoint operation succeeded %v", savepointStatusResponse)
+		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeNormal,
+			"Update", fmt.Sprintf("Canceled job with savepoint %s",
+				savepointStatusResponse.Operation.Location))
 		restorePath = savepointStatusResponse.Operation.Location
 	}
 
@@ -335,6 +358,7 @@ func (s *FlinkStateMachine) handleApplicationUpdating(ctx context.Context, appli
 		if application.Spec.DeploymentMode == v1alpha1.DeploymentModeDual {
 			logger.Infof(ctx, "Creating a new flink cluster for application as dual mode is enabled")
 			err := s.flinkController.CreateCluster(ctx, application)
+
 			if err != nil {
 				return err
 			}

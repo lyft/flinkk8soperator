@@ -2,6 +2,7 @@ package flink
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const proxyURL = "http://localhost:%d/api/v1/namespaces/%s/services/%s-jm:8081/proxy"
@@ -58,7 +60,12 @@ type ControllerInterface interface {
 	// For the application, a deployment corresponds to an image. This returns the current and older deployments for the app.
 	GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error)
 
+	// Attempts to find an externalized checkpoint for the job. This can be used to recover an application that is not
+	// able to savepoint for some reason.
 	FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
+
+	// Logs an event to the FlinkApplication resource and to the operator log
+	LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, fieldPath string, eventType string, reason string, message string)
 }
 
 func NewController(scope promutils.Scope) ControllerInterface {
@@ -161,13 +168,20 @@ func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.Fl
 	err := f.jobManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Job manager cluster creation did not succeed %v", err)
+		f.LogEvent(ctx, application, "", corev1.EventTypeWarning, "Update",
+			fmt.Sprintf("Failed to create job managers: %v", err))
+
 		return err
 	}
 	err = f.taskManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Task manager cluster creation did not succeed %v", err)
+		f.LogEvent(ctx, application, "", corev1.EventTypeWarning, "Update",
+			fmt.Sprintf("Failed to create task managers: %v", err))
 		return err
 	}
+
+	f.LogEvent(ctx, application, "", corev1.EventTypeNormal, "Update", "Flink cluster created")
 	return nil
 }
 
@@ -221,8 +235,31 @@ func (f *Controller) DeleteOldCluster(ctx context.Context, application *v1alpha1
 }
 
 func (f *Controller) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	appHashLabel := GetAppHashSelector(application)
-	return f.k8Cluster.AreAllPodsRunning(ctx, application.Namespace, appHashLabel)
+	labelMap := GetAppHashSelector(application)
+
+	podList, err := f.k8Cluster.GetPodsWithLabel(ctx, application.Namespace, labelMap)
+	if err != nil {
+		logger.Warnf(ctx, "Failed to get pods for label map %v", labelMap)
+		return false, err
+	}
+	if podList == nil || len(podList.Items) == 0 {
+		logger.Infof(ctx, "No pods present for label map %v", labelMap)
+		return false, nil
+	}
+
+	for _, pod := range podList.Items {
+		if pod.Status.Phase != corev1.PodRunning {
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason != "ContainerCreating" {
+					f.LogEvent(ctx, application, "Spec.Image", corev1.EventTypeWarning, "Update",
+						fmt.Sprintf("Container waiting: %s", containerStatus.State.Waiting.Message))
+				}
+			}
+
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (f *Controller) IsServiceReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
@@ -269,8 +306,6 @@ func (f *Controller) GetCurrentAndOldDeploymentsForApp(ctx context.Context, appl
 	return cur, old, nil
 }
 
-// Attempts to find an externalized checkpoint for the job. This can be used to recover an application that is not
-// able to savepoint for some reason.
 func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
 	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, getURLFromApp(application), application.Status.JobID)
 	if err != nil {
@@ -286,4 +321,15 @@ func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application
 	}
 
 	return checkpoint.ExternalPath, nil
+}
+
+func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, fieldPath string, eventType string, reason string, message string) {
+	event := k8.CreateEvent(app, fieldPath, eventType, reason, message)
+	logger.Infof(ctx, "Logged %s event: %s: %s", eventType, reason, message)
+
+	// TODO: switch to using EventRecorder once we switch to controller runtime
+	if err := f.k8Cluster.CreateK8Object(ctx, &event); err != nil {
+		b, _ := json.Marshal(event)
+		logger.Errorf(ctx, "Failed to log event %v: %v", string(b), err)
+	}
 }
