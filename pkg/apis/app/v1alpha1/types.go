@@ -118,6 +118,14 @@ type SavepointInfo struct {
 	TriggerID         string `json:"triggerId,omitempty"`
 }
 
+type FlinkClusterStatus struct {
+	Health               HealthStatus `json:"health,omitempty"`
+	NumberOfTaskManagers int32        `json:"numberOfTaskManagers,omitempty"`
+	HealthyTaskManagers  int32        `json:"healthyTaskManagers,omitepty"`
+	NumberOfTaskSlots    int32        `json:"numberOfTaskSlots,omitempty"`
+	AvailableTaskSlots   int32        `json:"availableTaskSlots"`
+}
+
 type FlinkApplicationStatus struct {
 	Phase         FlinkApplicationPhase `json:"phase"`
 	StartedAt     *metav1.Time          `json:"startedAt,omitempty"`
@@ -125,6 +133,7 @@ type FlinkApplicationStatus struct {
 	LastUpdatedAt *metav1.Time          `json:"lastUpdatedAt,omitempty"`
 	Reason        string                `json:"reason,omitempty"`
 	JobID         string                `json:"jobId,omitempty"`
+	ClusterStatus FlinkClusterStatus    `json:"clusterStatus,omitempty"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
@@ -192,4 +201,12 @@ type DeploymentMode string
 const (
 	DeploymentModeSingle DeploymentMode = "Single"
 	DeploymentModeDual   DeploymentMode = "Dual"
+)
+
+type HealthStatus string
+
+const (
+	Green  HealthStatus = "Green"
+	Yellow HealthStatus = "Yellow"
+	Red    HealthStatus = "Red"
 )

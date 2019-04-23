@@ -99,6 +99,12 @@ func (s *FlinkStateMachine) updateApplicationPhase(ctx context.Context, applicat
 	application.Status.Phase = phase
 	now := v1.NewTime(s.clock.Now())
 	application.Status.LastUpdatedAt = &now
+
+	// Update status of the cluster everytime there is a change in phase.
+	err := s.flinkController.GetAndUpdateClusterStatus(ctx, application)
+	if err != nil {
+		logger.Errorf(ctx, "Updating cluster status failed with %v", err)
+	}
 	return s.k8Cluster.UpdateK8Object(ctx, application)
 }
 
@@ -283,6 +289,18 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationUpdating)
 	}
+	// Update status of the cluster
+	clusterErr := s.flinkController.GetAndUpdateClusterStatus(ctx, application)
+	if clusterErr != nil {
+		logger.Errorf(ctx, "Updating cluster status failed with %v", clusterErr)
+	}
+
+	// Update k8s object
+	updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
+	if updateErr != nil {
+		logger.Errorf(ctx, "Failed to update object %v", updateErr)
+	}
+
 	return nil
 }
 

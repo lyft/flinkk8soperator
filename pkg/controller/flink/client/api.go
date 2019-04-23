@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"net/http"
 
@@ -21,9 +22,11 @@ const getJobsURL = "/jobs"
 const getJobConfigURL = "/jobs/%s/config"
 const getOverviewURL = "/overview"
 const checkpointsURL = "/jobs/%s/checkpoints"
+const taskmanagersURL = "/taskmanagers"
 const httpGet = "GET"
 const httpPost = "POST"
 const retryCount = 3
+const timeOut = 30 * time.Second
 
 type FlinkAPIInterface interface {
 	CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error)
@@ -33,6 +36,7 @@ type FlinkAPIInterface interface {
 	GetClusterOverview(ctx context.Context, url string) (*ClusterOverviewResponse, error)
 	GetLatestCheckpoint(ctx context.Context, url string, jobID string) (*CheckpointStatistics, error)
 	GetJobConfig(ctx context.Context, url string, jobID string) (*JobConfigResponse, error)
+	GetTaskManagers(ctx context.Context, url string) (*TaskManagersResponse, error)
 }
 
 type FlinkJobManagerClient struct {
@@ -260,8 +264,28 @@ func (c *FlinkJobManagerClient) GetLatestCheckpoint(ctx context.Context, url str
 	return checkpointResponse.Latest.Completed, nil
 }
 
+func (c *FlinkJobManagerClient) GetTaskManagers(ctx context.Context, url string) (*TaskManagersResponse, error) {
+	endpoint := url + taskmanagersURL
+	response, err := c.executeRequest(httpGet, endpoint, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "get taskmanagers failed")
+	}
+
+	if response != nil && !response.IsSuccess() {
+		return nil, errors.New(fmt.Sprintf("get taskmanagers failed with response %v", response))
+	}
+
+	var taskmanagerResponse TaskManagersResponse
+	if err = json.Unmarshal(response.Body(), &taskmanagerResponse); err != nil {
+		logger.Errorf(ctx, "Failed to unmarshal taskmanagerResponse %v, err %v", response, err)
+	}
+
+	return &taskmanagerResponse, nil
+
+}
+
 func NewFlinkJobManagerClient(scope promutils.Scope) FlinkAPIInterface {
-	client := resty.SetRetryCount(retryCount)
+	client := resty.SetRetryCount(retryCount).SetTimeout(timeOut)
 	metrics := newFlinkJobManagerClientMetrics(scope)
 	return &FlinkJobManagerClient{
 		client:  client,

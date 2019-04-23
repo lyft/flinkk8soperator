@@ -13,6 +13,7 @@ type GetJobsFunc func(ctx context.Context, url string) (*client.GetJobsResponse,
 type GetClusterOverviewFunc func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error)
 type GetLatestCheckpointFunc func(ctx context.Context, url string, jobID string) (*client.CheckpointStatistics, error)
 type GetJobConfigFunc func(ctx context.Context, url string, jobID string) (*client.JobConfigResponse, error)
+type GetTaskManagersFunc func(ctx context.Context, url string) (*client.TaskManagersResponse, error)
 
 type JobManagerClient struct {
 	CancelJobWithSavepointFunc CancelJobWithSavepointFunc
@@ -22,6 +23,7 @@ type JobManagerClient struct {
 	GetClusterOverviewFunc     GetClusterOverviewFunc
 	GetJobConfigFunc           GetJobConfigFunc
 	GetLatestCheckpointFunc    GetLatestCheckpointFunc
+	GetTaskManagersFunc        GetTaskManagersFunc
 }
 
 func (m *JobManagerClient) SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
@@ -69,6 +71,13 @@ func (m *JobManagerClient) GetJobConfig(ctx context.Context, url string, jobID s
 func (m *JobManagerClient) GetLatestCheckpoint(ctx context.Context, url string, jobID string) (*client.CheckpointStatistics, error) {
 	if m.GetLatestCheckpointFunc != nil {
 		return m.GetLatestCheckpointFunc(ctx, url, jobID)
+	}
+	return nil, nil
+}
+
+func (m *JobManagerClient) GetTaskManagers(ctx context.Context, url string) (*client.TaskManagersResponse, error) {
+	if m.GetTaskManagersFunc != nil {
+		return m.GetTaskManagersFunc(ctx, url)
 	}
 	return nil, nil
 }

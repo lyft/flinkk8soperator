@@ -86,8 +86,9 @@ type FlinkJob struct {
 }
 
 type ClusterOverviewResponse struct {
-	TaskManagerCount uint `json:"taskmanagers"`
-	SlotsAvailable   uint `json:"slots-available"`
+	TaskManagerCount  int32 `json:"taskmanagers"`
+	SlotsAvailable    int32 `json:"slots-available"`
+	NumberOfTaskSlots int32 `json:"slots-total"`
 }
 
 type CheckpointStatistics struct {
@@ -117,4 +118,16 @@ type CheckpointResponse struct {
 	Counts  map[string]int32       `json:"counts"`
 	Latest  LatestCheckpoints      `json:"latest"`
 	History []CheckpointStatistics `json:"history"`
+}
+
+type TaskManagerStats struct {
+	Path                   string `json:"path"`
+	DataPort               int32  `json:"dataPort"`
+	TimeSinceLastHeartbeat int64  `json:"timeSinceLastHeartbeat"`
+	SlotsNumber            int32  `json:"slotsNumber"`
+	FreeSlots              int32  `json:"freeSlots"`
+}
+
+type TaskManagersResponse struct {
+	TaskManagers []TaskManagerStats `json:"taskmanagers"`
 }

@@ -281,7 +281,7 @@ func TestHandleApplicationRunning(t *testing.T) {
 	}
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
-		assert.False(t, true)
+		assert.True(t, true)
 		return nil
 	}
 	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{

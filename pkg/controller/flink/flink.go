@@ -25,6 +25,10 @@ const port = 8081
 // Maximum age of an externalized checkpoint that we will attempt to restore
 const maxRestoreCheckpointAge = 24 * time.Hour
 
+// If the last hearbeat from a taskmanager was more than taskManagerHeartbeatThreshold, the task
+// manager is considered unhealthy.
+const taskManagerHeartbeatThreshold = 2 * time.Minute
+
 // Interface to manage Flink Application in Kubernetes
 type ControllerInterface interface {
 	// Creates a Flink cluster with necessary Job Manager, Task Managers and services for UI
@@ -66,6 +70,9 @@ type ControllerInterface interface {
 
 	// Logs an event to the FlinkApplication resource and to the operator log
 	LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, fieldPath string, eventType string, reason string, message string)
+
+	// Gets and updates FlinkClusterStatus
+	GetAndUpdateClusterStatus(ctx context.Context, app *v1alpha1.FlinkApplication) error
 }
 
 func NewController(scope promutils.Scope) ControllerInterface {
@@ -332,4 +339,56 @@ func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplicatio
 		b, _ := json.Marshal(event)
 		logger.Errorf(ctx, "Failed to log event %v: %v", string(b), err)
 	}
+}
+
+// Gets and updates the cluster status
+func (f *Controller) GetAndUpdateClusterStatus(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+	clusterErrors := ""
+	// Get Cluster overview
+	response, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application))
+
+	if err != nil {
+		clusterErrors = err.Error()
+	} else {
+		// Update cluster overview
+		application.Status.ClusterStatus.NumberOfTaskManagers = response.TaskManagerCount
+		application.Status.ClusterStatus.AvailableTaskSlots = response.SlotsAvailable
+		application.Status.ClusterStatus.NumberOfTaskSlots = response.NumberOfTaskSlots
+	}
+
+	// Get Healthy Taskmanagers
+	tmResponse, tmErr := f.flinkClient.GetTaskManagers(ctx, getURLFromApp(application))
+	if tmErr != nil {
+		clusterErrors += tmErr.Error()
+	} else {
+		application.Status.ClusterStatus.HealthyTaskManagers = getHealthyTaskManagerCount(tmResponse)
+	}
+	// Determine Health of the cluster.
+	// Error retrieving cluster / taskmanagers overview (after startup/readiness) --> Red
+	// Healthy TaskManagers == Number of taskmanagers --> Green
+	// Else --> Yellow
+	if clusterErrors != "" && (application.Status.Phase != v1alpha1.FlinkApplicationClusterStarting &&
+		application.Status.Phase != v1alpha1.FlinkApplicationReady) {
+		application.Status.ClusterStatus.Health = v1alpha1.Red
+		return errors.New(clusterErrors)
+	} else if application.Status.ClusterStatus.HealthyTaskManagers == application.Status.ClusterStatus.NumberOfTaskManagers {
+		application.Status.ClusterStatus.Health = v1alpha1.Green
+	} else {
+		application.Status.ClusterStatus.Health = v1alpha1.Yellow
+	}
+
+	return nil
+}
+
+func getHealthyTaskManagerCount(response *client.TaskManagersResponse) int32 {
+	healthyTMCount := 0
+	for index := range response.TaskManagers {
+		// A taskmanager is considered healthy if its last heartbeat was within taskManagerHeartbeatThreshold
+		if time.Since(time.Unix(response.TaskManagers[index].TimeSinceLastHeartbeat/1000, 0)) <= taskManagerHeartbeatThreshold {
+			healthyTMCount++
+		}
+	}
+
+	return int32(healthyTMCount)
+
 }

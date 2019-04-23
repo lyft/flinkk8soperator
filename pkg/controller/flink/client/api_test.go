@@ -23,6 +23,7 @@ const fakeJobConfigURL = "http://abc.com/jobs/1/config"
 const fakeSavepointURL = "http://abc.com/jobs/1/savepoints/2"
 const fakeSubmitURL = "http://abc.com/jars/1/run"
 const fakeCancelURL = "http://abc.com/jobs/1/savepoints"
+const fakeTaskmanagersURL = "http://abc.com/taskmanagers"
 
 func getTestClient() FlinkJobManagerClient {
 	client := resty.SetRetryCount(1)
@@ -421,4 +422,38 @@ func TestClientInvalidMethod(t *testing.T) {
 	_, err := client.executeRequest("random", testURL, nil)
 	assert.NotNil(t, err)
 	assert.EqualError(t, err, "Invalid method random in request")
+}
+
+func TestGetTaskManagersValidResponse(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	ctx := context.Background()
+	response := TaskManagersResponse{
+		TaskManagers: []TaskManagerStats{
+			{
+				TimeSinceLastHeartbeat: 1555611965910,
+				SlotsNumber:            3,
+				FreeSlots:              0,
+			},
+		},
+	}
+	responder, _ := httpmock.NewJsonResponder(200, response)
+	httpmock.RegisterResponder("GET", fakeTaskmanagersURL, responder)
+
+	client := getTestJobManagerClient()
+	resp, err := client.GetTaskManagers(ctx, testURL)
+	assert.Equal(t, response, *resp)
+	assert.NoError(t, err)
+}
+
+func TestGetTaskManagersInvalidResponse(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	ctx := context.Background()
+	responder, _ := httpmock.NewJsonResponder(200, invalidTestResponse)
+	httpmock.RegisterResponder("GET", fakeTaskmanagersURL, responder)
+
+	client := getTestJobManagerClient()
+	_, err := client.GetJobs(ctx, testURL)
+	assert.NotNil(t, err)
 }

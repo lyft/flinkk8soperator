@@ -633,3 +633,77 @@ func TestFindExternalizedCheckpoint(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "/tmp/checkpoint", checkpoint)
 }
+
+func TestGetAndUpdateClusterStatus(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	flinkApp := getFlinkTestApp()
+
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.ClusterOverviewResponse{
+			NumberOfTaskSlots: 1,
+			SlotsAvailable:    0,
+			TaskManagerCount:  1,
+		}, nil
+	}
+
+	mockJmClient.GetTaskManagersFunc = func(ctx context.Context, url string) (*client.TaskManagersResponse, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.TaskManagersResponse{
+			TaskManagers: []client.TaskManagerStats{
+				{
+					TimeSinceLastHeartbeat: time.Now().UnixNano() / int64(time.Millisecond),
+					SlotsNumber:            3,
+					FreeSlots:              0,
+				},
+			},
+		}, nil
+	}
+
+	err := flinkControllerForTest.GetAndUpdateClusterStatus(context.Background(), &flinkApp)
+	assert.Nil(t, err)
+	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
+	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
+	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.HealthyTaskManagers)
+	assert.Equal(t, v1alpha1.Green, flinkApp.Status.ClusterStatus.Health)
+
+}
+
+func TestHealthyTaskmanagers(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	flinkApp := getFlinkTestApp()
+
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+
+	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.ClusterOverviewResponse{
+			NumberOfTaskSlots: 1,
+			SlotsAvailable:    0,
+			TaskManagerCount:  1,
+		}, nil
+	}
+
+	mockJmClient.GetTaskManagersFunc = func(ctx context.Context, url string) (*client.TaskManagersResponse, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.TaskManagersResponse{
+			TaskManagers: []client.TaskManagerStats{
+				{
+					// 1 day old
+					TimeSinceLastHeartbeat: time.Now().AddDate(0, 0, -1).UnixNano() / int64(time.Millisecond),
+					SlotsNumber:            3,
+					FreeSlots:              0,
+				},
+			},
+		}, nil
+	}
+
+	err := flinkControllerForTest.GetAndUpdateClusterStatus(context.Background(), &flinkApp)
+	assert.Nil(t, err)
+	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
+	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
+	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.HealthyTaskManagers)
+	assert.Equal(t, v1alpha1.Yellow, flinkApp.Status.ClusterStatus.Health)
+
+}
