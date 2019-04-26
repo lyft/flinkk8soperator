@@ -317,6 +317,8 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) *v1.Deplo
 	template.Spec.Selector.MatchLabels[FlinkAppHash] = hash
 	template.Spec.Template.Name = getJobManagerPodName(app, hash)
 
+	InjectClusterIDConfig(template, app, hash)
+
 	return template
 }
 

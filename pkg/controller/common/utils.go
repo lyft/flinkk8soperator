@@ -2,6 +2,8 @@ package common
 
 import (
 	"github.com/lyft/flytestdlib/contextutils"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 func GetValidLabelNames() []contextutils.Key {
@@ -36,4 +38,14 @@ func CopyMap(to map[string]string, from map[string]string) map[string]string {
 		to[k] = v
 	}
 	return to
+}
+
+func GetEnvVar(envs []v1.EnvVar, name string) *v1.EnvVar {
+	for _, v := range envs {
+		if v.Name == name {
+			return &v
+		}
+	}
+
+	return nil
 }

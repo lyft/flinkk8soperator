@@ -242,6 +242,8 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) *v1.Depl
 	template.Spec.Selector.MatchLabels[FlinkAppHash] = hash
 	template.Spec.Template.Name = getTaskManagerPodName(app, hash)
 
+	InjectClusterIDConfig(template, app, hash)
+
 	return template
 }
 

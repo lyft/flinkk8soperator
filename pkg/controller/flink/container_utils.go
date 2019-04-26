@@ -158,6 +158,22 @@ func GetAppHashSelector(app *v1alpha1.FlinkApplication) map[string]string {
 	}
 }
 
+func InjectClusterIDConfig(deployment *appsv1.Deployment, app *v1alpha1.FlinkApplication, hash string) {
+	var newContainers []v1.Container
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		var newEnv []v1.EnvVar
+		for _, env := range container.Env {
+			if env.Name == OperatorFlinkConfig {
+				env.Value = fmt.Sprintf("%s\nhigh-availability.cluster-id: %s-%s\n", env.Value, app.Name, hash)
+			}
+			newEnv = append(newEnv, env)
+		}
+		container.Env = newEnv
+		newContainers = append(newContainers, container)
+	}
+	deployment.Spec.Template.Spec.Containers = newContainers
+}
+
 func envsEqual(a []v1.EnvVar, b []v1.EnvVar) bool {
 	if len(a) != len(b) {
 		return false
