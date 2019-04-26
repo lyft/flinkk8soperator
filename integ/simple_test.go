@@ -34,12 +34,12 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1al
 	// check that it really updated
 	newApp, err := s.Util.GetFlinkApplication(name)
 	c.Assert(err, IsNil)
-	c.Assert(newApp.Status.JobID, Not(Equals), app.Status.JobID)
+	c.Assert(newApp.Status.JobStatus.JobID, Not(Equals), app.Status.JobStatus.JobID)
 
 	log.Info("New job started successfully")
 
 	// check that we savepointed and restored correctly
-	endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.JobID)
+	endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.JobStatus.JobID)
 	res, err := s.Util.FlinkAPIGet(newApp, endpoint)
 	c.Assert(err, IsNil)
 
@@ -155,7 +155,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	app, err := s.Util.GetFlinkApplication(config.Name)
 	c.Assert(err, IsNil)
 
-	endpoint := fmt.Sprintf("jobs/%s/checkpoints", app.Status.JobID)
+	endpoint := fmt.Sprintf("jobs/%s/checkpoints", app.Status.JobStatus.JobID)
 	for {
 		res, err := s.Util.FlinkAPIGet(app, endpoint)
 		c.Assert(err, IsNil)
@@ -189,7 +189,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 		// wait until the new job is launched
 		newApp, err := s.Util.GetFlinkApplication(config.Name)
 		c.Assert(err, IsNil)
-		if newApp.Status.JobID != app.Status.JobID {
+		if newApp.Status.JobStatus.JobID != app.Status.JobStatus.JobID {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)

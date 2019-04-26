@@ -19,6 +19,7 @@ const submitJobURL = "/jars/%s/run"
 const cancelJobURL = "/jobs/%s/savepoints"
 const checkSavepointStatusURL = "/jobs/%s/savepoints/%s"
 const getJobsURL = "/jobs"
+const getJobsOverviewURL = "/jobs/%s"
 const getJobConfigURL = "/jobs/%s/config"
 const getOverviewURL = "/overview"
 const checkpointsURL = "/jobs/%s/checkpoints"
@@ -37,6 +38,8 @@ type FlinkAPIInterface interface {
 	GetLatestCheckpoint(ctx context.Context, url string, jobID string) (*CheckpointStatistics, error)
 	GetJobConfig(ctx context.Context, url string, jobID string) (*JobConfigResponse, error)
 	GetTaskManagers(ctx context.Context, url string) (*TaskManagersResponse, error)
+	GetCheckpointCounts(ctx context.Context, url string, jobID string) (*CheckpointResponse, error)
+	GetJobOverview(ctx context.Context, url string, jobID string) (*FlinkJobOverview, error)
 }
 
 type FlinkJobManagerClient struct {
@@ -282,6 +285,46 @@ func (c *FlinkJobManagerClient) GetTaskManagers(ctx context.Context, url string)
 
 	return &taskmanagerResponse, nil
 
+}
+
+func (c *FlinkJobManagerClient) GetCheckpointCounts(ctx context.Context, url string, jobID string) (*CheckpointResponse, error) {
+	endpoint := fmt.Sprintf(url+checkpointsURL, jobID)
+	response, err := c.executeRequest(httpGet, endpoint, nil)
+	if err != nil {
+		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
+		return nil, errors.Wrap(err, "get checkpoints failed")
+	}
+	if response != nil && !response.IsSuccess() {
+		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
+		return nil, errors.New(fmt.Sprintf("get checkpoints failed with response %v", response))
+	}
+
+	var checkpointResponse CheckpointResponse
+	if err = json.Unmarshal(response.Body(), &checkpointResponse); err != nil {
+		logger.Errorf(ctx, "Failed to unmarshal checkpointResponse %v, err %v", response, err)
+	}
+
+	c.metrics.getCheckpointsSuccessCounter.Inc(ctx)
+	return &checkpointResponse, nil
+}
+
+func (c *FlinkJobManagerClient) GetJobOverview(ctx context.Context, url string, jobID string) (*FlinkJobOverview, error) {
+	endpoint := fmt.Sprintf(url+getJobsOverviewURL, jobID)
+	response, err := c.executeRequest(httpGet, endpoint, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "get job overview failed")
+	}
+	if response != nil && !response.IsSuccess() {
+		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
+		return nil, errors.New(fmt.Sprintf("get job overview failed with response %v", response))
+	}
+
+	var jobOverviewResponse FlinkJobOverview
+	if err = json.Unmarshal(response.Body(), &jobOverviewResponse); err != nil {
+		logger.Errorf(ctx, "Failed to unmarshal FlinkJob %v, err %v", response, err)
+	}
+
+	return &jobOverviewResponse, nil
 }
 
 func NewFlinkJobManagerClient(scope promutils.Scope) FlinkAPIInterface {

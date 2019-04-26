@@ -101,9 +101,15 @@ func (s *FlinkStateMachine) updateApplicationPhase(ctx context.Context, applicat
 	application.Status.LastUpdatedAt = &now
 
 	// Update status of the cluster everytime there is a change in phase.
-	err := s.flinkController.GetAndUpdateClusterStatus(ctx, application)
+	_, err := s.flinkController.CompareAndUpdateClusterStatus(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Updating cluster status failed with %v", err)
+	}
+
+	// Update status of the job everytime there is a change in phase.
+	_, err = s.flinkController.CompareAndUpdateJobStatus(ctx, application)
+	if err != nil {
+		logger.Errorf(ctx, "Updating job status failed with %v", err)
 	}
 	return s.k8Cluster.UpdateK8Object(ctx, application)
 }
@@ -248,10 +254,10 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 
 		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeNormal,
 			"Update", "Flink job submitted to cluster")
-		application.Status.JobID = jobID
+		application.Status.JobStatus.JobID = jobID
 	} else {
 		logger.Infof(ctx, "Active job found for the application, job info: %v", activeJob)
-		application.Status.JobID = activeJob.JobID
+		application.Status.JobStatus.JobID = activeJob.JobID
 	}
 
 	// Clear the savepoint info
@@ -271,9 +277,9 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	// In the Running state, there must be a job already started in the cluster.
 	activeJob := flink.GetActiveFlinkJob(jobs)
 	if activeJob != nil {
-		application.Status.JobID = activeJob.JobID
+		application.Status.JobStatus.JobID = activeJob.JobID
 
-		if activeJob.Status == client.FlinkJobFinished {
+		if activeJob.Status == client.Finished {
 			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationCompleted)
 		}
 	}
@@ -290,15 +296,23 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationUpdating)
 	}
 	// Update status of the cluster
-	clusterErr := s.flinkController.GetAndUpdateClusterStatus(ctx, application)
+	hasClusterStatusChanged, clusterErr := s.flinkController.CompareAndUpdateClusterStatus(ctx, application)
 	if clusterErr != nil {
 		logger.Errorf(ctx, "Updating cluster status failed with %v", clusterErr)
 	}
 
-	// Update k8s object
-	updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
-	if updateErr != nil {
-		logger.Errorf(ctx, "Failed to update object %v", updateErr)
+	// Update status of jobs on the cluster
+	hasJobStatusChanged, jobsErr := s.flinkController.CompareAndUpdateJobStatus(ctx, application)
+	if jobsErr != nil {
+		logger.Errorf(ctx, "Updating jobs status failed with %v", jobsErr)
+	}
+
+	// Update k8s object if either job or cluster status has changed
+	if hasJobStatusChanged || hasClusterStatusChanged {
+		updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
+		if updateErr != nil {
+			logger.Errorf(ctx, "Failed to update object %v", updateErr)
+		}
 	}
 
 	return nil
@@ -351,6 +365,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		}
 
 		application.Spec.SavepointInfo.SavepointLocation = restorePath
+		application.Status.JobStatus.RestorePath = restorePath
 		// In single deployment mode, after the cluster is deleted, no extra cluster exists
 		if application.Spec.DeploymentMode == v1alpha1.DeploymentModeSingle {
 			return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationNew)

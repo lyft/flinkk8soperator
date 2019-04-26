@@ -16,16 +16,19 @@ const (
 	CheckpointCompleted  CheckpointStatus = "COMPLETED"
 )
 
-type FlinkJobStatus string
+type JobState string
 
 const (
-	FlinkJobCreated    FlinkJobStatus = "CREATED"
-	FlinkJobRunning    FlinkJobStatus = "RUNNING"
-	FlinkJobFailing    FlinkJobStatus = "FAILING"
-	FlinkJobFailed     FlinkJobStatus = "FAILED"
-	FlinkJobCancelling FlinkJobStatus = "CANCELLING"
-	FlinkJobCanceled   FlinkJobStatus = "CANCELED"
-	FlinkJobFinished   FlinkJobStatus = "FINISHED"
+	Created     JobState = "CREATED"
+	Running     JobState = "RUNNING"
+	Failing     JobState = "FAILING"
+	Failed      JobState = "FAILED"
+	Cancelling  JobState = "CANCELLING"
+	Canceled    JobState = "CANCELED"
+	Finished    JobState = "FINISHED"
+	Restarting  JobState = "RESTARTING"
+	Suspended   JobState = "SUSPENDED"
+	Reconciling JobState = "RECONCILING"
 )
 
 type CancelJobRequest struct {
@@ -81,8 +84,15 @@ type JobExecutionConfig struct {
 }
 
 type FlinkJob struct {
-	JobID  string         `json:"id"`
-	Status FlinkJobStatus `json:"status"`
+	JobID  string   `json:"id"`
+	Status JobState `json:"status"`
+}
+
+type FlinkJobOverview struct {
+	JobID     string   `json:"jid"`
+	State     JobState `json:"state"`
+	StartTime int64    `json:"start-time"`
+	EndTime   int64    `json:"end-time"`
 }
 
 type ClusterOverviewResponse struct {
@@ -105,6 +115,7 @@ type CheckpointStatistics struct {
 	FailureMessage     string           `json:"failure_message"`
 	ExternalPath       string           `json:"external_path"`
 	Discarded          bool             `json:"discarded"`
+	RestoredTimeStamp  int64            `json:"restore_timestamp"`
 }
 
 type LatestCheckpoints struct {

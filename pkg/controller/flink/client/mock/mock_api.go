@@ -14,6 +14,8 @@ type GetClusterOverviewFunc func(ctx context.Context, url string) (*client.Clust
 type GetLatestCheckpointFunc func(ctx context.Context, url string, jobID string) (*client.CheckpointStatistics, error)
 type GetJobConfigFunc func(ctx context.Context, url string, jobID string) (*client.JobConfigResponse, error)
 type GetTaskManagersFunc func(ctx context.Context, url string) (*client.TaskManagersResponse, error)
+type GetCheckpointCountsFunc func(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error)
+type GetJobOverviewFunc func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error)
 
 type JobManagerClient struct {
 	CancelJobWithSavepointFunc CancelJobWithSavepointFunc
@@ -24,6 +26,8 @@ type JobManagerClient struct {
 	GetJobConfigFunc           GetJobConfigFunc
 	GetLatestCheckpointFunc    GetLatestCheckpointFunc
 	GetTaskManagersFunc        GetTaskManagersFunc
+	GetCheckpointCountsFunc    GetCheckpointCountsFunc
+	GetJobOverviewFunc         GetJobOverviewFunc
 }
 
 func (m *JobManagerClient) SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
@@ -78,6 +82,20 @@ func (m *JobManagerClient) GetLatestCheckpoint(ctx context.Context, url string, 
 func (m *JobManagerClient) GetTaskManagers(ctx context.Context, url string) (*client.TaskManagersResponse, error) {
 	if m.GetTaskManagersFunc != nil {
 		return m.GetTaskManagersFunc(ctx, url)
+	}
+	return nil, nil
+}
+
+func (m *JobManagerClient) GetCheckpointCounts(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error) {
+	if m.GetCheckpointCountsFunc != nil {
+		return m.GetCheckpointCountsFunc(ctx, url, jobID)
+	}
+	return nil, nil
+}
+
+func (m *JobManagerClient) GetJobOverview(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
+	if m.GetJobOverviewFunc != nil {
+		return m.GetJobOverviewFunc(ctx, url, jobID)
 	}
 	return nil, nil
 }

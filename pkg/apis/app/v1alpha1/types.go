@@ -126,14 +126,28 @@ type FlinkClusterStatus struct {
 	AvailableTaskSlots   int32        `json:"availableTaskSlots"`
 }
 
+type FlinkJobStatus struct {
+	JobID                    string       `json:"jobID,omitEmpty"`
+	Health                   HealthStatus `json:"health,omitEmpty"`
+	State                    JobState     `json:"state,omitEmpty"`
+	StartTime                *metav1.Time `json:"startTime,omitEmpty"`
+	JobRestartCount          int32        `json:"jobRestartCount,omitEmpty"`
+	CompletedCheckpointCount int32        `json:"completedCheckpointCount,omitEmpty"`
+	FailedCheckpointCount    int32        `json:"failedCheckpointCount,omitEmpty"`
+	LastCheckpointTime       *metav1.Time `json:"lastCheckpointTime,omitEmpty"`
+	RestorePath              string       `json:"restorePath,omitEmpty"`
+	RestoreTime              *metav1.Time `json:"restoreTime,omitEmpty"`
+	LastFailingTime          *metav1.Time `json:"lastFailingTime,omitEmpty"`
+}
+
 type FlinkApplicationStatus struct {
 	Phase         FlinkApplicationPhase `json:"phase"`
 	StartedAt     *metav1.Time          `json:"startedAt,omitempty"`
 	StoppedAt     *metav1.Time          `json:"stoppedAt,omitempty"`
 	LastUpdatedAt *metav1.Time          `json:"lastUpdatedAt,omitempty"`
 	Reason        string                `json:"reason,omitempty"`
-	JobID         string                `json:"jobId,omitempty"`
 	ClusterStatus FlinkClusterStatus    `json:"clusterStatus,omitempty"`
+	JobStatus     FlinkJobStatus        `json:"jobStatus"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
@@ -209,4 +223,19 @@ const (
 	Green  HealthStatus = "Green"
 	Yellow HealthStatus = "Yellow"
 	Red    HealthStatus = "Red"
+)
+
+type JobState string
+
+const (
+	Created     JobState = "CREATED"
+	Running     JobState = "RUNNING"
+	Failing     JobState = "FAILING"
+	Failed      JobState = "FAILED"
+	Cancelling  JobState = "CANCELLING"
+	Canceled    JobState = "CANCELED"
+	Finished    JobState = "FINISHED"
+	Restarting  JobState = "RESTARTING"
+	Suspended   JobState = "SUSPENDED"
+	Reconciling JobState = "RECONCILING"
 )

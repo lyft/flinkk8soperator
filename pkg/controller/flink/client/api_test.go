@@ -96,6 +96,22 @@ func TestGetJobsError(t *testing.T) {
 	assert.True(t, strings.HasPrefix(err.Error(), "Get jobs API request failed"))
 }
 
+func TestGetJobsFlinkJobUnmarshal(t *testing.T) {
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	ctx := context.Background()
+	mockJobsResponse := `{"jobs":[{"id":"abc","status":"RUNNING"}]}`
+	responder := httpmock.NewStringResponder(200, mockJobsResponse)
+	httpmock.RegisterResponder("GET", fakeJobsURL, responder)
+
+	client := getTestJobManagerClient()
+	resp, err := client.GetJobs(ctx, testURL)
+	assert.NotNil(t, resp)
+	assert.Nil(t, err)
+	assert.Equal(t, resp.Jobs[0].Status, JobState("RUNNING"))
+	assert.Equal(t, resp.Jobs[0].JobID, "abc")
+}
+
 func TestGetClusterOverviewHappyCase(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()

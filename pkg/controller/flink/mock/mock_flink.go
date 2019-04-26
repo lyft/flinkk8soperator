@@ -21,7 +21,8 @@ type HasApplicationChangedFunc func(ctx context.Context, application *v1alpha1.F
 type GetJobsForApplicationFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]client.FlinkJob, error)
 type GetCurrentAndOldDeploymentsForAppFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error)
 type FindExternalizedCheckpointFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
-type GetAndUpdateClusterStatusFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) error
+type CompareAndUpdateClusterStatusFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
+type CompareAndUpdateJobStatusFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 
 type FlinkController struct {
 	CreateClusterFunc                     CreateClusterFunc
@@ -36,7 +37,8 @@ type FlinkController struct {
 	GetCurrentAndOldDeploymentsForAppFunc GetCurrentAndOldDeploymentsForAppFunc
 	FindExternalizedCheckpointFunc        FindExternalizedCheckpointFunc
 	Events                                []corev1.Event
-	GetAndUpdateClusterStatusFunc         GetAndUpdateClusterStatusFunc
+	CompareAndUpdateClusterStatusFunc     CompareAndUpdateClusterStatusFunc
+	CompareAndUpdateJobStatusFunc         CompareAndUpdateJobStatusFunc
 }
 
 func (m *FlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) ([]v1.Deployment, []v1.Deployment, error) {
@@ -120,10 +122,18 @@ func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkAppli
 	m.Events = append(m.Events, k8.CreateEvent(app, fieldPath, eventType, reason, message))
 }
 
-func (m *FlinkController) GetAndUpdateClusterStatus(ctx context.Context, application *v1alpha1.FlinkApplication) error {
-	if m.GetAndUpdateClusterStatusFunc != nil {
-		return m.GetAndUpdateClusterStatusFunc(ctx, application)
+func (m *FlinkController) CompareAndUpdateClusterStatus(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	if m.CompareAndUpdateClusterStatusFunc != nil {
+		return m.CompareAndUpdateClusterStatus(ctx, application)
 	}
 
-	return nil
+	return false, nil
+}
+
+func (m *FlinkController) CompareAndUpdateJobStatus(ctx context.Context, app *v1alpha1.FlinkApplication) (bool, error) {
+	if m.CompareAndUpdateJobStatusFunc != nil {
+		return m.CompareAndUpdateJobStatus(ctx, app)
+	}
+
+	return false, nil
 }

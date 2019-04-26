@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
@@ -46,7 +47,7 @@ func getFlinkTestApp() v1alpha1.FlinkApplication {
 	app.Spec.Parallelism = 8
 	app.Name = testAppName
 	app.Namespace = testNamespace
-	app.Status.JobID = testJobID
+	app.Status.JobStatus.JobID = testJobID
 	app.Spec.Image = testImage
 	app.Spec.FlinkVersion = testFlinkVersion
 
@@ -314,7 +315,7 @@ func TestFlinkGetSavepointStatusErr(t *testing.T) {
 
 func TestGetActiveJob(t *testing.T) {
 	job := client.FlinkJob{
-		Status: client.FlinkJobRunning,
+		Status: client.Running,
 		JobID:  "j1",
 	}
 	jobs := []client.FlinkJob{
@@ -327,7 +328,7 @@ func TestGetActiveJob(t *testing.T) {
 
 func TestGetActiveJobNil(t *testing.T) {
 	job := client.FlinkJob{
-		Status: client.FlinkJobCancelling,
+		Status: client.Cancelling,
 		JobID:  "j1",
 	}
 	jobs := []client.FlinkJob{
@@ -617,7 +618,7 @@ func TestGetJobsForApplicationErr(t *testing.T) {
 func TestFindExternalizedCheckpoint(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Status.JobID = "jobid"
+	flinkApp.Status.JobStatus.JobID = "jobid"
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetLatestCheckpointFunc = func(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error) {
@@ -634,7 +635,7 @@ func TestFindExternalizedCheckpoint(t *testing.T) {
 	assert.Equal(t, "/tmp/checkpoint", checkpoint)
 }
 
-func TestGetAndUpdateClusterStatus(t *testing.T) {
+func TestClusterStatusUpdated(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
@@ -661,13 +662,49 @@ func TestGetAndUpdateClusterStatus(t *testing.T) {
 		}, nil
 	}
 
-	err := flinkControllerForTest.GetAndUpdateClusterStatus(context.Background(), &flinkApp)
+	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp)
 	assert.Nil(t, err)
 	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
 	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.HealthyTaskManagers)
 	assert.Equal(t, v1alpha1.Green, flinkApp.Status.ClusterStatus.Health)
 
+}
+
+func TestNoClusterStatusChange(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	flinkApp := getFlinkTestApp()
+	flinkApp.Status.ClusterStatus.NumberOfTaskSlots = int32(1)
+	flinkApp.Status.ClusterStatus.AvailableTaskSlots = int32(0)
+	flinkApp.Status.ClusterStatus.HealthyTaskManagers = int32(1)
+	flinkApp.Status.ClusterStatus.Health = v1alpha1.Green
+	flinkApp.Status.ClusterStatus.NumberOfTaskManagers = int32(1)
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.ClusterOverviewResponse{
+			NumberOfTaskSlots: 1,
+			SlotsAvailable:    0,
+			TaskManagerCount:  1,
+		}, nil
+	}
+
+	mockJmClient.GetTaskManagersFunc = func(ctx context.Context, url string) (*client.TaskManagersResponse, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.TaskManagersResponse{
+			TaskManagers: []client.TaskManagerStats{
+				{
+					TimeSinceLastHeartbeat: time.Now().UnixNano() / int64(time.Millisecond),
+					SlotsNumber:            3,
+					FreeSlots:              0,
+				},
+			},
+		}, nil
+	}
+
+	hasClusterStatusChanged, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp)
+	assert.Nil(t, err)
+	assert.False(t, hasClusterStatusChanged)
 }
 
 func TestHealthyTaskmanagers(t *testing.T) {
@@ -699,11 +736,152 @@ func TestHealthyTaskmanagers(t *testing.T) {
 		}, nil
 	}
 
-	err := flinkControllerForTest.GetAndUpdateClusterStatus(context.Background(), &flinkApp)
+	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp)
 	assert.Nil(t, err)
 	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.HealthyTaskManagers)
 	assert.Equal(t, v1alpha1.Yellow, flinkApp.Status.ClusterStatus.Health)
+
+}
+
+func TestJobStatusUpdated(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	flinkApp := getFlinkTestApp()
+	startTime := metaV1.Now().UnixNano() / int64(time.Millisecond)
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.FlinkJobOverview{
+			JobID:     "abc",
+			State:     client.Running,
+			StartTime: startTime,
+		}, nil
+	}
+
+	mockJmClient.GetCheckpointCountsFunc = func(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.CheckpointResponse{
+			Counts: map[string]int32{
+				"restored":  1,
+				"completed": 4,
+				"failed":    0,
+			},
+			Latest: client.LatestCheckpoints{
+				Restored: &client.CheckpointStatistics{
+					RestoredTimeStamp: startTime,
+					ExternalPath:      "/test/externalpath",
+				},
+
+				Completed: &client.CheckpointStatistics{
+					LatestAckTimestamp: startTime,
+				},
+			},
+		}, nil
+	}
+
+	flinkApp.Status.JobStatus.JobID = "abc"
+	expectedTime := metaV1.NewTime(time.Unix(startTime/1000, 0))
+	_, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &flinkApp)
+	assert.Nil(t, err)
+
+	assert.Equal(t, v1alpha1.Running, flinkApp.Status.JobStatus.State)
+	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.StartTime)
+	assert.Equal(t, v1alpha1.Green, flinkApp.Status.JobStatus.Health)
+
+	assert.Equal(t, int32(0), flinkApp.Status.JobStatus.FailedCheckpointCount)
+	assert.Equal(t, int32(4), flinkApp.Status.JobStatus.CompletedCheckpointCount)
+	assert.Equal(t, int32(1), flinkApp.Status.JobStatus.JobRestartCount)
+	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.RestoreTime)
+	assert.Equal(t, "/test/externalpath", flinkApp.Status.JobStatus.RestorePath)
+	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.LastCheckpointTime)
+
+}
+
+func TestNoJobStatusChange(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	constTime := time.Now().UnixNano() / int64(time.Millisecond)
+	metaTime := metaV1.NewTime(time.Unix(constTime/1000, 0))
+	app1 := getFlinkTestApp()
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+
+	app1.Status.JobStatus.State = v1alpha1.Running
+	app1.Status.JobStatus.StartTime = &metaTime
+	app1.Status.JobStatus.LastCheckpointTime = &metaTime
+	app1.Status.JobStatus.CompletedCheckpointCount = int32(4)
+	app1.Status.JobStatus.JobRestartCount = int32(1)
+	app1.Status.JobStatus.FailedCheckpointCount = int32(0)
+	app1.Status.JobStatus.Health = v1alpha1.Green
+	app1.Status.JobStatus.RestoreTime = &metaTime
+	app1.Status.JobStatus.RestorePath = "/test/externalpath"
+
+	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.FlinkJobOverview{
+			JobID:     "j1",
+			State:     client.Running,
+			StartTime: constTime,
+		}, nil
+	}
+
+	mockJmClient.GetCheckpointCountsFunc = func(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.CheckpointResponse{
+			Counts: map[string]int32{
+				"restored":  1,
+				"completed": 4,
+				"failed":    0,
+			},
+			Latest: client.LatestCheckpoints{
+				Restored: &client.CheckpointStatistics{
+					RestoredTimeStamp: constTime,
+					ExternalPath:      "/test/externalpath",
+				},
+
+				Completed: &client.CheckpointStatistics{
+					LatestAckTimestamp: constTime,
+				},
+			},
+		}, nil
+	}
+	hasJobStatusChanged, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &app1)
+	assert.Nil(t, err)
+	assert.False(t, hasJobStatusChanged)
+
+}
+
+func TestGetAndUpdateJobStatusHealth(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	lastFailedTime := metaV1.NewTime(time.Now().Add(-10 * time.Second))
+	app1 := getFlinkTestApp()
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+
+	app1.Status.JobStatus.State = v1alpha1.Failing
+	app1.Status.JobStatus.LastFailingTime = &lastFailedTime
+
+	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.FlinkJobOverview{
+			JobID:     "abc",
+			State:     client.Running,
+			StartTime: metaV1.Now().UnixNano() / int64(time.Millisecond),
+		}, nil
+	}
+
+	mockJmClient.GetCheckpointCountsFunc = func(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error) {
+		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		return &client.CheckpointResponse{
+			Counts: map[string]int32{
+				"restored":  1,
+				"completed": 4,
+				"failed":    0,
+			},
+		}, nil
+	}
+	_, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &app1)
+	assert.Nil(t, err)
+	// Job is in a RUNNING state but was in a FAILING state in the last 1 minute, so we expect
+	// JobStatus.Health to be Red
+	assert.Equal(t, app1.Status.JobStatus.Health, v1alpha1.Red)
 
 }
