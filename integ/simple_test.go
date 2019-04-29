@@ -54,11 +54,15 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1al
 
 // Tests job submission, upgrade, and deletion
 func (s *IntegSuite) TestSimple(c *C) {
+	const finalizer = "simple.finalizers.test.com"
+
 	// start a simple app
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 
 	config.ObjectMeta.Labels["integTest"] = "test_simple"
+	// add a finalizer so that the flinkapplication won't be deleted until we've had a chance to look at it
+	config.Finalizers = append(config.Finalizers, finalizer)
 
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))
@@ -112,7 +116,39 @@ func (s *IntegSuite) TestSimple(c *C) {
 	// delete the application and ensure everything is cleaned up successfully
 	c.Assert(s.Util.FlinkApps().Delete(config.Name, &v1.DeleteOptions{}), IsNil)
 
-	// TODO: validate that the job is cancelled with savepoint once that's implemented [STRMCMP-206]
+	// validate that a savepoint was taken and the job was cancelled
+	var app *v1alpha1.FlinkApplication
+	for {
+		app, err = s.Util.GetFlinkApplication(config.Name)
+		c.Assert(err, IsNil)
+
+		if len(app.Finalizers) == 1 && app.Finalizers[0] == finalizer {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	c.Assert(app.Spec.SavepointInfo.SavepointLocation, NotNil)
+	job := func() map[string]interface{} {
+		jobs, _ := s.Util.FlinkAPIGet(app, "/jobs")
+		jobMap := jobs.(map[string]interface{})
+		jobList := jobMap["jobs"].([]interface{})
+		for _, j := range jobList {
+			job := j.(map[string]interface{})
+			if job["id"] == app.Status.JobStatus.JobID {
+				return job
+			}
+		}
+		return nil
+	}()
+
+	fmt.Printf("test job = %v", job)
+	c.Assert(job["status"], Equals, "CANCELED")
+
+	// delete our finalizer
+	app.Finalizers = []string{}
+	_, err = s.Util.FlinkApps().Update(app)
+	c.Assert(err, IsNil)
 
 	// wait until all pods are gone
 	for {
@@ -122,6 +158,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 		if len(pods.Items) == 0 {
 			break
 		}
+		time.Sleep(100 * time.Millisecond)
 	}
 	log.Info("All pods torn down")
 }

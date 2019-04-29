@@ -13,6 +13,7 @@ import (
 type CreateClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) error
 type DeleteOldClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type CancelWithSavepointFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
+type ForceCancelFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) error
 type StartFlinkJobFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 type GetSavepointStatusFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error)
 type IsClusterReadyFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
@@ -28,6 +29,7 @@ type FlinkController struct {
 	CreateClusterFunc                     CreateClusterFunc
 	DeleteOldClusterFunc                  DeleteOldClusterFunc
 	CancelWithSavepointFunc               CancelWithSavepointFunc
+	ForceCancelFunc                       ForceCancelFunc
 	StartFlinkJobFunc                     StartFlinkJobFunc
 	GetSavepointStatusFunc                GetSavepointStatusFunc
 	IsClusterReadyFunc                    IsClusterReadyFunc
@@ -67,6 +69,13 @@ func (m *FlinkController) CancelWithSavepoint(ctx context.Context, application *
 		return m.CancelWithSavepointFunc(ctx, application)
 	}
 	return "", nil
+}
+
+func (m *FlinkController) ForceCancel(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+	if m.ForceCancelFunc != nil {
+		return m.ForceCancelFunc(ctx, application)
+	}
+	return nil
 }
 
 func (m *FlinkController) StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {

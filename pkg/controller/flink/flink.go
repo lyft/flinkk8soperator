@@ -49,6 +49,9 @@ type ControllerInterface interface {
 	// Cancels the running/active jobs in the Cluster for the Application after savepoint is created
 	CancelWithSavepoint(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 
+	// Force cancels the running/active job without taking a savepoint
+	ForceCancel(ctx context.Context, application *v1alpha1.FlinkApplication) error
+
 	// Starts the Job in the Flink Cluster based on values in the Application
 	StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error)
 
@@ -164,6 +167,7 @@ func (f *Controller) GetJobsForApplication(ctx context.Context, application *v1a
 	if err != nil {
 		return nil, err
 	}
+
 	return jobResponse.Jobs, nil
 }
 
@@ -183,6 +187,14 @@ func (f *Controller) CancelWithSavepoint(ctx context.Context, application *v1alp
 		return "", err
 	}
 	return f.flinkClient.CancelJobWithSavepoint(ctx, getURLFromApp(application), jobID)
+}
+
+func (f *Controller) ForceCancel(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+	jobID, err := f.getJobIDForApplication(application)
+	if err != nil {
+		return err
+	}
+	return f.flinkClient.ForceCancelJob(ctx, getURLFromApp(application), jobID)
 }
 
 func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error {

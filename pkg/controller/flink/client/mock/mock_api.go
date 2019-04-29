@@ -7,6 +7,7 @@ import (
 )
 
 type CancelJobWithSavepointFunc func(ctx context.Context, url string, jobID string) (string, error)
+type ForceCancelJobFunc func(ctx context.Context, url string, jobID string) error
 type SubmitJobFunc func(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error)
 type CheckSavepointStatusFunc func(ctx context.Context, url string, jobID, triggerID string) (*client.SavepointResponse, error)
 type GetJobsFunc func(ctx context.Context, url string) (*client.GetJobsResponse, error)
@@ -19,6 +20,7 @@ type GetJobOverviewFunc func(ctx context.Context, url string, jobID string) (*cl
 
 type JobManagerClient struct {
 	CancelJobWithSavepointFunc CancelJobWithSavepointFunc
+	ForceCancelJobFunc         ForceCancelJobFunc
 	SubmitJobFunc              SubmitJobFunc
 	CheckSavepointStatusFunc   CheckSavepointStatusFunc
 	GetJobsFunc                GetJobsFunc
@@ -42,6 +44,13 @@ func (m *JobManagerClient) CancelJobWithSavepoint(ctx context.Context, url strin
 		return m.CancelJobWithSavepointFunc(ctx, url, jobID)
 	}
 	return "", nil
+}
+
+func (m *JobManagerClient) ForceCancelJob(ctx context.Context, url string, jobID string) error {
+	if m.ForceCancelJobFunc != nil {
+		return m.ForceCancelJobFunc(ctx, url, jobID)
+	}
+	return nil
 }
 
 func (m *JobManagerClient) CheckSavepointStatus(ctx context.Context, url string, jobID, triggerID string) (*client.SavepointResponse, error) {

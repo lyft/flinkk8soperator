@@ -16,7 +16,8 @@ import (
 )
 
 const submitJobURL = "/jars/%s/run"
-const cancelJobURL = "/jobs/%s/savepoints"
+const savepointURL = "/jobs/%s/savepoints"
+const jobURL = "/jobs/%s"
 const checkSavepointStatusURL = "/jobs/%s/savepoints/%s"
 const getJobsURL = "/jobs"
 const getJobsOverviewURL = "/jobs/%s"
@@ -26,11 +27,13 @@ const checkpointsURL = "/jobs/%s/checkpoints"
 const taskmanagersURL = "/taskmanagers"
 const httpGet = "GET"
 const httpPost = "POST"
+const httpPatch = "PATCH"
 const retryCount = 3
 const timeOut = 30 * time.Second
 
 type FlinkAPIInterface interface {
 	CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error)
+	ForceCancelJob(ctx context.Context, url string, jobID string) error
 	SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error)
 	CheckSavepointStatus(ctx context.Context, url string, jobID, triggerID string) (*SavepointResponse, error)
 	GetJobs(ctx context.Context, url string) (*GetJobsResponse, error)
@@ -53,6 +56,8 @@ type flinkJobManagerClientMetrics struct {
 	submitJobFailureCounter      labeled.Counter
 	cancelJobSuccessCounter      labeled.Counter
 	cancelJobFailureCounter      labeled.Counter
+	forceCancelJobSuccessCounter labeled.Counter
+	forceCancelJobFailureCounter labeled.Counter
 	checkSavepointSuccessCounter labeled.Counter
 	checkSavepointFailureCounter labeled.Counter
 	getJobsSuccessCounter        labeled.Counter
@@ -73,6 +78,8 @@ func newFlinkJobManagerClientMetrics(scope promutils.Scope) *flinkJobManagerClie
 		submitJobFailureCounter:      labeled.NewCounter("submit_job_failure", "Flink job submission failed", flinkJmClientScope),
 		cancelJobSuccessCounter:      labeled.NewCounter("cancel_job_success", "Flink job cancellation successful", flinkJmClientScope),
 		cancelJobFailureCounter:      labeled.NewCounter("cancel_job_failure", "Flink job cancellation failed", flinkJmClientScope),
+		forceCancelJobSuccessCounter: labeled.NewCounter("force_cancel_job_success", "Flink forced job cancellation successful", flinkJmClientScope),
+		forceCancelJobFailureCounter: labeled.NewCounter("force_cancel_job_failure", "Flink forced job cancellation failed", flinkJmClientScope),
 		checkSavepointSuccessCounter: labeled.NewCounter("check_savepoint_status_success", "Flink check savepoint status successful", flinkJmClientScope),
 		checkSavepointFailureCounter: labeled.NewCounter("check_savepoint_status_failure", "Flink check savepoint status failed", flinkJmClientScope),
 		getJobsSuccessCounter:        labeled.NewCounter("get_jobs_success", "Get flink jobs succeeded", flinkJmClientScope),
@@ -140,6 +147,8 @@ func (c *FlinkJobManagerClient) executeRequest(
 	var err error
 	if method == httpGet {
 		resp, err = c.client.R().Get(url)
+	} else if method == httpPatch {
+		resp, err = c.client.R().Patch(url)
 	} else if method == httpPost {
 		resp, err = c.client.R().
 			SetHeader("Content-Type", "application/json").
@@ -152,7 +161,7 @@ func (c *FlinkJobManagerClient) executeRequest(
 }
 
 func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error) {
-	path := fmt.Sprintf(cancelJobURL, jobID)
+	path := fmt.Sprintf(savepointURL, jobID)
 
 	url = url + path
 	cancelJobRequest := CancelJobRequest{
@@ -175,6 +184,26 @@ func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url 
 	}
 	c.metrics.cancelJobSuccessCounter.Inc(ctx)
 	return cancelJobResponse.TriggerID, nil
+}
+
+func (c *FlinkJobManagerClient) ForceCancelJob(ctx context.Context, url string, jobID string) error {
+	path := fmt.Sprintf(jobURL, jobID)
+
+	url = url + path + "?mode=cancel"
+
+	response, err := c.executeRequest(httpPatch, url, nil)
+	if err != nil {
+		c.metrics.forceCancelJobFailureCounter.Inc(ctx)
+		return errors.Wrap(err, "Force cancel job API request failed")
+	}
+	if response != nil && !response.IsSuccess() {
+		c.metrics.forceCancelJobFailureCounter.Inc(ctx)
+		logger.Errorf(ctx, fmt.Sprintf("Force cancel job failed with response %v", response))
+		return errors.New(fmt.Sprintf("Force cancel job failed with status %v", response.Status()))
+	}
+
+	c.metrics.forceCancelJobFailureCounter.Inc(ctx)
+	return nil
 }
 
 func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error) {

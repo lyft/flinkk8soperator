@@ -48,6 +48,7 @@ type FlinkApplicationSpec struct {
 	Volumes           []v1.Volume               `json:"volumes,omitempty"`
 	VolumeMounts      []v1.VolumeMount          `json:"volumeMounts,omitempty"`
 	RestartNonce      string                    `json:"restartNonce"`
+	DeleteMode        DeleteMode                `json:"deleteMode"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -195,6 +196,7 @@ const (
 	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
 	FlinkApplicationSavepointing    FlinkApplicationPhase = "Savepointing"
 	FlinkApplicationUpdating        FlinkApplicationPhase = "Updating"
+	FlinkApplicationDeleting        FlinkApplicationPhase = "Deleting"
 	FlinkApplicationFailed          FlinkApplicationPhase = "Failed"
 	FlinkApplicationCompleted       FlinkApplicationPhase = "Completed"
 )
@@ -206,6 +208,7 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationRunning,
 	FlinkApplicationSavepointing,
 	FlinkApplicationUpdating,
+	FlinkApplicationDeleting,
 	FlinkApplicationFailed,
 	FlinkApplicationCompleted,
 }
@@ -215,6 +218,14 @@ type DeploymentMode string
 const (
 	DeploymentModeSingle DeploymentMode = "Single"
 	DeploymentModeDual   DeploymentMode = "Dual"
+)
+
+type DeleteMode string
+
+const (
+	DeleteModeSavepoint   DeleteMode = "Savepoint"
+	DeleteModeForceCancel DeleteMode = "ForceCancel"
+	DeleteModeNone        DeleteMode = "None"
 )
 
 type HealthStatus string

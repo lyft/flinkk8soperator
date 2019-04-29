@@ -68,9 +68,19 @@ Below is the list of fields in the custom resource and their description
   * **DeploymentMode** `type:DeploymentMode`
     Indicates the type of deployment that operator should perform if the custom resource is updated.
 
-    SINGLE  - This deployment mode is intended for applications where a small downtime during deployment is acceptable. The operator first deletes the existing Flink cluster and recreates a new one. Between the time the first cluster is deleted and the second cluster is started, the application is not running.
+    `Single` This deployment mode is intended for applications where a small downtime during deployment is acceptable. The operator first deletes the existing Flink cluster and recreates a new one. Between the time the first cluster is deleted and the second cluster is started, the application is not running.
 
-    DUAL - This deployment mode is intended for applications where downtime during deployment needs to be as minimal as possible. In this deployment mode, the operator brings up a second Flink cluster with the new image, while the original Flink cluster is still active. Once the pods and containers in the new flink cluster are ready, the Operator cancels the job in the first Cluster with savepoint, deletes the cluster and starts the job in the second cluster. (More information in the state machine section below). This mode is suitable for real time processing applications. 
+    `Dual` This deployment mode is intended for applications where downtime during deployment needs to be as minimal as possible. In this deployment mode, the operator brings up a second Flink cluster with the new image, while the original Flink cluster is still active. Once the pods and containers in the new flink cluster are ready, the Operator cancels the job in the first Cluster with savepoint, deletes the cluster and starts the job in the second cluster. (More information in the state machine section below). This mode is suitable for real time processing applications. 
+
+  * **DeleteMode** `type:DeleteMode`
+    Indicates how Flink jobs are torn down when the FlinkApplication resource is deleted
+    
+    `Savepoint` (default) The operator will take a final savepoint before cancelling the job, and will not tear down the cluster until a savepoint has succeeded.
+    
+    `ForceCancel` The operator will force cancel the job before tearing down the cluster
+    
+    `None` The operator will immediately tear down the cluster
 
   * **RestartNonce** `type:string`
     Can be set or modified to force a restart of the cluster
+   

@@ -85,7 +85,20 @@ func New(namespaceName string, kubeconfig string, image string, checkpointDir st
 
 func (f *TestUtil) Cleanup() {
 	if f.Namespace.Name != "default" {
-		err := f.KubeClient.CoreV1().Namespaces().Delete(f.Namespace.Name, &metav1.DeleteOptions{})
+		flinkApps, err := f.FlinkApps().List(metav1.ListOptions{})
+		if err != nil {
+			log.Errorf("Failed to fetch flink apps during cleanup: %v", err)
+		} else {
+			// make sure none of the apps have left-over finalizers
+			for _, app := range flinkApps.Items {
+				if len(app.Finalizers) != 0 {
+					app.Finalizers = []string{}
+					_, _ = f.FlinkApps().Update(&app)
+				}
+			}
+		}
+
+		err = f.KubeClient.CoreV1().Namespaces().Delete(f.Namespace.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			log.Errorf("Failed to clean up after test: %v", err)
 		}

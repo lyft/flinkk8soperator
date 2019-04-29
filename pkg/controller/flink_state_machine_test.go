@@ -21,6 +21,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
 )
@@ -171,7 +172,6 @@ func TestHandleStartingMultiClusterReady(t *testing.T) {
 
 func TestHandleApplicationReadyAndRunning(t *testing.T) {
 	jobID := "j1"
-	updateInvoked := false
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
@@ -186,11 +186,18 @@ func TestHandleApplicationReadyAndRunning(t *testing.T) {
 		}, nil
 	}
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+
+	updateCount := 0
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
 		application := object.(*v1alpha1.FlinkApplication)
-		assert.Equal(t, jobID, application.Status.JobStatus.JobID)
-		assert.Equal(t, v1alpha1.FlinkApplicationRunning, application.Status.Phase)
-		updateInvoked = true
+		if updateCount == 0 {
+			assert.Equal(t, jobFinalizer, application.Finalizers[0])
+		} else if updateCount == 1 {
+			assert.Equal(t, jobID, application.Status.JobStatus.JobID)
+			assert.Equal(t, v1alpha1.FlinkApplicationRunning, application.Status.Phase)
+		}
+
+		updateCount++
 		return nil
 	}
 	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{
@@ -198,7 +205,7 @@ func TestHandleApplicationReadyAndRunning(t *testing.T) {
 			Phase: v1alpha1.FlinkApplicationReady,
 		},
 	})
-	assert.True(t, updateInvoked)
+	assert.Equal(t, 2, updateCount)
 	assert.Nil(t, err)
 }
 
@@ -223,6 +230,7 @@ func TestHandleApplicationReadyNotRunning(t *testing.T) {
 		return activeJobID, nil
 	}
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
 		application := object.(*v1alpha1.FlinkApplication)
 		assert.Equal(t, activeJobID, application.Status.JobStatus.JobID)
@@ -233,6 +241,9 @@ func TestHandleApplicationReadyNotRunning(t *testing.T) {
 		return nil
 	}
 	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Finalizers: []string{jobFinalizer},
+		},
 		Status: v1alpha1.FlinkApplicationStatus{
 			Phase: v1alpha1.FlinkApplicationReady,
 		},
@@ -598,4 +609,213 @@ func TestIsApplicationNotStuck(t *testing.T) {
 		},
 	})
 	assert.False(t, isStuck)
+}
+
+func TestDeleteWithSavepoint(t *testing.T) {
+	stateMachineForTest := getTestStateMachine()
+	jobID := "j1"
+
+	app := v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Finalizers:        []string{jobFinalizer},
+			DeletionTimestamp: &v12.Time{Time: time.Now()},
+		},
+		Status: v1alpha1.FlinkApplicationStatus{
+			JobStatus: v1alpha1.FlinkJobStatus{
+				JobID: jobID,
+			},
+		},
+	}
+
+	triggerID := "t1"
+	savepointPath := "s3:///path/to/savepoint"
+
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (string, error) {
+		return triggerID, nil
+	}
+
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (jobs []client.FlinkJob, err error) {
+		return []client.FlinkJob{
+			{
+				JobID:  jobID,
+				Status: "RUNNING",
+			},
+		}, nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+	updateCount := 0
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+		application := object.(*v1alpha1.FlinkApplication)
+		assert.Equal(t, v1alpha1.FlinkApplicationDeleting, application.Status.Phase)
+
+		if updateCount == 1 {
+			assert.Equal(t, triggerID, application.Spec.SavepointInfo.TriggerID)
+		} else if updateCount == 2 {
+			assert.Equal(t, savepointPath, application.Spec.SavepointInfo.SavepointLocation)
+		} else if updateCount == 3 {
+			assert.Equal(t, 0, len(app.Finalizers))
+		}
+
+		updateCount++
+		return nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, updateCount)
+
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (*client.SavepointResponse, error) {
+		return &client.SavepointResponse{
+			SavepointStatus: client.SavepointStatusResponse{
+				Status: client.SavePointCompleted,
+			},
+			Operation: client.SavepointOperationResponse{
+				Location: "s3:///path/to/savepoint",
+			},
+		}, nil
+	}
+
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 3, updateCount)
+
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (jobs []client.FlinkJob, err error) {
+		return []client.FlinkJob{
+			{
+				JobID:  jobID,
+				Status: "CANCELED",
+			},
+		}, nil
+	}
+
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 4, updateCount)
+
+}
+
+func TestDeleteWithForceCancel(t *testing.T) {
+	stateMachineForTest := getTestStateMachine()
+
+	jobID := "j1"
+
+	app := v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Finalizers:        []string{jobFinalizer},
+			DeletionTimestamp: &v12.Time{Time: time.Now()},
+		},
+		Spec: v1alpha1.FlinkApplicationSpec{
+			DeleteMode: v1alpha1.DeleteModeForceCancel,
+		},
+		Status: v1alpha1.FlinkApplicationStatus{
+			JobStatus: v1alpha1.FlinkJobStatus{
+				JobID: jobID,
+			},
+		},
+	}
+
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (jobs []client.FlinkJob, err error) {
+		return []client.FlinkJob{
+			{
+				JobID:  jobID,
+				Status: "RUNNING",
+			},
+		}, nil
+	}
+
+	cancelled := false
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+		cancelled = true
+		return nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+	updateCount := 0
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+		application := object.(*v1alpha1.FlinkApplication)
+		assert.Equal(t, v1alpha1.FlinkApplicationDeleting, application.Status.Phase)
+
+		if updateCount == 1 {
+			assert.Equal(t, 0, len(app.Finalizers))
+		}
+
+		updateCount++
+		return nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, updateCount)
+	assert.True(t, cancelled)
+
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (jobs []client.FlinkJob, err error) {
+		return []client.FlinkJob{
+			{
+				JobID:  jobID,
+				Status: "CANCELED",
+			},
+		}, nil
+	}
+
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, updateCount)
+}
+
+func TestDeleteModeNone(t *testing.T) {
+	stateMachineForTest := getTestStateMachine()
+
+	app := v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Finalizers:        []string{jobFinalizer},
+			DeletionTimestamp: &v12.Time{Time: time.Now()},
+		},
+		Spec: v1alpha1.FlinkApplicationSpec{
+			DeleteMode: v1alpha1.DeleteModeNone,
+		},
+	}
+
+	jobID := "j1"
+
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (jobs []client.FlinkJob, err error) {
+		return []client.FlinkJob{
+			{
+				JobID:  jobID,
+				Status: "RUNNING",
+			},
+		}, nil
+	}
+
+	cancelled := false
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+		cancelled = true
+		return nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+	updateCount := 0
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+		application := object.(*v1alpha1.FlinkApplication)
+		assert.Equal(t, v1alpha1.FlinkApplicationDeleting, application.Status.Phase)
+
+		if updateCount == 1 {
+			assert.Equal(t, 0, len(app.Finalizers))
+		}
+
+		updateCount++
+		return nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, updateCount)
+	assert.False(t, cancelled)
 }

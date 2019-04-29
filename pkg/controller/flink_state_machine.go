@@ -19,6 +19,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/clock"
 )
 
+const (
+	jobFinalizer = "job.finalizers.flink.k8s.io"
+)
+
 type FlinkHandlerInterface interface {
 	Handle(ctx context.Context, application *v1alpha1.FlinkApplication) error
 }
@@ -148,6 +152,13 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationFailed)
 	}
 
+	if !application.ObjectMeta.DeletionTimestamp.IsZero() && application.Status.Phase != v1alpha1.FlinkApplicationDeleting {
+		// move to the deleting phase
+		if err := s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationDeleting); err != nil {
+			return err
+		}
+	}
+
 	if application.Status.Phase != v1alpha1.FlinkApplicationRunning {
 		logger.Infof(ctx, "Handling state %s for application", application.Status.Phase)
 	}
@@ -158,14 +169,16 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 		return s.handleNewOrCreating(ctx, application)
 	case v1alpha1.FlinkApplicationClusterStarting:
 		return s.handleClusterStarting(ctx, application)
-	case v1alpha1.FlinkApplicationRunning:
-		return s.handleApplicationRunning(ctx, application)
 	case v1alpha1.FlinkApplicationReady:
 		return s.handleApplicationReady(ctx, application)
+	case v1alpha1.FlinkApplicationRunning:
+		return s.handleApplicationRunning(ctx, application)
 	case v1alpha1.FlinkApplicationUpdating:
 		return s.handleApplicationUpdating(ctx, application)
 	case v1alpha1.FlinkApplicationSavepointing:
 		return s.handleApplicationSavepointing(ctx, application)
+	case v1alpha1.FlinkApplicationDeleting:
+		return s.handleApplicationDeleting(ctx, application)
 	case v1alpha1.FlinkApplicationFailed:
 		return s.handleApplicationFailed(ctx, application)
 	case v1alpha1.FlinkApplicationCompleted:
@@ -232,6 +245,11 @@ func (s *FlinkStateMachine) handleApplicationReady(ctx context.Context, applicat
 		return nil
 	}
 	logger.Infof(ctx, "Flink cluster is ready to start the job")
+
+	// add the job running finalizer if necessary
+	if err := s.addFinalizerIfMissing(ctx, application, jobFinalizer); err != nil {
+		return err
+	}
 
 	s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeNormal, "Update",
 		"Flink cluster is ready")
@@ -413,6 +431,122 @@ func (s *FlinkStateMachine) handleApplicationFailed(ctx context.Context, applica
 
 func (s *FlinkStateMachine) getStalenessDuration() time.Duration {
 	return config.GetConfig().StatemachineStalenessDuration.Duration
+}
+
+func (s *FlinkStateMachine) addFinalizerIfMissing(ctx context.Context, application *v1alpha1.FlinkApplication, finalizer string) error {
+	for _, f := range application.Finalizers {
+		if f == finalizer {
+			return nil
+		}
+	}
+
+	// finalizer not present; add
+	application.Finalizers = append(application.Finalizers, finalizer)
+	return s.k8Cluster.UpdateK8Object(ctx, application)
+}
+
+func removeString(list []string, target string) []string {
+	ret := make([]string, 0)
+	for _, s := range list {
+		if s != target {
+			ret = append(ret, s)
+		}
+	}
+
+	return ret
+}
+
+func (s *FlinkStateMachine) clearFinalizers(ctx context.Context, app *v1alpha1.FlinkApplication) error {
+	app.Finalizers = removeString(app.Finalizers, jobFinalizer)
+	return s.k8Cluster.UpdateK8Object(ctx, app)
+}
+
+func jobFinished(jobs []client.FlinkJob, id string) bool {
+	for _, job := range jobs {
+		if job.JobID == id {
+			return job.Status == client.Canceled ||
+				job.Status == client.Failed ||
+				job.Status == client.Finished
+		}
+	}
+
+	return true
+}
+
+func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *v1alpha1.FlinkApplication) error {
+	// There should be a way for the user to force deletion (e.g., if the job is failing and they can't
+	// savepoint). However, this seems dangerous to do automatically.
+	// If https://github.com/kubernetes/kubernetes/issues/56567 is fixed users will be able to use
+	// kubectl delete --force, but for now they will need to update the DeleteMode.
+
+	if app.Spec.DeleteMode == v1alpha1.DeleteModeNone {
+		// just delete the finalizer so the cluster can be torn down
+		return s.clearFinalizers(ctx, app)
+	}
+
+	jobs, err := s.flinkController.GetJobsForApplication(ctx, app)
+	if err != nil {
+		return err
+	}
+
+	finished := jobFinished(jobs, app.Status.JobStatus.JobID)
+
+	switch app.Spec.DeleteMode {
+	case v1alpha1.DeleteModeForceCancel:
+		if finished {
+			// the job has already been cancelled, so clear the finalizer
+			return s.clearFinalizers(ctx, app)
+		}
+
+		logger.Infof(ctx, "Force cancelling job as part of cleanup")
+		return s.flinkController.ForceCancel(ctx, app)
+	case v1alpha1.DeleteModeSavepoint, "":
+		if app.Spec.SavepointInfo.SavepointLocation != "" {
+			if finished {
+				return s.clearFinalizers(ctx, app)
+			}
+			// we've already created the savepoint, now just waiting for the job to be cancelled
+			return nil
+		}
+
+		if app.Spec.SavepointInfo.TriggerID == "" {
+			// delete with savepoint
+			triggerID, err := s.flinkController.CancelWithSavepoint(ctx, app)
+			if err != nil {
+				return err
+			}
+
+			s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeNormal, "Delete",
+				"Cancelling job with savepoint")
+			app.Spec.SavepointInfo.TriggerID = triggerID
+		} else {
+			// we've already started savepointing; check the status
+			status, err := s.flinkController.GetSavepointStatus(ctx, app)
+			if err != nil {
+				return err
+			}
+
+			if status.Operation.Location == "" && status.SavepointStatus.Status != client.SavePointInProgress {
+				// savepointing failed
+				s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeWarning, "Delete",
+					fmt.Sprintf("Failed to take savepoint %v", status.Operation.FailureCause))
+				// clear the trigger id so that we can try again
+				app.Spec.SavepointInfo.TriggerID = ""
+			} else if status.SavepointStatus.Status == client.SavePointCompleted {
+				// we're done, clean up
+				s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeNormal, "Delete",
+					fmt.Sprintf("Cancelled job with savepoint '%s'", status.Operation.Location))
+				app.Spec.SavepointInfo.SavepointLocation = status.Operation.Location
+				app.Spec.SavepointInfo.TriggerID = ""
+			}
+		}
+
+		return s.k8Cluster.UpdateK8Object(ctx, app)
+	default:
+		logger.Errorf(ctx, "Unsupported DeleteMode %s", app.Spec.DeleteMode)
+	}
+
+	return nil
 }
 
 func NewFlinkStateMachine(scope promutils.Scope) FlinkHandlerInterface {
