@@ -116,3 +116,4 @@ bin
 .DS_Store
 *.iml
 vendor/
+examples/wordcount/target/

@@ -1,14 +1,12 @@
 apiVersion: flink.k8s.io/v1alpha1
 kind: FlinkApplication
 metadata:
-  name: operator-test-app
+  name: wordcount-operator-example
   annotations:
   labels:
     environment: development
 spec:
-  image: lyft/operator-test-app:6c45caca225489895cb1353dae25069b5d43746f.1
-  imagePullSecrets:
-    - name: dockerhub
+  image: docker.io/lyft/wordcount-operator-example:latest
   flinkConfig:
     taskmanager.heap.size: 200
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
@@ -26,16 +24,9 @@ spec:
       requests:
         memory: "200Mi"
         cpu: "0.2"
-  volumeMounts:
-    - mountPath: /checkpoints
-      name: checkpoints
-  volumes:
-    - name: checkpoints
-      hostPath:
-        path: /tmp/checkpoints
-        type: Directory
   flinkVersion: "1.8"
-  jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
+  jarName: "wordcount-operator-example-1.0.0-SNAPSHOT.jar"
   parallelism: 3
-  entryClass: "com.lyft.OperatorTestApp"
+  entryClass: "org.apache.flink.WordCount"
   deploymentMode: Single
+

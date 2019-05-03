@@ -20,13 +20,11 @@ run from there.
 By default the tests create, use, and clean up the namespace
 `flinkoperatortest`.
 
-These tests use a sample Flink job called operator-test-app. Currently
-this is hosted out-of-repo at
-https://github.com/lyft/streamperfbench/tree/master/operator-test-app. The
+These tests use a sample Flink job [operator-test-app](/integ/operator-test-app/). The
 tests currently use two images built from here:
 
-* `lyft/operator-test-app:fce52d22e06f7747ae4aed1028ae09d96ba68812`
-* `lyft/operator-test-app:cccd70864965fb2c24bf05bfcb0c95711e505270`
+* `lyft/operator-test-app:6c45caca225489895cb1353dae25069b5d43746f.1`
+* `lyft/operator-test-app:6c45caca225489895cb1353dae25069b5d43746f.2`
 
 Those images are available on our private Dockerhub registry, and you
 will either need to pull them locally or give Kubernetes access to the
