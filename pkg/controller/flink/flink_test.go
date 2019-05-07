@@ -326,6 +326,19 @@ func TestGetActiveJob(t *testing.T) {
 	assert.Equal(t, *activeJob, job)
 }
 
+func TestGetActiveJobFinished(t *testing.T) {
+	job := client.FlinkJob{
+		Status: client.Finished,
+		JobID:  "j1",
+	}
+	jobs := []client.FlinkJob{
+		job,
+	}
+	activeJob := GetActiveFlinkJob(jobs)
+	assert.NotNil(t, activeJob)
+	assert.Equal(t, *activeJob, job)
+}
+
 func TestGetActiveJobNil(t *testing.T) {
 	job := client.FlinkJob{
 		Status: client.Cancelling,

@@ -142,7 +142,7 @@ func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
 	}
 	for _, job := range jobs {
 		if job.Status == client.Running ||
-			job.Status == client.Created {
+			job.Status == client.Created || job.Status == client.Finished {
 			return &job
 		}
 	}
