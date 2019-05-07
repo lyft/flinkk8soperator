@@ -12,17 +12,9 @@ COPY Gopkg.* /go/src/github.com/lyft/flinkk8soperator/
 WORKDIR /go/src/github.com/lyft/flinkk8soperator
 
 # Pull dependencies
-ARG SSH_PRIVATE_KEY
-# Temporary: We need github credentials in order to install private repos.
-# These repos will be public soon. Then this line can just be "glide install"
 RUN : \
-  && mkdir /root/.ssh/ \
-  && echo "${SSH_PRIVATE_KEY}" > /root/.ssh/id_rsa \
-  && chmod 400 /root/.ssh/id_rsa \
-  && ssh-keyscan github.com >> ~/.ssh/known_hosts \
   && curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh \
-  && dep ensure -vendor-only \
-  && rm /root/.ssh/id_rsa
+  && dep ensure -vendor-only
 
 # COPY the rest of the source code
 COPY . /go/src/github.com/lyft/flinkk8soperator/

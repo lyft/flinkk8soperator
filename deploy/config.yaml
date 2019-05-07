@@ -1,0 +1,12 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: flink-operator-config
+  namespace: flink-operator
+data:
+  # this will need to be templatized
+  config: |-
+    operator:
+      ingressUrlFormat: "{{$jobCluster}}.{ingress_suffix}"
+    logger:
+      level: 4

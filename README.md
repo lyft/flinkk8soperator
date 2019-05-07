@@ -23,7 +23,7 @@ The FlinkK8sOperator is still under active development and has not been extensiv
 
 ## Overview
 
-![Flink operator overview](docs/flink-operator-overview.png)
+![Flink operator overview](docs/flink-operator-overview.svg)
 
 The goal of running Flink on Kubernetes is to enable more flexible, lighter-weight deployment of streaming applications, without needing to manage infrastructure. The Flink operator aims to abstract out the complexity of hosting, configuring, managing and operating Flink clusters from application developers. It achieves this by extending any kubernetes cluster using a [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources).
 
@@ -39,10 +39,9 @@ Deploying and managing Flink applications in Kubernetes involves two steps:
 
 * **Creating the Flink application custom resource:** The custom resource for Flink application provides the spec for configuring and managing flink clusters in Kubernetes. The FlinkK8sOperator, deployed on Kubernetes, continuously monitors the resource and the corresponding flink cluster, and performs action based on the diff.
 
-[More details](https://docs.google.com/document/d/1_AITTq0fay-NwUIqNfqN0pum-erOmS_4kYZnlMxw6_o)
-
 ## Documentation
 
+* [Quick start guide](/docs/quick-start-guide.md)
+* [User guide](/docs/user_guide.md)
 * [Flink application custom resource](/docs/crd.md)
 * [Operator state machine](/docs/state_machine.md)
-* [User guide](/docs/user_guide.md)

@@ -1,7 +1,7 @@
 # Flink Application Custom Resource Definition
 The [flinkapplication](https://github.com/lyft/flinkk8soperator/blob/master/deploy/crd.yaml) is a [kubernetes custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/). Once the *flinkapplication* custom resource is created in Kubernetes, the FlinkK8sOperator watches the resource and tries to move it through a series of states until the desired state is reached.
 
-[FlinkApplication Custom Resource Example](https://github.com/lyft/flinkk8soperator/blob/master/example/example.yaml)
+[FlinkApplication Custom Resource Example](https://github.com/lyft/flinkk8soperator/blob/master/examples/wordcount/flink-operator-custom-resource.yaml)
 
 Below is the list of fields in the custom resource and their description
 
@@ -10,6 +10,12 @@ Below is the list of fields in the custom resource and their description
 
   * **Image** `type:string required=True`
     The image name format should be registry/repository[:tag] to pull by tag, or registry/repository[@digest] to pull by digest
+
+  * **ImagePullPolicy** `type:v1.PullPolicy`
+    The default pull policy is IfNotPresent which causes the Kubelet to skip pulling an image if it already exists.
+
+  * **ImagePullSecrets** `type:[]v1.LocalObjectReference`
+    Indicates name of Secrets, Kubernetes should get the credentials from.
 
   * **TaskManagerConfig** `type:TaskManagerConfig required=true`
     Configuration for the Flink task manager
@@ -23,11 +29,11 @@ Below is the list of fields in the custom resource and their description
 
     * **TaskSlots** `type:int32 required=true`
       Number of task slots per task manager
-    
+
     * **OffHeapMemoryFraction** `type:float64`
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
       remaining memory is allocated for heap.
-    
+
   * **JobManagerConfig** `type:JobManagerConfig`
     Configuration for the Flink job manager
 
@@ -41,7 +47,7 @@ Below is the list of fields in the custom resource and their description
     * **Replicas** `type:int32 required=true`
       Number of job managers for the flink cluster. If multiple job managers are provided, the user has to ensure that
       correct environment variables are set for High availability mode.
-      
+
     * **OffHeapMemoryFraction** `type:float64`
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
       remaining memory is allocated for heap.
@@ -61,26 +67,34 @@ Below is the list of fields in the custom resource and their description
 
   * **SavepointInfo** `type:SavepointInfo`
     Optional Savepoint info that can be passed in to indicate that the Flink job must resume from the corresponding savepoint.
-  
+
   * **FlinkVersion** `type:string required=true`
     The version of Flink to be managed. This version must match the version in the image.
+
+  * **FlinkConfig** `type:FlinkConfig`
+    Optional map of flink configuration, which passed on to the deployment as environment variable with `OPERATOR_FLINK_CONFIG`
 
   * **DeploymentMode** `type:DeploymentMode`
     Indicates the type of deployment that operator should perform if the custom resource is updated.
 
     `Single` This deployment mode is intended for applications where a small downtime during deployment is acceptable. The operator first deletes the existing Flink cluster and recreates a new one. Between the time the first cluster is deleted and the second cluster is started, the application is not running.
 
-    `Dual` This deployment mode is intended for applications where downtime during deployment needs to be as minimal as possible. In this deployment mode, the operator brings up a second Flink cluster with the new image, while the original Flink cluster is still active. Once the pods and containers in the new flink cluster are ready, the Operator cancels the job in the first Cluster with savepoint, deletes the cluster and starts the job in the second cluster. (More information in the state machine section below). This mode is suitable for real time processing applications. 
+    `Dual` This deployment mode is intended for applications where downtime during deployment needs to be as minimal as possible. In this deployment mode, the operator brings up a second Flink cluster with the new image, while the original Flink cluster is still active. Once the pods and containers in the new flink cluster are ready, the Operator cancels the job in the first Cluster with savepoint, deletes the cluster and starts the job in the second cluster. (More information in the state machine section below). This mode is suitable for real time processing applications.
 
   * **DeleteMode** `type:DeleteMode`
     Indicates how Flink jobs are torn down when the FlinkApplication resource is deleted
-    
+
     `Savepoint` (default) The operator will take a final savepoint before cancelling the job, and will not tear down the cluster until a savepoint has succeeded.
-    
+
     `ForceCancel` The operator will force cancel the job before tearing down the cluster
-    
+
     `None` The operator will immediately tear down the cluster
 
   * **RestartNonce** `type:string`
     Can be set or modified to force a restart of the cluster
-   
+
+  * **Volumes** `type:[]v1.Volume`
+    Represents a named volume in a pod that may be accessed by any container in the pod.
+
+  * **VolumeMounts** `type:[]v1.VolumeMount`
+    Describes a mounting of a Volume within a container.
