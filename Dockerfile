@@ -1,8 +1,3 @@
-# WARNING: THIS FILE IS MANAGED IN THE 'BOILERPLATE' REPO AND COPIED TO OTHER REPOSITORIES.
-# ONLY EDIT THIS FILE FROM WITHIN THE 'LYFT/BOILERPLATE' REPOSITORY:
-# 
-# TO OPT OUT OF UPDATES, SEE https://github.com/lyft/boilerplate/blob/master/Readme.rst
-
 # Using go1.10.4
 FROM golang:1.10.4-alpine3.8 as builder
 RUN apk add git openssh-client make curl bash

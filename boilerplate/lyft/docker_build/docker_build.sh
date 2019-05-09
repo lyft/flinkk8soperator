@@ -1,10 +1,3 @@
-#!/usr/bin/env bash
-
-# WARNING: THIS FILE IS MANAGED IN THE 'BOILERPLATE' REPO AND COPIED TO OTHER REPOSITORIES.
-# ONLY EDIT THIS FILE FROM WITHIN THE 'LYFT/BOILERPLATE' REPOSITORY:
-# 
-# TO OPT OUT OF UPDATES, SEE https://github.com/lyft/boilerplate/blob/master/Readme.rst
-
 set -e
 
 echo ""
@@ -42,7 +35,7 @@ if [ -n "$RELEASE_SEMVER" ]; then
 fi
 
 # build the image
-docker build -t "$IMAGE_TAG_WITH_SHA" --build-arg=SSH_PRIVATE_KEY="$(cat ${RSA_FILE})" .
+docker build -t "$IMAGE_TAG_WITH_SHA" .
 echo "${IMAGE_TAG_WITH_SHA} built locally."
 
 # if REGISTRY specified, push the images to the remote registy

@@ -6,10 +6,6 @@ include boilerplate/lyft/golang_test_targets/Makefile
 generate:
 	tmp/codegen/update-generated.sh
 
-.PHONY: update_boilerplate
-update_boilerplate:
-	@boilerplate/update.sh
-
 .PHONY: compile
 compile: generate
 	mkdir -p ./bin

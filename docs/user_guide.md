@@ -4,6 +4,9 @@ For a quick introduction on how to build and install the Kubernetes Operator for
 
 ## Working with FlinkApplications
 
+### Building a new Flink application
+The flink operator brings up Jobmanager and Taskmanager for an application in Kubernetes. It does this by creating [deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) objects based on the *image* field in the flink application custom resource object. For more information about building images, please refer to this [documentation](/examples/README.md) and [examples](/examples/wordcount/)
+
 ### Creating a New FlinkApplication
 
 A `FlinkApplication` can be created from a YAML file storing the `FlinkApplication` specification using either the `kubectl apply -f <YAML file path>` command. Once a `FlinkApplication` is successfully created, the operator will receive it and creates a flink cluster as configured in the specification to run on the Kubernetes cluster.

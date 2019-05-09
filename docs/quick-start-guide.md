@@ -9,7 +9,7 @@ Follow the instructions [here](https://kubernetes.io/docs/tasks/tools/install-ku
 
 ## Operator installation
 
-* Let's first create the custom resource definition, namespace, and roles for running FlinkK8sOperator.
+* Let's first create the custom resource definition, namespace, and roles for running the flink operator.
 
 ```bash
 $ kubectl create -f deploy/crd.yaml
@@ -23,7 +23,6 @@ $ kubectl create -f deploy/role-binding.yaml
 ```yaml
 Replace the {ingress_suffix} to indicate your cluster's ingress url.
 data:
-  # this will need to be templatized
   config: |-
     operator:
       ingressUrlFormat: "{{$jobCluster}}.{ingress_suffix}"
@@ -36,7 +35,7 @@ $ kubectl create -f deploy/config.yaml
 $ kubectl create -f deploy/flinkk8soperator.yaml
 ```
 
-* Ensure that the flink operator pod is RUNNING, and check operator logs if needed.
+* Ensure that the flink operator pod is *RUNNING*, and check operator logs if needed.
 
 ```bash
 $ kubectl get pods -n flink-operator
@@ -45,13 +44,13 @@ $ kubectl logs {pod-name} -n flink-operator
 
 ## Running the example
 
-You can find sample application to run [here](/examples/). To run a flink application, run the following command:
+You can find sample application to run with the flink operator [here](/examples/). To run a flink application, run the following command:
 
 ```bash
 $ kubectl create -f examples/wordcount/flink-operator-custom-resource.yaml -n flink-operator
 ```
 
-The above command will create the flink application custom resource in kubernetes. The operator should have observed the custom resource, and have created a flink cluster in kubernetes.
+The above command will create the flink application custom resource in kubernetes. The operator will observe the custom resource, and will create a flink cluster in kubernetes.
 
 Command below should show deployments created for the application
 ```bash
