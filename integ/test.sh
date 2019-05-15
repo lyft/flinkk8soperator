@@ -10,5 +10,5 @@ export INTEGRATION=true
 umask 000
 
 cd $(dirname "$0")
-go test -check.vv IntegSuite
+go test -timeout 20m -check.vv IntegSuite
 

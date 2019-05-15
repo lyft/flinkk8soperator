@@ -1,28 +1,59 @@
 # Flink operator state machine
 
-The core logic of the operator resides in the state machine. Various stages of the deployment lifecycle are mapped to discrete states. The operator continuously monitoring the flink application custom resource and tries to move the resource to the intended desired state. It does this by observing the current state, takes a set of corresponding actions and pushes the resource to the desired state.  The final desired state is **RUNNING** and this indicates that a healthy Flink Cluster has been started with a flink job running in it.
+The core logic of the operator resides in the state machine. Various stages of the deployment lifecycle are mapped to
+discrete states. The operator continuously monitors the FlinkApplication custom resource. When it becomes out of sync 
+with the underlying Kubernetes resources, it takes the necessary actions to update those resources to the desired state. 
+Typically this will involve traversing the state machine. The final desired state is `Running`, which indicates that a 
+healthy Flink cluster has been started and the Flink job has been successfully submitted.
 
-![Flink operator state machine](state_machine.svg)
+The full state machine looks like this:
+![Flink operator state machine](state_machine.png)
 
-## State **NEW**
-* The **NEW** state indicates that the Flink custom resource has been newly created. In this state, the operator creates a new Flink Cluster for the application. The deployment objects created by the operator are labelled and annotated as indicated in the custom resource. The operator also sets the corresponding Environment variables and arguments for the containers to start up the Flink application from the image.
+# States
 
-## State **STARTING**
-* The **STARTING** state indicates that the Flink Application Cluster is starting, and the Kubernetes POD states created in the previous states are transitioning to Running. The custom resource state can reach Starting from following states *NEW*, *UPDATING*. In this state, the operator waits for the pods to reach Running state before taking desired action.
+### New / Updating
+`New` (indicated in the resource by the empty string) is the initial state that all FlinkApplication resources start in. 
+`Updating` is transitioned to when a change is made to an existing FlinkApplication. In both cases, a new cluster is
+created, and we transition to the ClusterStarting phase to monitor. The deployment objects created by the operator are 
+labelled and annotated as indicated in the custom resource. The operator also sets the corresponding environment 
+variables and arguments for the containers to start up the Flink application from the image. 
 
-## State **READY**
-* The **READY** state indicates that all the Kubernetes pods corresponding to the Flink application cluster states are Running. If the Flink cluster is ready, the operator uses the Job Manager Service to make Http Request to the Jobmanager, to check if it is ready to accept requests through REST API.
-* Once the Job Manager is ready to take traffic, the operator check if there is a job running on the Flink cluster. If there is no job running, the operator starts the job from the savepoint (if available) using the [SubmitJob API](https://ci.apache.org/projects/flink/flink-docs-stable/monitoring/rest_api.html#jars-jarid-run), and transitions the state to *RUNNING*.
+### ClusterStarting
+In this state, the operator monitors the Flink cluster created in the New state. Once it successfully starts, we 
+transition to the `Savepointing` state. Otherwise, if we are unable to start the cluster for some reason (an invalid 
+image, bad configuration, not enough Kubernetes resources, etc.), we transition to the `DeployFailed` state.
 
-## State **RUNNING**
-* The **RUNNING** state indicates that the flink application custom resource has reached a desired state and job is running in the flink cluster. In this state, the operator continuously checks that if the resource has been modified. The operator also monitors the cluster status and updates the status field in the custom resource if there is a diff.
+### Savepointing
+In the `Savepointing` state, the operator attempts to cancel the existing job with a 
+[savepoint](https://ci.apache.org/projects/flink/flink-docs-release-1.8/ops/state/savepoints.html) (if this is the first
+deploy for the FlinkApplication and there is no existing job, we transition straight to `SubmittingJob`). The operator
+monitors the savepoint process until it succeeds or fails. If savepointing fails, the operator will look for an
+[externalized checkpoint](https://ci.apache.org/projects/flink/flink-docs-release-1.8/ops/state/checkpoints.html#resuming-from-a-retained-checkpoint).
+If none are available, the application transitions to the `DeployFailed` state. Otherwise, it transitions to the
+`SubmittingJob` state.    
 
+### SubmittingJob
+In this state, the operator waits until the JobManager is ready, then attempts to submit the Flink job to the cluster. 
+If we are updating an existing job or the user has specified a savepoint to restore from, that will be used. Once the 
+job is successfully running the application transitions to the `Running` state. If the job submission fails we 
+transition to the `RollingBack` state.
 
-## State **SAVEPOINTING**
-* The **SAVEPOINTING** state indicates that the operator triggered savepoint request is in progress. The savepoint request is asynchronous. The operator polls for the savepoint status, and if the savepoint succeeds, the operator proceeds to delete the deployments corresponding to old flink application. If the savepointing fails, then the operator tries to fetch the *Externalized checkpoint*, and uses it to submit the job in the new cluster.
+### RollingBack
+This state is reached when, in the middle of a deploy, the old job has been canceled but the new job did not come up
+successfully. In that case we will attempt to roll back by resubmitting the old job on the old cluster, after which
+we transition to the `DeployFailed` state.
 
-## State **UPDATING**
-The **UPDATING** state indicates that the flink custom resource values do not match with the current running flink application cluster. This state handles all the cases of updating the underlying Flink cluster. The operator tries to bring up a new cluster taking into account the deployment mode - Single/Dual.
+### Running
+The `Running` state indicates that the FlinkApplication custom resource has reached the desired state, and the job is 
+running in the Flink cluster. In this state the operator continuously checks if the resource has been modified and
+monitors the health of the Flink cluster and job. 
 
-## State **DELETING**
-The **DELETING** state indicates that the application custom resource has been deleted. In this state, the operator before propagating the deletion to other owner references, cancels the job running in the cluster with a savepoint.
+### DeployFailed
+The `DeployFailed` state operates exactly like the `Running` state. It exists to inform the user that an attempted
+update has failed, i.e., that the FlinkApplication status does not currently match the desired spec. In this state,
+the user should look at the Flink logs and Kubernetes events to determine what went wrong. The user can then perform
+a new deploy by updating the FlinkApplication.  
+
+### Deleting
+This state indicates that the FlinkApplication resource has been deleted. The operator will clean up the job according
+to the DeleteMode configured. Once all clean up steps have been performed the FlinkApplication will be deleted. 

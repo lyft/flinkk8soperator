@@ -70,7 +70,9 @@ var TaskManagerDefaultResources = coreV1.ResourceRequirements{
 }
 
 func (t *TaskManagerController) CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error {
-	taskManagerDeployment := FetchTaskMangerDeploymentCreateObj(application)
+	hash := HashForApplication(application)
+
+	taskManagerDeployment := FetchTaskMangerDeploymentCreateObj(application, hash)
 	err := t.k8Cluster.CreateK8Object(ctx, taskManagerDeployment)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
@@ -172,7 +174,7 @@ func computeTaskManagerReplicas(application *v1alpha1.FlinkApplication) int32 {
 }
 
 func DeploymentIsTaskmanager(deployment *v1.Deployment) bool {
-	return deployment.Labels[FlinkDeploymentType] == "taskmanager"
+	return deployment.Labels[FlinkDeploymentType] == FlinkDeploymentTypeTaskmanager
 }
 
 // Translates a FlinkApplication into a TaskManager deployment. Changes to this function must be
@@ -180,16 +182,12 @@ func DeploymentIsTaskmanager(deployment *v1.Deployment) bool {
 // will cause redeployments for all applications, and should be considered a breaking change that
 // requires a new version of the CRD.
 func taskmanagerTemplate(app *v1alpha1.FlinkApplication) *v1.Deployment {
-	podLabels := common.DuplicateMap(app.Labels)
-	commonLabels := getCommonAppLabels(app)
-	podLabels = common.CopyMap(podLabels, commonLabels)
-
-	deploymentLabels := common.DuplicateMap(app.Labels)
-	deploymentLabels[FlinkDeploymentType] = "taskmanager"
-	deploymentLabels = common.CopyMap(deploymentLabels, commonLabels)
+	labels := getCommonAppLabels(app)
+	labels = common.CopyMap(labels, app.Labels)
+	labels[FlinkDeploymentType] = FlinkDeploymentTypeTaskmanager
 
 	podSelector := &metaV1.LabelSelector{
-		MatchLabels: podLabels,
+		MatchLabels: labels,
 	}
 
 	taskContainer := FetchTaskManagerContainerObj(app)
@@ -202,7 +200,7 @@ func taskmanagerTemplate(app *v1alpha1.FlinkApplication) *v1.Deployment {
 		},
 		ObjectMeta: metaV1.ObjectMeta{
 			Namespace:   app.Namespace,
-			Labels:      deploymentLabels,
+			Labels:      labels,
 			Annotations: getCommonAnnotations(app),
 			OwnerReferences: []metaV1.OwnerReference{
 				*metaV1.NewControllerRef(app, app.GroupVersionKind()),
@@ -217,7 +215,7 @@ func taskmanagerTemplate(app *v1alpha1.FlinkApplication) *v1.Deployment {
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Namespace:   app.Namespace,
-					Labels:      podLabels,
+					Labels:      labels,
 					Annotations: app.Annotations,
 				},
 				Spec: coreV1.PodSpec{
@@ -232,9 +230,8 @@ func taskmanagerTemplate(app *v1alpha1.FlinkApplication) *v1.Deployment {
 	}
 }
 
-func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) *v1.Deployment {
+func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication, hash string) *v1.Deployment {
 	template := taskmanagerTemplate(app.DeepCopy())
-	hash := HashForApplication(app)
 
 	template.Name = getTaskManagerName(app, hash)
 	template.Labels[FlinkAppHash] = hash
@@ -242,12 +239,12 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication) *v1.Depl
 	template.Spec.Selector.MatchLabels[FlinkAppHash] = hash
 	template.Spec.Template.Name = getTaskManagerPodName(app, hash)
 
-	InjectClusterIDConfig(template, app, hash)
+	InjectHashesIntoConfig(template, app, hash)
 
 	return template
 }
 
 func TaskManagerDeploymentMatches(deployment *v1.Deployment, application *v1alpha1.FlinkApplication) bool {
-	deploymentFromApp := FetchTaskMangerDeploymentCreateObj(application)
+	deploymentFromApp := FetchTaskMangerDeploymentCreateObj(application, HashForApplication(application))
 	return DeploymentsEqual(deploymentFromApp, deployment)
 }

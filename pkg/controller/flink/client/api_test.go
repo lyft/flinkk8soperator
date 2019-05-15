@@ -329,7 +329,7 @@ func TestSubmitJob500Response(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	ctx := context.Background()
-	responder, _ := httpmock.NewJsonResponder(500, nil)
+	responder := httpmock.NewStringResponder(500, "could not submit")
 	httpmock.RegisterResponder("POST", fakeSubmitURL, responder)
 
 	client := getTestJobManagerClient()
@@ -337,7 +337,7 @@ func TestSubmitJob500Response(t *testing.T) {
 		Parallelism: 10,
 	})
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "Job submission failed with status 500")
+	assert.EqualError(t, err, "Job submission failed with status 500\ncould not submit")
 }
 
 func TestSubmitJobError(t *testing.T) {

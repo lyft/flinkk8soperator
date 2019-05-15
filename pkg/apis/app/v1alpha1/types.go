@@ -128,9 +128,15 @@ type FlinkClusterStatus struct {
 }
 
 type FlinkJobStatus struct {
-	JobID                    string       `json:"jobID,omitEmpty"`
-	Health                   HealthStatus `json:"health,omitEmpty"`
-	State                    JobState     `json:"state,omitEmpty"`
+	JobID  string       `json:"jobID,omitEmpty"`
+	Health HealthStatus `json:"health,omitEmpty"`
+	State  JobState     `json:"state,omitEmpty"`
+
+	JarName     string `json:"jarName"`
+	Parallelism int32  `json:"parallelism"`
+	EntryClass  string `json:"entryClass,omitempty"`
+	ProgramArgs string `json:"programArgs,omitempty"`
+
 	StartTime                *metav1.Time `json:"startTime,omitEmpty"`
 	JobRestartCount          int32        `json:"jobRestartCount,omitEmpty"`
 	CompletedCheckpointCount int32        `json:"completedCheckpointCount,omitEmpty"`
@@ -142,13 +148,14 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase         FlinkApplicationPhase `json:"phase"`
-	StartedAt     *metav1.Time          `json:"startedAt,omitempty"`
-	StoppedAt     *metav1.Time          `json:"stoppedAt,omitempty"`
-	LastUpdatedAt *metav1.Time          `json:"lastUpdatedAt,omitempty"`
-	Reason        string                `json:"reason,omitempty"`
-	ClusterStatus FlinkClusterStatus    `json:"clusterStatus,omitempty"`
-	JobStatus     FlinkJobStatus        `json:"jobStatus"`
+	Phase            FlinkApplicationPhase `json:"phase"`
+	StartedAt        *metav1.Time          `json:"startedAt,omitempty"`
+	LastUpdatedAt    *metav1.Time          `json:"lastUpdatedAt,omitempty"`
+	Reason           string                `json:"reason,omitempty"`
+	ClusterStatus    FlinkClusterStatus    `json:"clusterStatus,omitempty"`
+	JobStatus        FlinkJobStatus        `json:"jobStatus"`
+	FailedDeployHash string                `json:"failedUpdateHash,omitEmpty"`
+	DeployHash       string                `json:"deployHash"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
@@ -162,9 +169,6 @@ func (in *FlinkApplicationStatus) UpdatePhase(phase FlinkApplicationPhase, reaso
 		in.LastUpdatedAt = &now
 	}
 	in.Reason = reason
-	if phase.IsTerminal() {
-		in.StoppedAt = &now
-	}
 	in.Phase = phase
 }
 
@@ -175,10 +179,6 @@ func (in *FlinkApplicationStatus) TouchResource(reason string) {
 }
 
 type FlinkApplicationPhase string
-
-func (p FlinkApplicationPhase) IsTerminal() bool {
-	return p == FlinkApplicationCompleted || p == FlinkApplicationFailed
-}
 
 func (p FlinkApplicationPhase) VerboseString() string {
 	phaseName := string(p)
@@ -191,26 +191,30 @@ func (p FlinkApplicationPhase) VerboseString() string {
 // As you add more ApplicationPhase please add it to FlinkApplicationPhases list
 const (
 	FlinkApplicationNew             FlinkApplicationPhase = ""
-	FlinkApplicationClusterStarting FlinkApplicationPhase = "Starting"
-	FlinkApplicationReady           FlinkApplicationPhase = "Ready"
+	FlinkApplicationUpdating        FlinkApplicationPhase = "Updating"
+	FlinkApplicationClusterStarting FlinkApplicationPhase = "ClusterStarting"
+	FlinkApplicationSubmittingJob   FlinkApplicationPhase = "SubmittingJob"
 	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
 	FlinkApplicationSavepointing    FlinkApplicationPhase = "Savepointing"
-	FlinkApplicationUpdating        FlinkApplicationPhase = "Updating"
 	FlinkApplicationDeleting        FlinkApplicationPhase = "Deleting"
-	FlinkApplicationFailed          FlinkApplicationPhase = "Failed"
-	FlinkApplicationCompleted       FlinkApplicationPhase = "Completed"
+	FlinkApplicationRollingBackJob  FlinkApplicationPhase = "RollingBackJob"
+	FlinkApplicationDeployFailed    FlinkApplicationPhase = "DeployFailed"
 )
 
 var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationNew,
+	FlinkApplicationUpdating,
 	FlinkApplicationClusterStarting,
-	FlinkApplicationReady,
+	FlinkApplicationSubmittingJob,
 	FlinkApplicationRunning,
 	FlinkApplicationSavepointing,
-	FlinkApplicationUpdating,
 	FlinkApplicationDeleting,
-	FlinkApplicationFailed,
-	FlinkApplicationCompleted,
+	FlinkApplicationDeployFailed,
+	FlinkApplicationRollingBackJob,
+}
+
+func IsRunningPhase(phase FlinkApplicationPhase) bool {
+	return phase == FlinkApplicationRunning || phase == FlinkApplicationDeployFailed
 }
 
 type DeploymentMode string

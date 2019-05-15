@@ -139,7 +139,7 @@ func (f *TestUtil) CreateCRD() error {
 
 func (f *TestUtil) CreateOperator() error {
 	configValue := make(map[string]string)
-	configValue["development"] = "operator:\ncontainerNameFormat: \"%s-unknown\""
+	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n  statemachineStalenessDuration: 40s"
 
 	configMap := v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -383,7 +383,7 @@ func (f *TestUtil) WaitForPhase(name string, phase v1alpha1.FlinkApplicationPhas
 
 func (f *TestUtil) FlinkAPIGet(app *v1alpha1.FlinkApplication, endpoint string) (interface{}, error) {
 	url := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/"+
-		"services/%s-jm:8081/proxy/%s",
+		"services/%s:8081/proxy/%s",
 		f.Namespace.Name, app.Name, endpoint)
 
 	resp, err := resty.SetRedirectPolicy(resty.FlexibleRedirectPolicy(5)).R().Get(url)

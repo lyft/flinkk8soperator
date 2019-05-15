@@ -1,8 +1,6 @@
 package flink
 
 import (
-	"fmt"
-
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"gopkg.in/yaml.v2"
 )
@@ -60,10 +58,6 @@ func getInternalMetricsQueryPort(app *v1alpha1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.MetricsQueryPort, MetricsQueryDefaultPort)
 }
 
-func getJobManagerServiceName(app *v1alpha1.FlinkApplication) string {
-	return fmt.Sprintf(JobManagerServiceNameFormat, app.Name)
-}
-
 func getTaskManagerMemory(application *v1alpha1.FlinkApplication) int64 {
 	tmResources := application.Spec.TaskManagerConfig.Resources
 	if tmResources == nil {
@@ -106,7 +100,9 @@ func renderFlinkConfig(app *v1alpha1.FlinkApplication) (string, error) {
 		config = &v1alpha1.FlinkConfig{}
 	}
 
-	(*config)["jobmanager.rpc.address"] = getJobManagerServiceName(app)
+	// we will fill this in later using the versioned service
+	delete(*config, "jobmanager.rpc.address")
+
 	(*config)["taskmanager.numberOfTaskSlots"] = getTaskmanagerSlots(app)
 	(*config)["jobmanager.rpc.port"] = getRPCPort(app)
 	(*config)["jobmanager.web.port"] = getUIPort(app)

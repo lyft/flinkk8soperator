@@ -27,7 +27,7 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	// Cause it to fail
 	causeFailure()
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed), IsNil)
 
 	// wait a bit for it to start failing
 	time.Sleep(5 * time.Second)
@@ -39,8 +39,8 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	_, err = s.Util.FlinkApps().Update(app)
 	c.Assert(err, IsNil)
 
-	// because the checkpoint will fail, the app should move to failed
-	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationFailed), IsNil)
+	// because the checkpoint will fail, the app should move to deploy failed
+	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationDeployFailed), IsNil)
 
 	// And the job should not have been updated
 	newApp, err := s.Util.GetFlinkApplication(config.Name)

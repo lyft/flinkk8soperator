@@ -17,7 +17,7 @@ import (
 
 const NewImage = "lyft/operator-test-app:6c45caca225489895cb1353dae25069b5d43746f.2"
 
-func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1alpha1.FlinkApplication)) *v1alpha1.FlinkApplication {
+func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1alpha1.FlinkApplication), failurePhase v1alpha1.FlinkApplicationPhase) *v1alpha1.FlinkApplication {
 	app, err := s.Util.GetFlinkApplication(name)
 	c.Assert(err, IsNil)
 
@@ -27,8 +27,8 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1al
 	_, err = s.Util.FlinkApps().Update(app)
 	c.Assert(err, IsNil)
 
-	c.Assert(s.Util.WaitForPhase(name, v1alpha1.FlinkApplicationSavepointing, v1alpha1.FlinkApplicationFailed), IsNil)
-	c.Assert(s.Util.WaitForPhase(name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(name, v1alpha1.FlinkApplicationSavepointing, failurePhase), IsNil)
+	c.Assert(s.Util.WaitForPhase(name, v1alpha1.FlinkApplicationRunning, failurePhase), IsNil)
 	c.Assert(s.Util.WaitForAllTasksInState(name, "RUNNING"), IsNil)
 
 	// check that it really updated
@@ -49,10 +49,21 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1al
 
 	c.Assert(restored.(map[string]interface{})["is_savepoint"], Equals, true)
 
+	// wait for the old cluster to be cleaned up
+	for {
+		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
+			List(v1.ListOptions{LabelSelector: "flink-app-hash=" + app.Status.DeployHash})
+		c.Assert(err, IsNil)
+		if len(pods.Items) == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	return newApp
 }
 
-// Tests job submission, upgrade, and deletion
+// Tests job submission, upgrade, rollback, and deletion
 func (s *IntegSuite) TestSimple(c *C) {
 	const finalizer = "simple.finalizers.test.com"
 
@@ -67,7 +78,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksInState(config.Name, "RUNNING"), IsNil)
 
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
@@ -83,7 +94,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 	// test updating the app with a new image
 	newApp := updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
 		app.Spec.Image = NewImage
-	})
+	}, v1alpha1.FlinkApplicationDeployFailed)
 	// check that the pods have the new image
 	c.Assert(newApp.Spec.Image, Equals, NewImage)
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
@@ -97,7 +108,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 	// test updating the app with a config change
 	newApp = updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
 		app.Spec.FlinkConfig["akka.client.timeout"] = "23 s"
-	})
+	}, v1alpha1.FlinkApplicationDeployFailed)
 	// validate the config has been applied
 	res, err := s.Util.FlinkAPIGet(newApp, "/jobmanager/config")
 	c.Assert(err, IsNil)
@@ -112,6 +123,50 @@ func (s *IntegSuite) TestSimple(c *C) {
 		return nil
 	}()
 	c.Assert(value, Equals, "23 s")
+
+	// Test updating the app with a bad jar name -- this should cause a failed deploy and roll back
+
+	{
+		newApp.Spec.JarName = "nonexistent.jar"
+		// this shouldn't be needed after STRMCMP-473 is fixed
+		newApp.Spec.RestartNonce = "rollback"
+		_, err = s.Util.FlinkApps().Update(newApp)
+		c.Assert(err, IsNil)
+
+		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationSavepointing, ""), IsNil)
+		// we should end up in the DeployFailed phase
+		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationDeployFailed, ""), IsNil)
+
+		log.Info("Job is in deploy failed, waiting for tasks to start")
+
+		// but the job should have been resubmitted
+		c.Assert(s.Util.WaitForAllTasksInState(newApp.Name, "RUNNING"), IsNil)
+
+		// the job id should have changed
+		jobID := newApp.Status.JobStatus.JobID
+		newApp, err := s.Util.GetFlinkApplication(newApp.Name)
+		c.Assert(err, IsNil)
+		c.Assert(newApp.Status.JobStatus.JobID, Not(Equals), jobID)
+
+		// we should have restored from our savepoint
+		endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.JobStatus.JobID)
+		res, err := s.Util.FlinkAPIGet(newApp, endpoint)
+		c.Assert(err, IsNil)
+
+		body := res.(map[string]interface{})
+		restored := (body["latest"].(map[string]interface{}))["restored"]
+		c.Assert(restored, NotNil)
+
+		c.Assert(restored.(map[string]interface{})["is_savepoint"], Equals, true)
+
+		log.Info("Attempting to roll forward")
+
+		// and we should be able to roll forward by resubmitting with a fixed config
+		updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
+			app.Spec.JarName = config.Spec.JarName
+			app.Spec.RestartNonce = "rollback2"
+		}, "")
+	}
 
 	// delete the application and ensure everything is cleaned up successfully
 	c.Assert(s.Util.FlinkApps().Delete(config.Name, &v1.DeleteOptions{}), IsNil)
@@ -183,7 +238,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 		Commentf("Failed to create flink application"))
 
 	// wait for it to be running
-	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksInState(config.Name, "RUNNING"), IsNil)
 
 	c.Log("Application running")
@@ -233,7 +288,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	}
 
 	c.Assert(err, IsNil)
-	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed), IsNil)
 
 	// stop it from failing
 	c.Assert(os.Remove(s.Util.CheckpointDir+"/fail"), IsNil)

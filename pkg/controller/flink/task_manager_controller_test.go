@@ -74,7 +74,7 @@ func TestGetTaskManagerReplicaCount(t *testing.T) {
 func TestTaskManagerCreateSuccess(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
-	hash := "2c193a3b"
+	hash := "8e1af3e3"
 	annotations := map[string]string{
 		"key":                   "annotation",
 		"flink-app-parallelism": "8",
@@ -97,11 +97,12 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		assert.Equal(t, expectedLabels, deployment.Labels)
 
 		assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1536\n"+
-			"jobmanager.rpc.address: app-name-jm\njobmanager.rpc.port: 6123\n"+
+			"jobmanager.rpc.port: 6123\n"+
 			"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
 			"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
 			"taskmanager.numberOfTaskSlots: 16\n\n"+
-			"high-availability.cluster-id: app-name-"+hash+"\n",
+			"high-availability.cluster-id: app-name-"+hash+"\n"+
+			"jobmanager.rpc.address: app-name-"+hash+"\n",
 			common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
 				"OPERATOR_FLINK_CONFIG").Value)
 

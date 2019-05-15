@@ -19,7 +19,7 @@ type Config struct {
 	UseProxy                      bool            `json:"useKubectlProxy"`
 	ProxyPort                     config.Port     `json:"ProxyPort" pflag:"\"8001\",The port at which flink cluster runs locally"`
 	ContainerNameFormat           string          `json:"containerNameFormat"`
-	StatemachineStalenessDuration config.Duration `json:"statemachineStalenessDuration" pflag:"\"10m\",Duration for statemachine staleness."`
+	StatemachineStalenessDuration config.Duration `json:"statemachineStalenessDuration" pflag:"\"5m\",Duration for statemachine staleness."`
 }
 
 func GetConfig() *Config {

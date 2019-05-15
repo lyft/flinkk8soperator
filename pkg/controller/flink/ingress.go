@@ -36,7 +36,7 @@ func FetchJobManagerIngressCreateObj(app *v1alpha1.FlinkApplication) *v1beta1.In
 	}
 
 	backend := v1beta1.IngressBackend{
-		ServiceName: getJobManagerServiceName(app),
+		ServiceName: app.Name,
 		ServicePort: intstr.IntOrString{
 			Type:   intstr.Int,
 			IntVal: getUIPort(app),

@@ -78,13 +78,13 @@ func TestHashForDifferentResourceScales(t *testing.T) {
 
 func TestContainersEqual(t *testing.T) {
 	app := getFlinkTestApp()
-	d1 := FetchJobMangerDeploymentCreateObj(&app)
-	d2 := FetchJobMangerDeploymentCreateObj(&app)
+	d1 := FetchJobMangerDeploymentCreateObj(&app, "hash")
+	d2 := FetchJobMangerDeploymentCreateObj(&app, "hash")
 
 	assert.True(t, DeploymentsEqual(d1, d2))
 
-	d1 = FetchTaskMangerDeploymentCreateObj(&app)
-	d2 = FetchTaskMangerDeploymentCreateObj(&app)
+	d1 = FetchTaskMangerDeploymentCreateObj(&app, HashForApplication(&app))
+	d2 = FetchTaskMangerDeploymentCreateObj(&app, HashForApplication(&app))
 
 	assert.True(t, DeploymentsEqual(d1, d2))
 

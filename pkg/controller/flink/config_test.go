@@ -54,7 +54,6 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 		"akka.timeout: 5s",
 		fmt.Sprintf("blob.server.port: %d", blobPort),
 		"jobmanager.heap.size: 1536", // defaults
-		"jobmanager.rpc.address: test-app-jm",
 		fmt.Sprintf("jobmanager.rpc.port: %d", RPCDefaultPort),
 		fmt.Sprintf("jobmanager.web.port: %d", UIDefaultPort),
 		fmt.Sprintf("metrics.internal.query-service.port: %d", MetricsQueryDefaultPort),

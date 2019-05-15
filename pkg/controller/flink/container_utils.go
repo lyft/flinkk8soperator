@@ -26,6 +26,8 @@ const (
 	AwsMetadataServiceNumAttempts    = "20"
 	OperatorFlinkConfig              = "OPERATOR_FLINK_CONFIG"
 	FlinkDeploymentType              = "flink-deployment-type"
+	FlinkDeploymentTypeJobmanager    = "jobmanager"
+	FlinkDeploymentTypeTaskmanager   = "taskmanager"
 	FlinkAppHash                     = "flink-app-hash"
 	FlinkAppParallelism              = "flink-app-parallelism"
 	RestartNonce                     = "restart-nonce"
@@ -158,13 +160,14 @@ func GetAppHashSelector(app *v1alpha1.FlinkApplication) map[string]string {
 	}
 }
 
-func InjectClusterIDConfig(deployment *appsv1.Deployment, app *v1alpha1.FlinkApplication, hash string) {
+func InjectHashesIntoConfig(deployment *appsv1.Deployment, app *v1alpha1.FlinkApplication, hash string) {
 	var newContainers []v1.Container
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		var newEnv []v1.EnvVar
 		for _, env := range container.Env {
 			if env.Name == OperatorFlinkConfig {
 				env.Value = fmt.Sprintf("%s\nhigh-availability.cluster-id: %s-%s\n", env.Value, app.Name, hash)
+				env.Value = fmt.Sprintf("%sjobmanager.rpc.address: %s\n", env.Value, VersionedJobManagerService(app, hash))
 			}
 			newEnv = append(newEnv, env)
 		}

@@ -24,7 +24,7 @@ import (
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
 
 // Note: if you find yourself changing this to fix a test, that should be treated as a breaking API change
-const testAppHash = "8dd2d4a3"
+const testAppHash = "a3e0ff4f"
 const testAppName = "app-name"
 const testNamespace = "ns"
 const testJobID = "j1"
@@ -52,29 +52,6 @@ func getFlinkTestApp() v1alpha1.FlinkApplication {
 	app.Spec.FlinkVersion = testFlinkVersion
 
 	return app
-}
-
-func getDeployment(app *v1alpha1.FlinkApplication) v1.Deployment {
-	d := v1.Deployment{}
-	d.Name = app.Name + "-" + testAppHash + "-tm"
-	d.Spec = v1.DeploymentSpec{
-		Template: corev1.PodTemplateSpec{
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Image: app.Spec.Image,
-					},
-				},
-			},
-		},
-	}
-	d.Labels = map[string]string{
-		"flink-deployment-type": "taskmanager",
-		"app":                   testAppName,
-		"flink-app-hash":        testAppHash,
-	}
-
-	return d
 }
 
 func TestFlinkIsClusterReady(t *testing.T) {
@@ -124,17 +101,19 @@ func TestFlinkApplicationChangedReplicas(t *testing.T) {
 
 		newApp := flinkApp.DeepCopy()
 		newApp.Spec.Parallelism = 10
-		d := *FetchTaskMangerDeploymentCreateObj(newApp)
+		hash := HashForApplication(newApp)
+		tm := *FetchTaskMangerDeploymentCreateObj(newApp, hash)
+		jm := *FetchJobMangerDeploymentCreateObj(newApp, hash)
 
 		return &v1.DeploymentList{
-			Items: []v1.Deployment{d},
+			Items: []v1.Deployment{tm, jm},
 		}, nil
 	}
 
-	result, err := flinkControllerForTest.HasApplicationChanged(
+	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
 		context.Background(), &flinkApp,
 	)
-	assert.True(t, result)
+	assert.True(t, cur == nil)
 	assert.Nil(t, err)
 }
 
@@ -149,14 +128,17 @@ func TestFlinkApplicationNotChanged(t *testing.T) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
 		return &v1.DeploymentList{
-			Items: []v1.Deployment{*FetchTaskMangerDeploymentCreateObj(&flinkApp)},
+			Items: []v1.Deployment{
+				*FetchTaskMangerDeploymentCreateObj(&flinkApp, testAppHash),
+				*FetchJobMangerDeploymentCreateObj(&flinkApp, testAppHash),
+			},
 		}, nil
 	}
-	result, err := flinkControllerForTest.HasApplicationChanged(
+	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
 		context.Background(), &flinkApp,
 	)
-	assert.False(t, result)
 	assert.Nil(t, err)
+	assert.False(t, cur == nil)
 }
 
 func TestFlinkApplicationChanged(t *testing.T) {
@@ -171,10 +153,10 @@ func TestFlinkApplicationChanged(t *testing.T) {
 		return &v1.DeploymentList{}, nil
 	}
 	flinkApp := getFlinkTestApp()
-	result, err := flinkControllerForTest.HasApplicationChanged(
+	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
 		context.Background(), &flinkApp,
 	)
-	assert.True(t, result)
+	assert.True(t, cur == nil)
 	assert.Nil(t, err)
 }
 
@@ -191,26 +173,29 @@ func TestFlinkApplicationChangedParallelism(t *testing.T) {
 		if val, ok := labelMap["App"]; ok {
 			assert.Equal(t, testAppName, val)
 		}
-		deployment := getDeployment(&flinkApp)
-		deployment.Name = testAppName + "-" + testAppHash + "-tm"
+		hash := HashForApplication(&flinkApp)
+		tm := FetchTaskMangerDeploymentCreateObj(&flinkApp, hash)
+		jm := FetchJobMangerDeploymentCreateObj(&flinkApp, hash)
 		return &v1.DeploymentList{
 			Items: []v1.Deployment{
-				deployment,
+				*tm, *jm,
 			},
 		}, nil
 	}
 
-	flinkApp.Spec.Parallelism = 3
-	result, err := flinkControllerForTest.HasApplicationChanged(
-		context.Background(), &flinkApp,
+	newApp := flinkApp.DeepCopy()
+	newApp.Spec.Parallelism = 3
+	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
+		context.Background(), newApp,
 	)
-	assert.True(t, result)
+	assert.True(t, cur == nil)
 	assert.Nil(t, err)
 }
 
 func TestFlinkApplicationNeedsUpdate(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
-	numberOfTaskManagers := int32(2)
+	flinkApp := getFlinkTestApp()
+
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
@@ -220,26 +205,26 @@ func TestFlinkApplicationNeedsUpdate(t *testing.T) {
 		if val, ok := labelMap["App"]; ok {
 			assert.Equal(t, testAppName, val)
 		}
-		deployment := v1.Deployment{
-			Spec: v1.DeploymentSpec{
-				Replicas: &numberOfTaskManagers,
-			},
-		}
-		deployment.Name = testAppName + "-" + testAppHash + "-tm"
+
+		app := getFlinkTestApp()
+		jm := FetchJobMangerDeploymentCreateObj(&app, testAppHash)
+		tm := FetchTaskMangerDeploymentCreateObj(&app, testAppHash)
+
 		return &v1.DeploymentList{
 			Items: []v1.Deployment{
-				deployment,
+				*jm, *tm,
 			},
 		}, nil
 	}
-	flinkApp := getFlinkTestApp()
+
+	numberOfTaskManagers := int32(2)
 	taskSlots := int32(2)
 	flinkApp.Spec.TaskManagerConfig.TaskSlots = &taskSlots
 	flinkApp.Spec.Parallelism = taskSlots*numberOfTaskManagers + 1
-	result, err := flinkControllerForTest.HasApplicationChanged(
+	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
 		context.Background(), &flinkApp,
 	)
-	assert.True(t, result)
+	assert.True(t, cur == nil)
 	assert.Nil(t, err)
 }
 
@@ -249,12 +234,12 @@ func TestFlinkIsServiceReady(t *testing.T) {
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.ClusterOverviewResponse{
 			TaskManagerCount: 3,
 		}, nil
 	}
-	isReady, err := flinkControllerForTest.IsServiceReady(context.Background(), &flinkApp)
+	isReady, err := flinkControllerForTest.IsServiceReady(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 	assert.True(t, isReady)
 }
@@ -265,10 +250,10 @@ func TestFlinkIsServiceReadyErr(t *testing.T) {
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return nil, errors.New("Get cluster failed")
 	}
-	isReady, err := flinkControllerForTest.IsServiceReady(context.Background(), &flinkApp)
+	isReady, err := flinkControllerForTest.IsServiceReady(context.Background(), &flinkApp, "hash")
 	assert.EqualError(t, err, "Get cluster failed")
 	assert.False(t, isReady)
 }
@@ -280,7 +265,7 @@ func TestFlinkGetSavepointStatus(t *testing.T) {
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.CheckSavepointStatusFunc = func(ctx context.Context, url string, jobID, triggerID string) (*client.SavepointResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		assert.Equal(t, jobID, testJobID)
 		assert.Equal(t, triggerID, "t1")
 		return &client.SavepointResponse{
@@ -289,7 +274,7 @@ func TestFlinkGetSavepointStatus(t *testing.T) {
 			},
 		}, nil
 	}
-	status, err := flinkControllerForTest.GetSavepointStatus(context.Background(), &flinkApp)
+	status, err := flinkControllerForTest.GetSavepointStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 	assert.NotNil(t, status)
 
@@ -302,11 +287,11 @@ func TestFlinkGetSavepointStatusErr(t *testing.T) {
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.CheckSavepointStatusFunc = func(ctx context.Context, url string, jobID, triggerID string) (*client.SavepointResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		assert.Equal(t, jobID, testJobID)
 		return nil, errors.New("Savepoint error")
 	}
-	status, err := flinkControllerForTest.GetSavepointStatus(context.Background(), &flinkApp)
+	status, err := flinkControllerForTest.GetSavepointStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, status)
 	assert.NotNil(t, err)
 
@@ -357,109 +342,24 @@ func TestGetActiveJobEmpty(t *testing.T) {
 	assert.Nil(t, activeJob)
 }
 
-func TestDeleteOldCluster(t *testing.T) {
+func TestDeleteCluster(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	labelMapVal := map[string]string{
-		"app": testAppName,
-	}
-	d1 := *FetchTaskMangerDeploymentCreateObj(&flinkApp)
-	d2 := *FetchTaskMangerDeploymentCreateObj(&flinkApp)
-	d2.Labels = map[string]string{
-		"flink-app-hash": testAppHash + "3",
-	}
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		assert.Equal(t, testNamespace, namespace)
-		assert.Equal(t, labelMapVal, labelMap)
 
-		return &v1.DeploymentList{
-			Items: []v1.Deployment{
-				d1, d2,
-			},
-		}, nil
+	fd := common.FlinkDeployment{
+		Jobmanager:  FetchJobMangerDeploymentCreateObj(&flinkApp, "hash"),
+		Taskmanager: FetchTaskMangerDeploymentCreateObj(&flinkApp, "hash"),
+		Hash:        "hash",
 	}
-	mockK8Cluster.DeleteDeploymentsFunc = func(ctx context.Context, deploymentList v1.DeploymentList) error {
-		assert.Equal(t, v1.DeploymentList{Items: []v1.Deployment{d2}}, deploymentList)
+
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.DeleteDeploymentsFunc = func(ctx context.Context, deployments []v1.Deployment) error {
+		assert.Equal(t, []v1.Deployment{*fd.Jobmanager, *fd.Taskmanager}, deployments)
 		return nil
 	}
-	isDeleted, err := flinkControllerForTest.DeleteOldCluster(context.Background(), &flinkApp)
+
+	err := flinkControllerForTest.DeleteCluster(context.Background(), &fd)
 	assert.Nil(t, err)
-	assert.True(t, isDeleted)
-}
-
-func TestDeleteOldClusterNoOldDeployment(t *testing.T) {
-	flinkControllerForTest := getTestFlinkController()
-	flinkApp := getFlinkTestApp()
-	labelMapVal := map[string]string{
-		"app": testAppName,
-	}
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		assert.Equal(t, testNamespace, namespace)
-		assert.Equal(t, labelMapVal, labelMap)
-		d1 := *FetchTaskMangerDeploymentCreateObj(&flinkApp)
-
-		return &v1.DeploymentList{Items: []v1.Deployment{
-			d1,
-		}}, nil
-	}
-	mockK8Cluster.DeleteDeploymentsFunc = func(ctx context.Context, deploymentList v1.DeploymentList) error {
-		assert.False(t, true)
-		return nil
-	}
-	isDeleted, err := flinkControllerForTest.DeleteOldCluster(context.Background(), &flinkApp)
-	assert.Nil(t, err)
-	assert.True(t, isDeleted)
-}
-
-func TestDeleteOldClusterNoDeployment(t *testing.T) {
-	flinkControllerForTest := getTestFlinkController()
-	flinkApp := getFlinkTestApp()
-	labelMapVal := map[string]string{
-		"app": testAppName,
-	}
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		assert.Equal(t, testNamespace, namespace)
-		assert.Equal(t, labelMapVal, labelMap)
-		return &v1.DeploymentList{}, nil
-	}
-	mockK8Cluster.DeleteDeploymentsFunc = func(ctx context.Context, deploymentList v1.DeploymentList) error {
-		assert.False(t, true)
-		return nil
-	}
-	isDeleted, err := flinkControllerForTest.DeleteOldCluster(context.Background(), &flinkApp)
-	assert.Nil(t, err)
-	assert.True(t, isDeleted)
-}
-
-func TestDeleteOldClusterErr(t *testing.T) {
-	flinkControllerForTest := getTestFlinkController()
-	flinkApp := getFlinkTestApp()
-	labelMapVal := map[string]string{
-		"app": testAppName,
-	}
-	d1 := v1.Deployment{}
-	d1.Labels = labelMapVal
-
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		assert.Equal(t, testNamespace, namespace)
-		assert.Equal(t, labelMapVal, labelMap)
-		return &v1.DeploymentList{
-			Items: []v1.Deployment{
-				d1,
-			},
-		}, nil
-	}
-	mockK8Cluster.DeleteDeploymentsFunc = func(ctx context.Context, deploymentList v1.DeploymentList) error {
-		assert.Equal(t, v1.DeploymentList{Items: []v1.Deployment{d1}}, deploymentList)
-		return errors.New("Delete error")
-	}
-	isDeleted, err := flinkControllerForTest.DeleteOldCluster(context.Background(), &flinkApp)
-	assert.EqualError(t, err, "Delete error")
-	assert.False(t, isDeleted)
 }
 
 func TestCreateCluster(t *testing.T) {
@@ -523,7 +423,7 @@ func TestStartFlinkJob(t *testing.T) {
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		assert.Equal(t, jarID, "jar-name")
 		assert.Equal(t, submitJobRequest.Parallelism, int32(4))
 		assert.Equal(t, submitJobRequest.ProgramArgs, "args")
@@ -534,7 +434,8 @@ func TestStartFlinkJob(t *testing.T) {
 			JobID: testJobID,
 		}, nil
 	}
-	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp)
+	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs)
 	assert.Nil(t, err)
 	assert.Equal(t, jobID, testJobID)
 }
@@ -548,7 +449,8 @@ func TestStartFlinkJobEmptyJobID(t *testing.T) {
 
 		return &client.SubmitJobResponse{}, nil
 	}
-	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp)
+	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs)
 	assert.EqualError(t, err, "unable to submit job: invalid job id")
 	assert.Empty(t, jobID)
 }
@@ -561,7 +463,8 @@ func TestStartFlinkJobErr(t *testing.T) {
 	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
 		return nil, errors.New("submit error")
 	}
-	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp)
+	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs)
 	assert.EqualError(t, err, "submit error")
 	assert.Empty(t, jobID)
 }
@@ -572,11 +475,11 @@ func TestCancelWithSavepoint(t *testing.T) {
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobID string) (string, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		assert.Equal(t, jobID, testJobID)
 		return "t1", nil
 	}
-	triggerID, err := flinkControllerForTest.CancelWithSavepoint(context.Background(), &flinkApp)
+	triggerID, err := flinkControllerForTest.CancelWithSavepoint(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 	assert.Equal(t, triggerID, "t1")
 }
@@ -589,7 +492,7 @@ func TestCancelWithSavepointErr(t *testing.T) {
 	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobID string) (string, error) {
 		return "", errors.New("cancel error")
 	}
-	triggerID, err := flinkControllerForTest.CancelWithSavepoint(context.Background(), &flinkApp)
+	triggerID, err := flinkControllerForTest.CancelWithSavepoint(context.Background(), &flinkApp, "hash")
 	assert.EqualError(t, err, "cancel error")
 	assert.Empty(t, triggerID)
 }
@@ -600,7 +503,7 @@ func TestGetJobsForApplication(t *testing.T) {
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetJobsFunc = func(ctx context.Context, url string) (*client.GetJobsResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.GetJobsResponse{
 			Jobs: []client.FlinkJob{
 				{
@@ -609,7 +512,7 @@ func TestGetJobsForApplication(t *testing.T) {
 			},
 		}, nil
 	}
-	jobs, err := flinkControllerForTest.GetJobsForApplication(context.Background(), &flinkApp)
+	jobs, err := flinkControllerForTest.GetJobsForApplication(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(jobs))
 	assert.Equal(t, jobs[0].JobID, testJobID)
@@ -623,7 +526,7 @@ func TestGetJobsForApplicationErr(t *testing.T) {
 	mockJmClient.GetJobsFunc = func(ctx context.Context, url string) (*client.GetJobsResponse, error) {
 		return nil, errors.New("get jobs error")
 	}
-	jobs, err := flinkControllerForTest.GetJobsForApplication(context.Background(), &flinkApp)
+	jobs, err := flinkControllerForTest.GetJobsForApplication(context.Background(), &flinkApp, "hash")
 	assert.EqualError(t, err, "get jobs error")
 	assert.Nil(t, jobs)
 }
@@ -635,7 +538,7 @@ func TestFindExternalizedCheckpoint(t *testing.T) {
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetLatestCheckpointFunc = func(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		assert.Equal(t, "jobid", jobId)
 		return &client.CheckpointStatistics{
 			TriggerTimestamp: time.Now().Unix(),
@@ -643,7 +546,7 @@ func TestFindExternalizedCheckpoint(t *testing.T) {
 		}, nil
 	}
 
-	checkpoint, err := flinkControllerForTest.FindExternalizedCheckpoint(context.Background(), &flinkApp)
+	checkpoint, err := flinkControllerForTest.FindExternalizedCheckpoint(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 	assert.Equal(t, "/tmp/checkpoint", checkpoint)
 }
@@ -654,7 +557,7 @@ func TestClusterStatusUpdated(t *testing.T) {
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.ClusterOverviewResponse{
 			NumberOfTaskSlots: 1,
 			SlotsAvailable:    0,
@@ -663,7 +566,7 @@ func TestClusterStatusUpdated(t *testing.T) {
 	}
 
 	mockJmClient.GetTaskManagersFunc = func(ctx context.Context, url string) (*client.TaskManagersResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.TaskManagersResponse{
 			TaskManagers: []client.TaskManagerStats{
 				{
@@ -675,7 +578,7 @@ func TestClusterStatusUpdated(t *testing.T) {
 		}, nil
 	}
 
-	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp)
+	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
@@ -694,7 +597,7 @@ func TestNoClusterStatusChange(t *testing.T) {
 	flinkApp.Status.ClusterStatus.NumberOfTaskManagers = int32(1)
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.ClusterOverviewResponse{
 			NumberOfTaskSlots: 1,
 			SlotsAvailable:    0,
@@ -703,7 +606,7 @@ func TestNoClusterStatusChange(t *testing.T) {
 	}
 
 	mockJmClient.GetTaskManagersFunc = func(ctx context.Context, url string) (*client.TaskManagersResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.TaskManagersResponse{
 			TaskManagers: []client.TaskManagerStats{
 				{
@@ -715,7 +618,7 @@ func TestNoClusterStatusChange(t *testing.T) {
 		}, nil
 	}
 
-	hasClusterStatusChanged, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp)
+	hasClusterStatusChanged, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 	assert.False(t, hasClusterStatusChanged)
 }
@@ -727,7 +630,7 @@ func TestHealthyTaskmanagers(t *testing.T) {
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.ClusterOverviewResponse{
 			NumberOfTaskSlots: 1,
 			SlotsAvailable:    0,
@@ -736,7 +639,7 @@ func TestHealthyTaskmanagers(t *testing.T) {
 	}
 
 	mockJmClient.GetTaskManagersFunc = func(ctx context.Context, url string) (*client.TaskManagersResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.TaskManagersResponse{
 			TaskManagers: []client.TaskManagerStats{
 				{
@@ -749,7 +652,7 @@ func TestHealthyTaskmanagers(t *testing.T) {
 		}, nil
 	}
 
-	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp)
+	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
@@ -764,7 +667,7 @@ func TestJobStatusUpdated(t *testing.T) {
 	startTime := metaV1.Now().UnixNano() / int64(time.Millisecond)
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.FlinkJobOverview{
 			JobID:     "abc",
 			State:     client.Running,
@@ -773,7 +676,7 @@ func TestJobStatusUpdated(t *testing.T) {
 	}
 
 	mockJmClient.GetCheckpointCountsFunc = func(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.CheckpointResponse{
 			Counts: map[string]int32{
 				"restored":  1,
@@ -795,7 +698,7 @@ func TestJobStatusUpdated(t *testing.T) {
 
 	flinkApp.Status.JobStatus.JobID = "abc"
 	expectedTime := metaV1.NewTime(time.Unix(startTime/1000, 0))
-	_, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &flinkApp)
+	_, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 
 	assert.Equal(t, v1alpha1.Running, flinkApp.Status.JobStatus.State)
@@ -829,7 +732,7 @@ func TestNoJobStatusChange(t *testing.T) {
 	app1.Status.JobStatus.RestorePath = "/test/externalpath"
 
 	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.FlinkJobOverview{
 			JobID:     "j1",
 			State:     client.Running,
@@ -838,7 +741,7 @@ func TestNoJobStatusChange(t *testing.T) {
 	}
 
 	mockJmClient.GetCheckpointCountsFunc = func(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.CheckpointResponse{
 			Counts: map[string]int32{
 				"restored":  1,
@@ -857,7 +760,7 @@ func TestNoJobStatusChange(t *testing.T) {
 			},
 		}, nil
 	}
-	hasJobStatusChanged, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &app1)
+	hasJobStatusChanged, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &app1, "hash")
 	assert.Nil(t, err)
 	assert.False(t, hasJobStatusChanged)
 
@@ -873,7 +776,7 @@ func TestGetAndUpdateJobStatusHealth(t *testing.T) {
 	app1.Status.JobStatus.LastFailingTime = &lastFailedTime
 
 	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.FlinkJobOverview{
 			JobID:     "abc",
 			State:     client.Running,
@@ -882,7 +785,7 @@ func TestGetAndUpdateJobStatusHealth(t *testing.T) {
 	}
 
 	mockJmClient.GetCheckpointCountsFunc = func(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error) {
-		assert.Equal(t, url, "http://app-name-jm.ns:8081")
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.CheckpointResponse{
 			Counts: map[string]int32{
 				"restored":  1,
@@ -891,7 +794,7 @@ func TestGetAndUpdateJobStatusHealth(t *testing.T) {
 			},
 		}, nil
 	}
-	_, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &app1)
+	_, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &app1, "hash")
 	assert.Nil(t, err)
 	// Job is in a RUNNING state but was in a FAILING state in the last 1 minute, so we expect
 	// JobStatus.Health to be Red

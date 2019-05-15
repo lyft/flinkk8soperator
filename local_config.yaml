@@ -5,7 +5,7 @@
 operator:
   useKubectlProxy: true
   containerNameFormat: "%s-unknown"
-  statemachineStalenessDuration: 2m
+  statemachineStalenessDuration: 1m
   metricsPrefix: "flinkk8soperator"
   resyncPeriod: 10s
   proxyPort: 8001

@@ -15,15 +15,17 @@ const (
 	Deployment = "Deployment"
 	Pod        = "Pod"
 	Service    = "Service"
+	Endpoints  = "Endpoints"
 	Ingress    = "Ingress"
 )
 
 type ClusterInterface interface {
 	GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
 	GetPodsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.PodList, error)
+	GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error)
 	CreateK8Object(ctx context.Context, object sdk.Object) error
 	UpdateK8Object(ctx context.Context, object sdk.Object) error
-	DeleteDeployments(ctx context.Context, deploymentList v1.DeploymentList) error
+	DeleteDeployments(ctx context.Context, deployments []v1.Deployment) error
 }
 
 func NewK8Cluster() ClusterInterface {
@@ -75,7 +77,7 @@ func (k *Cluster) GetDeployment(ctx context.Context, namespace string, name stri
 func (k *Cluster) GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error) {
 	service := &coreV1.Service{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
+			APIVersion: coreV1.SchemeGroupVersion.String(),
 			Kind:       Service,
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -119,8 +121,8 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object sdk.Object) error {
 	return sdk.Update(object)
 }
 
-func (k *Cluster) DeleteDeployments(ctx context.Context, deploymentList v1.DeploymentList) error {
-	for _, item := range deploymentList.Items {
+func (k *Cluster) DeleteDeployments(ctx context.Context, deployments []v1.Deployment) error {
+	for _, item := range deployments {
 		err := sdk.Delete(&item)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to delete deployment %v", err)

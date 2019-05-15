@@ -3,6 +3,7 @@ package common
 import (
 	"github.com/lyft/flytestdlib/contextutils"
 
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -48,4 +49,10 @@ func GetEnvVar(envs []v1.EnvVar, name string) *v1.EnvVar {
 	}
 
 	return nil
+}
+
+type FlinkDeployment struct {
+	Jobmanager  *appsv1.Deployment
+	Taskmanager *appsv1.Deployment
+	Hash        string
 }

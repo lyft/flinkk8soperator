@@ -70,7 +70,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		"flink-app-parallelism": "8",
 	}
 	app.Annotations = annotations
-	hash := "2c193a3b"
+	hash := "8e1af3e3"
 	expectedLabels := map[string]string{
 		"app":                   "app-name",
 		"flink-app-hash":        hash,
@@ -93,19 +93,26 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 
 			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1536\n"+
-				"jobmanager.rpc.address: app-name-jm\njobmanager.rpc.port: 6123\n"+
+				"jobmanager.rpc.port: 6123\n"+
 				"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
 				"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
 				"taskmanager.numberOfTaskSlots: 16\n\n"+
-				"high-availability.cluster-id: app-name-"+hash+"\n",
+				"high-availability.cluster-id: app-name-"+hash+"\n"+
+				"jobmanager.rpc.address: app-name-"+hash+"\n",
 				common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
 					"OPERATOR_FLINK_CONFIG").Value)
 		case 2:
 			service := object.(*coreV1.Service)
-			assert.Equal(t, getJobManagerServiceName(&app), service.Name)
+			assert.Equal(t, app.Name, service.Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"frontend": "app-name-jm"}, service.Spec.Selector)
+			assert.Equal(t, map[string]string{"app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
 		case 3:
+			service := object.(*coreV1.Service)
+			assert.Equal(t, app.Name+"-"+hash, service.Name)
+			assert.Equal(t, "app-name-"+hash+"-jm", service.OwnerReferences[0].Name)
+			assert.Equal(t, app.Namespace, service.Namespace)
+			assert.Equal(t, map[string]string{"app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+		case 4:
 			labels := map[string]string{
 				"app": "app-name",
 			}
@@ -141,6 +148,6 @@ func TestJobManagerCreateAlreadyExists(t *testing.T) {
 		return k8sErrors.NewAlreadyExists(schema.GroupResource{}, "")
 	}
 	err := testController.CreateIfNotExist(context.Background(), &app)
-	assert.Equal(t, ctr, 3)
+	assert.Equal(t, ctr, 4)
 	assert.Nil(t, err)
 }

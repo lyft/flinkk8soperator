@@ -75,9 +75,7 @@ Below is the list of fields in the custom resource and their description
     Optional map of flink configuration, which passed on to the deployment as environment variable with `OPERATOR_FLINK_CONFIG`
 
   * **DeploymentMode** `type:DeploymentMode`
-    Indicates the type of deployment that operator should perform if the custom resource is updated.
-
-    `Single` This deployment mode is intended for applications where a small downtime during deployment is acceptable. The operator first deletes the existing Flink cluster and recreates a new one. Between the time the first cluster is deleted and the second cluster is started, the application is not running.
+    Indicates the type of deployment that operator should perform if the custom resource is updated. Currently only Dual is supported.
 
     `Dual` This deployment mode is intended for applications where downtime during deployment needs to be as minimal as possible. In this deployment mode, the operator brings up a second Flink cluster with the new image, while the original Flink cluster is still active. Once the pods and containers in the new flink cluster are ready, the Operator cancels the job in the first Cluster with savepoint, deletes the cluster and starts the job in the second cluster. (More information in the state machine section below). This mode is suitable for real time processing applications.
 
