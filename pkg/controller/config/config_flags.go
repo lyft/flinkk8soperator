@@ -13,7 +13,7 @@ import (
 // flags is json-name.json-sub-name... etc.
 func (Config) GetPFlagSet(prefix string) *pflag.FlagSet {
 	cmdFlags := pflag.NewFlagSet("Config", pflag.ExitOnError)
-	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "resyncPeriod"), "10s", "Determines the resync period for all watchers.")
+	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "resyncPeriod"), "20s", "Determines the resync period for all watchers.")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "limitNamespace"), "", "Namespaces to watch for by flink operator")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "metricsPrefix"), "flinkk8soperator", "Prefix for metrics propagated to prometheus")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "prof-port"), "10254", "Profiler port")
@@ -21,6 +21,7 @@ func (Config) GetPFlagSet(prefix string) *pflag.FlagSet {
 	cmdFlags.Bool(fmt.Sprintf("%v%v", prefix, "useKubectlProxy"), *new(bool), "")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "ProxyPort"), "8001", "The port at which flink cluster runs locally")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "containerNameFormat"), *new(string), "")
-	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "statemachineStalenessDuration"), "10m", "Duration for statemachine staleness.")
+	cmdFlags.Int(fmt.Sprintf("%v%v", prefix, "workers"), 4, "Number of threads to process custom resource")
+	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "statemachineStalenessDuration"), "5m", "Duration for statemachine staleness.")
 	return cmdFlags
 }

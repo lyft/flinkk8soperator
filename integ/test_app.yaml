@@ -39,4 +39,3 @@ spec:
   jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
   parallelism: 3
   entryClass: "com.lyft.OperatorTestApp"
-  deploymentMode: Single

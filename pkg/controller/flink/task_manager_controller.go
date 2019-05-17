@@ -7,6 +7,7 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
@@ -30,10 +31,10 @@ type TaskManagerControllerInterface interface {
 	CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error
 }
 
-func NewTaskManagerController(scope promutils.Scope) TaskManagerControllerInterface {
-	metrics := newTaskManagerMetrics(scope)
+func NewTaskManagerController(k8sCluster k8.ClusterInterface, config config.RuntimeConfig) TaskManagerControllerInterface {
+	metrics := newTaskManagerMetrics(config.MetricsScope)
 	return &TaskManagerController{
-		k8Cluster: k8.NewK8Cluster(),
+		k8Cluster: k8sCluster,
 		metrics:   metrics,
 	}
 }
@@ -175,6 +176,19 @@ func computeTaskManagerReplicas(application *v1alpha1.FlinkApplication) int32 {
 
 func DeploymentIsTaskmanager(deployment *v1.Deployment) bool {
 	return deployment.Labels[FlinkDeploymentType] == FlinkDeploymentTypeTaskmanager
+}
+
+func FetchTaskMangerDeploymentDeleteObj(app *v1alpha1.FlinkApplication, hash string) *v1.Deployment {
+	return &v1.Deployment{
+		TypeMeta: metaV1.TypeMeta{
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       k8.Deployment,
+		},
+		ObjectMeta: metaV1.ObjectMeta{
+			Namespace: app.Namespace,
+			Name:      getTaskManagerName(app, hash),
+		},
+	}
 }
 
 // Translates a FlinkApplication into a TaskManager deployment. Changes to this function must be

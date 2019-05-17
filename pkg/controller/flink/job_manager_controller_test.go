@@ -10,13 +10,13 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flytestdlib/promutils/labeled"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -78,7 +78,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 	}
 	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		ctr++
 		switch ctr {
 		case 1:
@@ -91,6 +91,9 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 			assert.Equal(t, expectedLabels, deployment.Labels)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
+			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
+			assert.Equal(t, "flink.k8s.io/v1alpha1", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
 			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1536\n"+
 				"jobmanager.rpc.port: 6123\n"+
@@ -109,7 +112,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		case 3:
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name+"-"+hash, service.Name)
-			assert.Equal(t, "app-name-"+hash+"-jm", service.OwnerReferences[0].Name)
+			assert.Equal(t, "app-name", service.OwnerReferences[0].Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
 			assert.Equal(t, map[string]string{"app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
 		case 4:
@@ -131,7 +134,7 @@ func TestJobManagerCreateErr(t *testing.T) {
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		return errors.New("create error")
 	}
 	err := testController.CreateIfNotExist(context.Background(), &app)
@@ -143,7 +146,7 @@ func TestJobManagerCreateAlreadyExists(t *testing.T) {
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
 	ctr := 0
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		ctr++
 		return k8sErrors.NewAlreadyExists(schema.GroupResource{}, "")
 	}

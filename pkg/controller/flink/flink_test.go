@@ -17,8 +17,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
@@ -43,7 +44,12 @@ func getTestFlinkController() Controller {
 }
 
 func getFlinkTestApp() v1alpha1.FlinkApplication {
-	app := v1alpha1.FlinkApplication{}
+	app := v1alpha1.FlinkApplication{
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       v1alpha1.FlinkApplicationKind,
+			APIVersion: v1alpha1.SchemeGroupVersion.String(),
+		},
+	}
 	app.Spec.Parallelism = 8
 	app.Name = testAppName
 	app.Namespace = testNamespace
@@ -59,23 +65,25 @@ func TestFlinkIsClusterReady(t *testing.T) {
 	labelMapVal := map[string]string{
 		"flink-app-hash": testAppHash,
 	}
+	flinkApp := getFlinkTestApp()
+
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.GetPodsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.PodList, error) {
+	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
 		assert.Equal(t, labelMapVal, labelMap)
+		jmDeployment := FetchTaskMangerDeploymentCreateObj(&flinkApp, testAppHash)
+		jmDeployment.Status.AvailableReplicas = 1
 
-		return &corev1.PodList{
-			Items: []corev1.Pod{
-				{
-					Status: corev1.PodStatus{
-						Phase: corev1.PodRunning,
-					},
-				},
+		tmDeployment := FetchJobMangerDeploymentCreateObj(&flinkApp, testAppHash)
+		tmDeployment.Status.AvailableReplicas = *tmDeployment.Spec.Replicas
+		return &v1.DeploymentList{
+			Items: []v1.Deployment{
+				*jmDeployment,
+				*tmDeployment,
 			},
 		}, nil
 	}
 
-	flinkApp := getFlinkTestApp()
 	result, err := flinkControllerForTest.IsClusterReady(
 		context.Background(), &flinkApp,
 	)
@@ -345,20 +353,26 @@ func TestGetActiveJobEmpty(t *testing.T) {
 func TestDeleteCluster(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
+	jmDeployment := FetchJobMangerDeploymentDeleteObj(&flinkApp, "hash")
+	tmDeployment := FetchTaskMangerDeploymentDeleteObj(&flinkApp, "hash")
+	service := FetchVersionedJobManagerServiceDeleteObj(&flinkApp, "hash")
 
-	fd := common.FlinkDeployment{
-		Jobmanager:  FetchJobMangerDeploymentCreateObj(&flinkApp, "hash"),
-		Taskmanager: FetchTaskMangerDeploymentCreateObj(&flinkApp, "hash"),
-		Hash:        "hash",
-	}
-
+	ctr := 0
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.DeleteDeploymentsFunc = func(ctx context.Context, deployments []v1.Deployment) error {
-		assert.Equal(t, []v1.Deployment{*fd.Jobmanager, *fd.Taskmanager}, deployments)
+	mockK8Cluster.DeleteK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		ctr++
+		switch ctr {
+		case 1:
+			assert.Equal(t, object, jmDeployment)
+		case 2:
+			assert.Equal(t, object, tmDeployment)
+		case 3:
+			assert.Equal(t, object, service)
+		}
 		return nil
 	}
 
-	err := flinkControllerForTest.DeleteCluster(context.Background(), &fd)
+	err := flinkControllerForTest.DeleteCluster(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 }
 

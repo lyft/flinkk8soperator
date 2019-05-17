@@ -1,4 +1,4 @@
-package controller
+package flinkapplication
 
 import (
 	"context"
@@ -444,7 +444,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	// If there are old deployments left-over from a previous version, clean them up
 	for _, fd := range old {
 		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeNormal, fmt.Sprintf("Deleting old cluster with hash %s", fd.Hash))
-		err := s.flinkController.DeleteCluster(ctx, &fd)
+		err := s.flinkController.DeleteCluster(ctx, application, fd.Hash)
 		if err != nil {
 			return err
 		}
@@ -590,12 +590,12 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	return nil
 }
 
-func NewFlinkStateMachine(scope promutils.Scope) FlinkHandlerInterface {
+func NewFlinkStateMachine(k8sCluster k8.ClusterInterface, config config.RuntimeConfig) FlinkHandlerInterface {
 
-	metrics := newStateMachineMetrics(scope)
+	metrics := newStateMachineMetrics(config.MetricsScope)
 	return &FlinkStateMachine{
-		k8Cluster:       k8.NewK8Cluster(),
-		flinkController: flink.NewController(scope),
+		k8Cluster:       k8sCluster,
+		flinkController: flink.NewController(k8sCluster, config),
 		clock:           clock.RealClock{},
 		metrics:         metrics,
 	}

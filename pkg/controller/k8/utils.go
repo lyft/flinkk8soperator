@@ -4,12 +4,17 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
 	AppKey = "app"
 )
+
+func IsK8sObjectNotExists(err error) bool {
+	return k8serrors.IsNotFound(err) || k8serrors.IsGone(err) || k8serrors.IsResourceExpired(err)
+}
 
 func GetAppLabel(appName string) map[string]string {
 	return map[string]string{

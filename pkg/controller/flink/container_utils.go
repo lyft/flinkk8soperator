@@ -155,8 +155,12 @@ func HashForApplication(app *v1alpha1.FlinkApplication) string {
 }
 
 func GetAppHashSelector(app *v1alpha1.FlinkApplication) map[string]string {
+	return GetAppHashSelectorWithHash(HashForApplication(app))
+}
+
+func GetAppHashSelectorWithHash(hash string) map[string]string {
 	return map[string]string{
-		FlinkAppHash: HashForApplication(app),
+		FlinkAppHash: hash,
 	}
 }
 

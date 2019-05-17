@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/go-resty/resty"
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
@@ -29,7 +30,7 @@ const httpGet = "GET"
 const httpPost = "POST"
 const httpPatch = "PATCH"
 const retryCount = 3
-const timeOut = 30 * time.Second
+const timeOut = 5 * time.Second
 
 type FlinkAPIInterface interface {
 	CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error)
@@ -357,9 +358,9 @@ func (c *FlinkJobManagerClient) GetJobOverview(ctx context.Context, url string, 
 	return &jobOverviewResponse, nil
 }
 
-func NewFlinkJobManagerClient(scope promutils.Scope) FlinkAPIInterface {
+func NewFlinkJobManagerClient(config config.RuntimeConfig) FlinkAPIInterface {
 	client := resty.SetRetryCount(retryCount).SetTimeout(timeOut)
-	metrics := newFlinkJobManagerClientMetrics(scope)
+	metrics := newFlinkJobManagerClientMetrics(config.MetricsScope)
 	return &FlinkJobManagerClient{
 		client:  client,
 		metrics: metrics,

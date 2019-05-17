@@ -86,7 +86,11 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 
 		log.Info("Running operator directly")
 
-		go cmd.Run(&config)
+		go func() {
+			if err = cmd.Run(&config); err != nil {
+				c.Fatalf("Failed to run operator: %v", err)
+			}
+		}()
 	} else {
 		if err = s.Util.CreateOperator(); err != nil {
 			c.Fatalf("Failed to create operator: %v", err)

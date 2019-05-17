@@ -11,7 +11,7 @@ import (
 )
 
 type CreateClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) error
-type DeleteClusterFunc func(ctx context.Context, deployment *common.FlinkDeployment) error
+type DeleteClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) error
 type CancelWithSavepointFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (string, error)
 type ForceCancelFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) error
 type StartFlinkJobFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
@@ -49,9 +49,9 @@ func (m *FlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context,
 	return nil, nil, nil
 }
 
-func (m *FlinkController) DeleteCluster(ctx context.Context, deployment *common.FlinkDeployment) error {
+func (m *FlinkController) DeleteCluster(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) error {
 	if m.DeleteClusterFunc != nil {
-		return m.DeleteClusterFunc(ctx, deployment)
+		return m.DeleteClusterFunc(ctx, application, hash)
 	}
 	return nil
 }

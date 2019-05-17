@@ -4,11 +4,15 @@ import (
 	"context"
 
 	"github.com/lyft/flytestdlib/logger"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -21,57 +25,22 @@ const (
 
 type ClusterInterface interface {
 	GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
-	GetPodsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.PodList, error)
 	GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error)
-	CreateK8Object(ctx context.Context, object sdk.Object) error
-	UpdateK8Object(ctx context.Context, object sdk.Object) error
-	DeleteDeployments(ctx context.Context, deployments []v1.Deployment) error
+	CreateK8Object(ctx context.Context, object runtime.Object) error
+	UpdateK8Object(ctx context.Context, object runtime.Object) error
+	DeleteK8Object(ctx context.Context, object runtime.Object) error
 }
 
-func NewK8Cluster() ClusterInterface {
-	return &Cluster{}
+func NewK8Cluster(mgr manager.Manager) ClusterInterface {
+	return &Cluster{
+		cache:  mgr.GetCache(),
+		client: mgr.GetClient(),
+	}
 }
 
 type Cluster struct {
-}
-
-func (k *Cluster) GetPodsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.PodList, error) {
-	podList := &coreV1.PodList{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       Pod,
-		},
-	}
-	labelSelector := labels.SelectorFromSet(labelMap)
-	options := &metav1.ListOptions{
-		LabelSelector: labelSelector.String(),
-	}
-	err := sdk.List(namespace, podList, sdk.WithListOptions(options))
-	if err != nil {
-		logger.Warnf(ctx, "Failed to list pods %v", err)
-		return nil, err
-	}
-	return podList, nil
-}
-
-func (k *Cluster) GetDeployment(ctx context.Context, namespace string, name string) (*v1.Deployment, error) {
-	deployment := &v1.Deployment{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       Deployment,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-
-	err := sdk.Get(deployment)
-	if err != nil {
-		logger.Warnf(ctx, "Failed to get deployment %v", err)
-		return nil, err
-	}
-	return deployment, nil
+	cache  cache.Cache
+	client client.Client
 }
 
 func (k *Cluster) GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error) {
@@ -80,13 +49,12 @@ func (k *Cluster) GetService(ctx context.Context, namespace string, name string)
 			APIVersion: coreV1.SchemeGroupVersion.String(),
 			Kind:       Service,
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
 	}
-
-	err := sdk.Get(service)
+	key := types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+	err := k.cache.Get(ctx, key, service)
 	if err != nil {
 		logger.Warnf(ctx, "Failed to get service %v", err)
 		return nil, err
@@ -102,32 +70,32 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 		},
 	}
 	labelSelector := labels.SelectorFromSet(labelMap)
-	options := &metav1.ListOptions{
-		LabelSelector: labelSelector.String(),
+	options := &client.ListOptions{
+		LabelSelector: labelSelector,
 	}
-	err := sdk.List(namespace, deploymentList, sdk.WithListOptions(options))
+	err := k.cache.List(ctx, options, deploymentList)
 	if err != nil {
-		logger.Warnf(ctx, "Failed to list deployments %v", err)
+		if IsK8sObjectNotExists(err) {
+			err := k.client.List(ctx, options, deploymentList)
+			if err != nil {
+				logger.Warnf(ctx, "Failed to list deployments %v", err)
+				return nil, err
+			}
+		}
+		logger.Warnf(ctx, "Failed to list deployments from cache %v", err)
 		return nil, err
 	}
 	return deploymentList, nil
 }
 
-func (k *Cluster) CreateK8Object(ctx context.Context, object sdk.Object) error {
-	return sdk.Create(object)
+func (k *Cluster) CreateK8Object(ctx context.Context, object runtime.Object) error {
+	return k.client.Create(ctx, object)
 }
 
-func (k *Cluster) UpdateK8Object(ctx context.Context, object sdk.Object) error {
-	return sdk.Update(object)
+func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) error {
+	return k.client.Update(ctx, object)
 }
 
-func (k *Cluster) DeleteDeployments(ctx context.Context, deployments []v1.Deployment) error {
-	for _, item := range deployments {
-		err := sdk.Delete(&item)
-		if err != nil {
-			logger.Errorf(ctx, "Failed to delete deployment %v", err)
-			return err
-		}
-	}
-	return nil
+func (k *Cluster) DeleteK8Object(ctx context.Context, object runtime.Object) error {
+	return k.client.Delete(ctx, object)
 }

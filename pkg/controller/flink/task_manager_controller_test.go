@@ -11,11 +11,11 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flytestdlib/promutils/labeled"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -86,7 +86,7 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		"flink-deployment-type": "taskmanager",
 	}
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		deployment := object.(*v1.Deployment)
 		assert.Equal(t, getTaskManagerName(&app, hash), deployment.Name)
 		assert.Equal(t, app.Namespace, deployment.Namespace)
@@ -116,7 +116,7 @@ func TestTaskManagerCreateErr(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		return errors.New("create error")
 	}
 	err := testController.CreateIfNotExist(context.Background(), &app)
@@ -127,7 +127,7 @@ func TestTaskManagerCreateAlreadyExists(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object sdk.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		return k8sErrors.NewAlreadyExists(schema.GroupResource{}, "")
 	}
 	err := testController.CreateIfNotExist(context.Background(), &app)

@@ -1,7 +1,5 @@
-
-# Force dep to vendor the code generators, which aren't imported just used at dev time.
-# Picking a subpackage with Go code won't be necessary once https://github.com/golang/dep/pull/1545 is merged.
 required = [
+  "sigs.k8s.io/controller-runtime/pkg/client/config",
   "k8s.io/code-generator/cmd/defaulter-gen",
   "k8s.io/code-generator/cmd/deepcopy-gen",
   "k8s.io/code-generator/cmd/conversion-gen",
@@ -11,6 +9,10 @@ required = [
   "k8s.io/code-generator/cmd/openapi-gen",
   "k8s.io/gengo/args",
 ]
+
+[[constraint]]
+  name = "sigs.k8s.io/controller-runtime"
+  version = "^0.1.0"
 
 [[override]]
   name = "k8s.io/code-generator"
@@ -24,18 +26,10 @@ required = [
   name = "k8s.io/apimachinery"
   version = "kubernetes-1.11.2"
 
-[[override]]
+[[constraint]]
   name = "k8s.io/client-go"
   version = "kubernetes-1.11.2"
 
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
   version = "kubernetes-1.11.2"
-
-[[constraint]]
-  name = "github.com/operator-framework/operator-sdk"
-  version = "0.0.7"
-
-[[constraint]]
-  name = "github.com/lyft/flytestdlib"
-  version = "^0.1.0"

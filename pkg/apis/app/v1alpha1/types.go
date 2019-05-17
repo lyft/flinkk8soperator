@@ -3,7 +3,7 @@ package v1alpha1
 import (
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
+	apiv1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -16,9 +16,10 @@ type FlinkApplicationList struct {
 	Items           []FlinkApplication `json:"items"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +genclient:noStatus
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:defaulter-gen=true
 type FlinkApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
@@ -27,28 +28,28 @@ type FlinkApplication struct {
 }
 
 type FlinkApplicationSpec struct {
-	Image             string                    `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
-	ImagePullPolicy   v1.PullPolicy             `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
-	ImagePullSecrets  []v1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
-	FlinkConfig       FlinkConfig               `json:"flinkConfig"`
-	FlinkVersion      string                    `json:"flinkVersion"`
-	TaskManagerConfig TaskManagerConfig         `json:"taskManagerConfig,omitempty"`
-	JobManagerConfig  JobManagerConfig          `json:"jobManagerConfig,omitempty"`
-	JarName           string                    `json:"jarName"`
-	Parallelism       int32                     `json:"parallelism"`
-	EntryClass        string                    `json:"entryClass,omitempty"`
-	ProgramArgs       string                    `json:"programArgs,omitempty"`
-	SavepointInfo     SavepointInfo             `json:"savepointInfo,omitempty"`
-	DeploymentMode    DeploymentMode            `json:"deploymentMode"`
-	RPCPort           *int32                    `json:"rpcPort,omitempty"`
-	BlobPort          *int32                    `json:"blobPort,omitempty"`
-	QueryPort         *int32                    `json:"queryPort,omitempty"`
-	UIPort            *int32                    `json:"uiPort,omitempty"`
-	MetricsQueryPort  *int32                    `json:"metricsQueryPort,omitempty"`
-	Volumes           []v1.Volume               `json:"volumes,omitempty"`
-	VolumeMounts      []v1.VolumeMount          `json:"volumeMounts,omitempty"`
-	RestartNonce      string                    `json:"restartNonce"`
-	DeleteMode        DeleteMode                `json:"deleteMode"`
+	Image             string                       `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
+	ImagePullPolicy   apiv1.PullPolicy             `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
+	ImagePullSecrets  []apiv1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
+	FlinkConfig       FlinkConfig                  `json:"flinkConfig"`
+	FlinkVersion      string                       `json:"flinkVersion"`
+	TaskManagerConfig TaskManagerConfig            `json:"taskManagerConfig,omitempty"`
+	JobManagerConfig  JobManagerConfig             `json:"jobManagerConfig,omitempty"`
+	JarName           string                       `json:"jarName"`
+	Parallelism       int32                        `json:"parallelism"`
+	EntryClass        string                       `json:"entryClass,omitempty"`
+	ProgramArgs       string                       `json:"programArgs,omitempty"`
+	SavepointInfo     SavepointInfo                `json:"savepointInfo,omitempty"`
+	DeploymentMode    DeploymentMode               `json:"deploymentMode"`
+	RPCPort           *int32                       `json:"rpcPort,omitempty"`
+	BlobPort          *int32                       `json:"blobPort,omitempty"`
+	QueryPort         *int32                       `json:"queryPort,omitempty"`
+	UIPort            *int32                       `json:"uiPort,omitempty"`
+	MetricsQueryPort  *int32                       `json:"metricsQueryPort,omitempty"`
+	Volumes           []apiv1.Volume               `json:"volumes,omitempty"`
+	VolumeMounts      []apiv1.VolumeMount          `json:"volumeMounts,omitempty"`
+	RestartNonce      string                       `json:"restartNonce"`
+	DeleteMode        DeleteMode                   `json:"deleteMode"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -96,22 +97,22 @@ func (in *FlinkConfig) DeepCopy() *FlinkConfig {
 }
 
 type JobManagerConfig struct {
-	Resources             *v1.ResourceRequirements `json:"resources,omitempty"`
-	Environment           EnvironmentConfig        `json:"envConfig"`
-	Replicas              *int32                   `json:"replicas,omitempty"`
-	OffHeapMemoryFraction *float64                 `json:"offHeapMemoryFraction,omitempty"`
+	Resources             *apiv1.ResourceRequirements `json:"resources,omitempty"`
+	Environment           EnvironmentConfig           `json:"envConfig"`
+	Replicas              *int32                      `json:"replicas,omitempty"`
+	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
 }
 
 type TaskManagerConfig struct {
-	Resources             *v1.ResourceRequirements `json:"resources,omitempty"`
-	Environment           EnvironmentConfig        `json:"envConfig"`
-	TaskSlots             *int32                   `json:"taskSlots,omitempty"`
-	OffHeapMemoryFraction *float64                 `json:"offHeapMemoryFraction,omitempty"`
+	Resources             *apiv1.ResourceRequirements `json:"resources,omitempty"`
+	Environment           EnvironmentConfig           `json:"envConfig"`
+	TaskSlots             *int32                      `json:"taskSlots,omitempty"`
+	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
 }
 
 type EnvironmentConfig struct {
-	EnvFrom []v1.EnvFromSource `json:"envFrom,omitempty"`
-	Env     []v1.EnvVar        `json:"env,omitempty"`
+	EnvFrom []apiv1.EnvFromSource `json:"envFrom,omitempty"`
+	Env     []apiv1.EnvVar        `json:"env,omitempty"`
 }
 
 type SavepointInfo struct {

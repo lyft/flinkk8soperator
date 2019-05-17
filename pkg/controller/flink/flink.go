@@ -45,8 +45,8 @@ type ControllerInterface interface {
 	// Creates a Flink cluster with necessary Job Manager, Task Managers and services for UI
 	CreateCluster(ctx context.Context, application *v1alpha1.FlinkApplication) error
 
-	// Deletes a Flink cluster
-	DeleteCluster(ctx context.Context, deployment *common.FlinkDeployment) error
+	// Deletes a Flink cluster based on the hash
+	DeleteCluster(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) error
 
 	// Cancels the running/active jobs in the Cluster for the Application after savepoint is created
 	CancelWithSavepoint(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (string, error)
@@ -91,13 +91,13 @@ type ControllerInterface interface {
 	CompareAndUpdateJobStatus(ctx context.Context, app *v1alpha1.FlinkApplication, hash string) (bool, error)
 }
 
-func NewController(scope promutils.Scope) ControllerInterface {
-	metrics := newControllerMetrics(scope)
+func NewController(k8sCluster k8.ClusterInterface, config config.RuntimeConfig) ControllerInterface {
+	metrics := newControllerMetrics(config.MetricsScope)
 	return &Controller{
-		k8Cluster:   k8.NewK8Cluster(),
-		jobManager:  NewJobManagerController(scope),
-		taskManager: NewTaskManagerController(scope),
-		flinkClient: client.NewFlinkJobManagerClient(scope),
+		k8Cluster:   k8sCluster,
+		jobManager:  NewJobManagerController(k8sCluster, config),
+		taskManager: NewTaskManagerController(k8sCluster, config),
+		flinkClient: client.NewFlinkJobManagerClient(config),
 		metrics:     metrics,
 	}
 }
@@ -249,42 +249,63 @@ func (f *Controller) GetSavepointStatus(ctx context.Context, application *v1alph
 	return f.flinkClient.CheckSavepointStatus(ctx, getURLFromApp(application, hash), jobID, application.Spec.SavepointInfo.TriggerID)
 }
 
-func (f *Controller) DeleteCluster(ctx context.Context, deployment *common.FlinkDeployment) error {
-	var ds = []v1.Deployment{*deployment.Jobmanager, *deployment.Taskmanager}
-	err := f.k8Cluster.DeleteDeployments(ctx, ds)
+func (f *Controller) DeleteCluster(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) error {
+	if hash == "" {
+		return errors.New("invalid hash: must not be empty")
+	}
 
+	jmDeployment := FetchJobMangerDeploymentDeleteObj(application, hash)
+	err := f.k8Cluster.DeleteK8Object(ctx, jmDeployment)
 	if err != nil {
 		f.metrics.deleteClusterFailedCounter.Inc(ctx)
+		logger.Warnf(ctx, "Failed to delete jobmanager deployment")
 		return err
 	}
-	f.metrics.deleteClusterSuccessCounter.Inc(ctx)
 
+	tmDeployment := FetchTaskMangerDeploymentDeleteObj(application, hash)
+	err = f.k8Cluster.DeleteK8Object(ctx, tmDeployment)
+	if err != nil {
+		f.metrics.deleteClusterFailedCounter.Inc(ctx)
+		logger.Warnf(ctx, "Failed to delete taskmanager deployment")
+		return err
+	}
+
+	versionedJobService := FetchVersionedJobManagerServiceDeleteObj(application, hash)
+	err = f.k8Cluster.DeleteK8Object(ctx, versionedJobService)
+	if err != nil {
+		f.metrics.deleteClusterFailedCounter.Inc(ctx)
+		logger.Warnf(ctx, "Failed to delete versioned service")
+		return err
+	}
+
+	f.metrics.deleteClusterSuccessCounter.Inc(ctx)
 	return nil
 }
 
 func (f *Controller) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
 	labelMap := GetAppHashSelector(application)
 
-	podList, err := f.k8Cluster.GetPodsWithLabel(ctx, application.Namespace, labelMap)
+	deploymentList, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, labelMap)
 	if err != nil {
-		logger.Warnf(ctx, "Failed to get pods for label map %v", labelMap)
+		logger.Warnf(ctx, "Failed to get deployments for label map %v", labelMap)
 		return false, err
 	}
-	if podList == nil || len(podList.Items) == 0 {
-		logger.Infof(ctx, "No pods present for label map %v", labelMap)
+	if deploymentList == nil || len(deploymentList.Items) == 0 {
+		logger.Infof(ctx, "No deployments present for label map %v", labelMap)
 		return false, nil
 	}
 
-	for _, pod := range podList.Items {
-		if pod.Status.Phase != corev1.PodRunning {
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if containerStatus.State.Waiting != nil && containerStatus.State.Waiting.Reason != "ContainerCreating" {
-					f.LogEvent(ctx, application, "Spec.Image", corev1.EventTypeWarning,
-						fmt.Sprintf("Container waiting: %s", containerStatus.State.Waiting.Message))
-				}
+	for _, deployment := range deploymentList.Items {
+		// For Jobmanager we only need on replica to be available
+		if deployment.Labels[FlinkDeploymentType] == FlinkDeploymentTypeJobmanager {
+			if deployment.Status.AvailableReplicas == 0 {
+				return false, nil
 			}
-
-			return false, nil
+		} else {
+			if deployment.Spec.Replicas != nil &&
+				deployment.Status.AvailableReplicas < *deployment.Spec.Replicas {
+				return false, nil
+			}
 		}
 	}
 	return true, nil

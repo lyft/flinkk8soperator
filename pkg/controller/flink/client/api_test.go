@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 )
 
 const testURL = "http://abc.com"
@@ -35,7 +36,9 @@ func getTestClient() FlinkJobManagerClient {
 func getTestJobManagerClient() FlinkAPIInterface {
 	testScope := mockScope.NewTestScope()
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
-	return NewFlinkJobManagerClient(testScope)
+	return NewFlinkJobManagerClient(config.RuntimeConfig{
+		MetricsScope: testScope,
+	})
 }
 
 func TestGetJobsHappyCase(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
@@ -47,10 +48,10 @@ type JobManagerControllerInterface interface {
 	CreateIfNotExist(ctx context.Context, application *v1alpha1.FlinkApplication) error
 }
 
-func NewJobManagerController(scope promutils.Scope) JobManagerControllerInterface {
-	metrics := newJobManagerMetrics(scope)
+func NewJobManagerController(k8sCluster k8.ClusterInterface, config config.RuntimeConfig) JobManagerControllerInterface {
+	metrics := newJobManagerMetrics(config.MetricsScope)
 	return &JobManagerController{
-		k8Cluster: k8.NewK8Cluster(),
+		k8Cluster: k8sCluster,
 		metrics:   metrics,
 	}
 }
@@ -102,10 +103,6 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 	// create the generic job manager service, used by the ingress to provide UI access
 	// there will only be one of these across the lifetime of the application
 	genericService := FetchJobManagerServiceCreateObj(application, hash)
-	genericService.OwnerReferences = []metaV1.OwnerReference{
-		*metaV1.NewControllerRef(application, application.GroupVersionKind()),
-	}
-
 	err = j.k8Cluster.CreateK8Object(ctx, genericService)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
@@ -122,9 +119,6 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 	// this gives us a stable and reliable way to target a particular cluster during upgrades
 	versionedJobManagerService := FetchJobManagerServiceCreateObj(application, hash)
 	versionedJobManagerService.Name = VersionedJobManagerService(application, hash)
-	versionedJobManagerService.OwnerReferences = []metaV1.OwnerReference{
-		*metaV1.NewControllerRef(jobManagerDeployment, jobManagerDeployment.GroupVersionKind()),
-	}
 
 	err = j.k8Cluster.CreateK8Object(ctx, versionedJobManagerService)
 	if err != nil {
@@ -175,6 +169,19 @@ func getJobManagerName(application *v1alpha1.FlinkApplication, hash string) stri
 	return fmt.Sprintf(JobManagerNameFormat, applicationName, hash)
 }
 
+func FetchVersionedJobManagerServiceDeleteObj(app *v1alpha1.FlinkApplication, hash string) *coreV1.Service {
+	return &coreV1.Service{
+		TypeMeta: metaV1.TypeMeta{
+			APIVersion: coreV1.SchemeGroupVersion.String(),
+			Kind:       k8.Service,
+		},
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      VersionedJobManagerService(app, hash),
+			Namespace: app.Namespace,
+		},
+	}
+}
+
 func FetchJobManagerServiceCreateObj(app *v1alpha1.FlinkApplication, hash string) *coreV1.Service {
 	jmServiceName := app.Name
 	serviceLabels := getCommonAppLabels(app)
@@ -189,6 +196,9 @@ func FetchJobManagerServiceCreateObj(app *v1alpha1.FlinkApplication, hash string
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      jmServiceName,
 			Namespace: app.Namespace,
+			OwnerReferences: []metaV1.OwnerReference{
+				*metaV1.NewControllerRef(app, app.GroupVersionKind()),
+			},
 		},
 		Spec: coreV1.ServiceSpec{
 			Ports:    getJobManagerServicePorts(app),
@@ -273,6 +283,19 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 
 func DeploymentIsJobmanager(deployment *v1.Deployment) bool {
 	return deployment.Labels[FlinkDeploymentType] == FlinkDeploymentTypeJobmanager
+}
+
+func FetchJobMangerDeploymentDeleteObj(app *v1alpha1.FlinkApplication, hash string) *v1.Deployment {
+	return &v1.Deployment{
+		TypeMeta: metaV1.TypeMeta{
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       k8.Deployment,
+		},
+		ObjectMeta: metaV1.ObjectMeta{
+			Namespace: app.Namespace,
+			Name:      getJobManagerName(app, hash),
+		},
+	}
 }
 
 // Translates a FlinkApplication into a JobManager deployment. Changes to this function must be

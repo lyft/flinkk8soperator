@@ -103,14 +103,14 @@ func TestConfig_SetFlags(t *testing.T) {
 		t.Run("DefaultValue", func(t *testing.T) {
 			// Test that default value is set properly
 			if vString, err := cmdFlags.GetString("resyncPeriod"); err == nil {
-				assert.Equal(t, string("10s"), vString)
+				assert.Equal(t, string("20s"), vString)
 			} else {
 				assert.FailNow(t, err.Error())
 			}
 		})
 
 		t.Run("Override", func(t *testing.T) {
-			testValue := "10s"
+			testValue := "20s"
 
 			cmdFlags.Set("resyncPeriod", testValue)
 			if vString, err := cmdFlags.GetString("resyncPeriod"); err == nil {
@@ -275,18 +275,40 @@ func TestConfig_SetFlags(t *testing.T) {
 			}
 		})
 	})
-	t.Run("Test_statemachineStalenessDuration", func(t *testing.T) {
+	t.Run("Test_workers", func(t *testing.T) {
 		t.Run("DefaultValue", func(t *testing.T) {
 			// Test that default value is set properly
-			if vString, err := cmdFlags.GetString("statemachineStalenessDuration"); err == nil {
-				assert.Equal(t, string("10m"), vString)
+			if vInt, err := cmdFlags.GetInt("workers"); err == nil {
+				assert.Equal(t, int(4), vInt)
 			} else {
 				assert.FailNow(t, err.Error())
 			}
 		})
 
 		t.Run("Override", func(t *testing.T) {
-			testValue := "10m"
+			testValue := "1"
+
+			cmdFlags.Set("workers", testValue)
+			if vInt, err := cmdFlags.GetInt("workers"); err == nil {
+				testDecodeJson_Config(t, fmt.Sprintf("%v", vInt), &actual.Workers)
+
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+	})
+	t.Run("Test_statemachineStalenessDuration", func(t *testing.T) {
+		t.Run("DefaultValue", func(t *testing.T) {
+			// Test that default value is set properly
+			if vString, err := cmdFlags.GetString("statemachineStalenessDuration"); err == nil {
+				assert.Equal(t, string("5m"), vString)
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+
+		t.Run("Override", func(t *testing.T) {
+			testValue := "5m"
 
 			cmdFlags.Set("statemachineStalenessDuration", testValue)
 			if vString, err := cmdFlags.GetString("statemachineStalenessDuration"); err == nil {

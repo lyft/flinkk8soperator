@@ -8,25 +8,25 @@ import (
 
 	"github.com/lyft/flytestdlib/config/viper"
 	"github.com/lyft/flytestdlib/version"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 
 	"github.com/lyft/flytestdlib/config"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/spf13/pflag"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/spf13/cobra"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller"
 	controller_config "github.com/lyft/flinkk8soperator/pkg/controller/config"
+	ctrlRuntimeConfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"time"
-
+	"github.com/kubernetes-sigs/controller-runtime/pkg/runtime/signals"
+	apis "github.com/lyft/flinkk8soperator/pkg/apis/app"
 	"github.com/lyft/flytestdlib/profutils"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/pkg/errors"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -45,8 +45,8 @@ var rootCmd = &cobra.Command{
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		return initConfig(cmd.Flags())
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		executeRootCmd(controller_config.GetConfig())
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return executeRootCmd(controller_config.GetConfig())
 	},
 }
 
@@ -60,13 +60,13 @@ func Execute() {
 	}
 }
 
-func Run(config *controller_config.Config) {
+func Run(config *controller_config.Config) error {
 	if err := controller_config.SetConfig(config); err != nil {
 		logger.Errorf(context.Background(), "Failed to set config: %v", err)
-		return
+		return err
 	}
 
-	executeRootCmd(controller_config.GetConfig())
+	return executeRootCmd(controller_config.GetConfig())
 }
 
 func init() {
@@ -104,40 +104,76 @@ func logAndExit(err error) {
 	os.Exit(-1)
 }
 
-func executeRootCmd(cfg *controller_config.Config) {
-	ctx := context.Background()
-	resource := v1alpha1.SchemeGroupVersion.String()
-	kind := v1alpha1.FlinkApplicationKind
+func executeRootCmd(controllerCfg *controller_config.Config) error {
+	ctx, cancelNow := context.WithCancel(context.Background())
 
-	logger.Infof(ctx, "Staleness Duration %v", cfg.StatemachineStalenessDuration)
+	labeled.SetMetricKeys(common.GetValidLabelNames()...)
 
-	if cfg.MetricsPrefix == "" {
+	logger.Infof(ctx, "Staleness Duration %v", controllerCfg.StatemachineStalenessDuration)
+
+	if controllerCfg.MetricsPrefix == "" {
 		logAndExit(errors.New("Invalid config: Metric prefix empty"))
 	}
-	operatorScope := promutils.NewScope(cfg.MetricsPrefix)
+	operatorScope := promutils.NewScope(controllerCfg.MetricsPrefix)
 
 	go func() {
-		err := profutils.StartProfilingServerWithDefaultHandlers(ctx, cfg.ProfilerPort.Port, nil)
+		err := profutils.StartProfilingServerWithDefaultHandlers(ctx, controllerCfg.ProfilerPort.Port, nil)
 		if err != nil {
 			logger.Panicf(ctx, "Failed to Start profiling and metrics server. Error: %v", err)
 		}
 	}()
 
-	watch(ctx, resource, kind, cfg.LimitNamespace, cfg.ResyncPeriod.Duration)
-	labeled.SetMetricKeys(common.GetValidLabelNames()...)
-	sdk.Handle(controller.NewHandler(operatorScope))
-	sdk.Run(ctx)
-}
-
-func watch(ctx context.Context, resource, kind, namespace string, resyncPeriod time.Duration) {
-	namespaceForLogging := namespace
-	if namespaceForLogging == "" {
-		namespaceForLogging = "*"
+	stopCh, err := operatorEntryPoint(ctx, operatorScope, controllerCfg)
+	if err != nil {
+		cancelNow()
+		return err
 	}
 
-	logger.Infof(ctx, "Watching [Resource: %s] [Kind: %s] [Namespace: %s] [SyncPeriod: %v]",
-		resource, kind, namespaceForLogging, resyncPeriod)
-	// Passing empty string as namespace indicates informer to watch all namespaces.
-	// "*" does NOT work as namespace. We are just logging "*" for readability
-	sdk.Watch(resource, kind, namespace, resyncPeriod)
+	for {
+		select {
+		case <-stopCh:
+			cancelNow()
+		case <-ctx.Done():
+			cancelNow()
+		}
+	}
+}
+
+func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
+	controllerCfg *controller_config.Config) (stopCh <-chan struct{}, err error) {
+
+	// Get a config to talk to the apiserver
+	cfg, err := ctrlRuntimeConfig.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a new Cmd to provide shared dependencies and start components
+	mgr, err := manager.New(cfg, manager.Options{
+		Namespace:  controllerCfg.LimitNamespace,
+		SyncPeriod: &controllerCfg.ResyncPeriod.Duration,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Infof(ctx, "Registering Components.")
+
+	// Setup Scheme for all resources
+	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+		return nil, err
+	}
+
+	// Setup all Controllers
+	logger.Infof(ctx, "Adding controllers.")
+	if err := controller.AddToManager(ctx, mgr, controller_config.RuntimeConfig{
+		MetricsScope: metricsScope,
+	}); err != nil {
+		return nil, err
+	}
+
+	// Start the Cmd
+	logger.Infof(ctx, "Starting the Cmd.")
+	stopCh = signals.SetupSignalHandler()
+	return stopCh, mgr.Start(stopCh)
 }
