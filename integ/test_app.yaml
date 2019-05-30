@@ -1,0 +1,41 @@
+apiVersion: flink.k8s.io/v1alpha1
+kind: FlinkApplication
+metadata:
+  name: operator-test-app
+  annotations:
+  labels:
+    environment: development
+spec:
+  image: lyft/operator-test-app:6c45caca225489895cb1353dae25069b5d43746f.1
+  imagePullSecrets:
+    - name: dockerhub
+  flinkConfig:
+    taskmanager.heap.size: 200
+    state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
+    state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
+    state.savepoints.dir: file:///checkpoints/flink/savepoints
+  jobManagerConfig:
+    resources:
+      requests:
+        memory: "200Mi"
+        cpu: "0.2"
+    replicas: 1
+  taskManagerConfig:
+    taskSlots: 2
+    resources:
+      requests:
+        memory: "200Mi"
+        cpu: "0.2"
+  volumeMounts:
+    - mountPath: /checkpoints
+      name: checkpoints
+  volumes:
+    - name: checkpoints
+      hostPath:
+        path: /tmp/checkpoints
+        type: Directory
+  flinkVersion: "1.8"
+  deployType: Dual
+  jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
+  parallelism: 3
+  entryClass: "com.lyft.OperatorTestApp"

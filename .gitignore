@@ -1,0 +1,7 @@
+.idea/
+.DS_Store
+.vscode/
+.vendor-new/
+
+vendor/
+node_modules/

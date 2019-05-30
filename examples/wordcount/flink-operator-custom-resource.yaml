@@ -1,0 +1,31 @@
+apiVersion: flink.k8s.io/v1alpha1
+kind: FlinkApplication
+metadata:
+  name: wordcount-operator-example
+  annotations:
+  labels:
+    environment: development
+spec:
+  image: docker.io/lyft/wordcount-operator-example:latest
+  flinkConfig:
+    taskmanager.heap.size: 200
+    state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
+    state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
+    state.savepoints.dir: file:///checkpoints/flink/savepoints
+  jobManagerConfig:
+    resources:
+      requests:
+        memory: "200Mi"
+        cpu: "0.2"
+    replicas: 1
+  taskManagerConfig:
+    taskSlots: 2
+    resources:
+      requests:
+        memory: "200Mi"
+        cpu: "0.2"
+  flinkVersion: "1.8"
+  jarName: "wordcount-operator-example-1.0.0-SNAPSHOT.jar"
+  parallelism: 3
+  entryClass: "org.apache.flink.WordCount"
+
