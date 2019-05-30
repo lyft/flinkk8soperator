@@ -1,0 +1,29 @@
+sudo: required
+language: go
+dist: xenial
+cache:
+  directories:
+    - $GOPATH/pkg/dep
+go:
+  - "1.10"
+services:
+  - docker
+jobs:
+  include:
+    - stage: build
+      name: docker build and push
+      install: true
+      script: make dockerhub_push
+    - stage: build
+      name: unit tests
+      install: make install
+      script: make test_unit
+    - stage: build
+      install: make install
+      name: lint
+      script: make lint
+    - stage: integ-test
+      name: integration tests
+      install: integ/install.sh
+      before_script: integ/setup.sh
+      script: "sudo -E \"PATH=$PATH\" integ/test.sh"
