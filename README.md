@@ -46,3 +46,4 @@ Deploying and managing Flink applications in Kubernetes involves two steps:
 * [User guide](/docs/user_guide.md)
 * [Flink application custom resource](/docs/crd.md)
 * [Operator state machine](/docs/state_machine.md)
+testing
