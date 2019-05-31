@@ -2,8 +2,6 @@
 
 set -e
 
-export NAMESPACE=default
-export OPERATOR_IMAGE=lyft/flinkk8soperator:$(git rev-parse HEAD)
 export INTEGRATION=true
 
 # needed to create the checkpoints directory with world-writable permissions

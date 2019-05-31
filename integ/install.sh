@@ -2,7 +2,8 @@
 
 set -e
 
-docker login -u "$DOCKER_REGISTRY_USERNAME" -p "$DOCKER_REGISTRY_PASSWORD"
+make docker_build
+docker save flinkk8soperator > flinkk8soperator.tar
 
 sudo snap install microk8s --classic --channel=1.12/stable
 

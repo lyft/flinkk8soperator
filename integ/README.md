@@ -57,7 +57,7 @@ $ INTEGRATION=true RUN_DIRECT=true go test
 $ INTEGRATION=true IMAGE={operator image} go test
 ```
 
-Note that you will need to either build an image with tag flinkk8soperator:latest specify the operator image using the
+Note that you will need to either build an image with tag flinkk8soperator:latest or specify the operator image using the
 `IMAGE` environment
 
 ### Options

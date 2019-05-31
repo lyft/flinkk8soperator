@@ -11,6 +11,7 @@ services:
 jobs:
   include:
     - stage: build
+      if: branch = master
       name: docker build and push
       install: true
       script: make dockerhub_push

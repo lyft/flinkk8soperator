@@ -159,7 +159,7 @@ func (f *TestUtil) CreateOperator() error {
 	resources[v1.ResourceMemory] = resource.MustParse("0.5Gi")
 	deployment := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "flinkk8soperatore",
+			Name:      "flinkk8soperator",
 			Namespace: f.Namespace.Name,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -212,10 +212,8 @@ func (f *TestUtil) CreateOperator() error {
 							VolumeMounts: []v1.VolumeMount{
 								{Name: "config-volume", MountPath: "/etc/flinkk8soperator/config"},
 							},
+							ImagePullPolicy: v1.PullIfNotPresent,
 						},
-					},
-					ImagePullSecrets: []v1.LocalObjectReference{
-						{Name: "dockerhub"},
 					},
 				},
 			},
