@@ -2,9 +2,8 @@
 
 set -e
 
-cat integ/abc.yaml
 microk8s.kubectl apply -f integ/abc.yaml
-watch -n 5 microk8s.kubectl get pods
+microk8s.kubectl get pods
 
 export INTEGRATION=true
 
