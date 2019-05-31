@@ -295,7 +295,7 @@ func (f *TestUtil) TailOperatorLogs() error {
 
 		if len(pods.Items) == 0 || len(pods.Items[0].Status.ContainerStatuses) == 0 || !pods.Items[0].Status.ContainerStatuses[0].Ready {
 			time.Sleep(500 * time.Millisecond)
-			log.Info("Waiting for operator container to be ready... %v")
+			log.Info("Waiting for operator container to be ready...")
 		} else {
 			podName = pods.Items[0].Name
 			break
