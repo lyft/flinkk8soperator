@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-export NAMESPACE=default
 export OPERATOR_IMAGE=flinkk8soperator:$(git rev-parse HEAD)
 export IMAGE=127.0.0.1:32000/flinkk8soperator:local
 

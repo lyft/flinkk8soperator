@@ -2,12 +2,8 @@
 
 set -e
 
-microk8s.kubectl apply -f integ/abc.yaml
-microk8s.kubectl get pods
-
-echo $NAMESPACE
-echo $IMAGE
 export INTEGRATION=true
+export IMAGE=127.0.0.1:32000/flinkk8soperator:local
 
 # needed to create the checkpoints directory with world-writable permissions
 umask 000
