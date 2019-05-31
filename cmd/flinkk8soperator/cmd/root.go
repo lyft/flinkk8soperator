@@ -108,6 +108,7 @@ func executeRootCmd(controllerCfg *controller_config.Config) error {
 	ctx, cancelNow := context.WithCancel(context.Background())
 
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
+
 	logger.Infof(ctx, "Staleness Duration %v", controllerCfg.StatemachineStalenessDuration)
 
 	if controllerCfg.MetricsPrefix == "" {

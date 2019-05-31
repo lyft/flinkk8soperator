@@ -36,8 +36,8 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 	}
 	// var runDirect = flag.Bool("runDirect", false, "if set, runs the operator from the current source instead of from an image")
 	var runDirect = os.Getenv("RUN_DIRECT") != ""
-	// var image = flag.String("image", "flinkk8soperator:latest", "image for the operator")
-	var image = os.Getenv("IMAGE")
+	// var image = flag.String("operatorImage", "flinkk8soperator:latest", "image for the operator")
+	var image = os.Getenv("OPERATOR_IMAGE")
 	if image == "" {
 		image = "flinkk8soperator:latest"
 	}
