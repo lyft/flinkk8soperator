@@ -7,6 +7,7 @@
 ![Commit activity](https://img.shields.io/github/commit-activity/w/lyft/flinkk8soperator.svg?style=plastic)
 ![Commit since last release](https://img.shields.io/github/commits-since/lyft/flinkk8soperator/latest.svg?style=plastic)
 
+
 # Flinkk8soperator
 FlinkK8sOperator is a [Kubernetes operator](https://coreos.com/operators/) that manages [Flink](https://flink.apache.org/) applications on Kubernetes. The operator acts as control plane to manage the complete deployment lifecycle of the application.
 
