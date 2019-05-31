@@ -10,7 +10,10 @@ microk8s.start
 microk8s.status --wait-ready
 microk8s.enable dns registry
 
+docker images 127.0.0.1:32000/flinkk8soperator
+docker images 127.0.0.1:32000
 docker push 127.0.0.1:32000/flinkk8soperator
+
 images=$(docker images 127.0.0.1:32000/flinkk8soperator -q | xargs)
 echo $images
 while [ "$images" == "" ]
