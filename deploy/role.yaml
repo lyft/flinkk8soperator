@@ -22,6 +22,7 @@ rules:
     - get
     - list
     - watch
+    - update
     - delete
  - apiGroups:
     - extensions
