@@ -350,6 +350,7 @@ func jobmanagerTemplate(app *v1alpha1.FlinkApplication) *v1.Deployment {
 					},
 					Volumes:          app.Spec.Volumes,
 					ImagePullSecrets: app.Spec.ImagePullSecrets,
+					NodeSelector:     app.Spec.JobManagerConfig.NodeSelector,
 				},
 			},
 		},
