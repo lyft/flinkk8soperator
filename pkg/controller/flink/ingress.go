@@ -27,9 +27,10 @@ func FetchJobManagerIngressCreateObj(app *v1alpha1.FlinkApplication) *v1beta1.In
 	podLabels = common.CopyMap(podLabels, k8.GetAppLabel(app.Name))
 
 	ingressMeta := v1.ObjectMeta{
-		Name:      app.Name,
-		Labels:    podLabels,
-		Namespace: app.Namespace,
+		Name:        app.Name,
+		Labels:      podLabels,
+		Namespace:   app.Namespace,
+		Annotations: app.Spec.IngressConfig.Annotations,
 		OwnerReferences: []v1.OwnerReference{
 			*v1.NewControllerRef(app, app.GroupVersionKind()),
 		},

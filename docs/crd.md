@@ -52,6 +52,12 @@ Below is the list of fields in the custom resource and their description
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
       remaining memory is allocated for heap.
 
+  * **IngressConfig** `type:IngressConfig`
+    Configuration for the Flink App ingress
+
+    * **Annotations** `type:map[string]string`
+      Annotations to add the the ingress object
+
   * **JarName** `type:string required=true`
     Name of the jar file to be run. The application image needs to ensure that the jar file is present at the right location, as
     the operator uses the Web API to submit jobs.

@@ -35,6 +35,7 @@ type FlinkApplicationSpec struct {
 	FlinkVersion      string                       `json:"flinkVersion"`
 	TaskManagerConfig TaskManagerConfig            `json:"taskManagerConfig,omitempty"`
 	JobManagerConfig  JobManagerConfig             `json:"jobManagerConfig,omitempty"`
+	IngressConfig     IngressConfig                `json:"ingressConfig,omitempty"`
 	JarName           string                       `json:"jarName"`
 	Parallelism       int32                        `json:"parallelism"`
 	EntryClass        string                       `json:"entryClass,omitempty"`
@@ -108,6 +109,10 @@ type TaskManagerConfig struct {
 	Environment           EnvironmentConfig           `json:"envConfig"`
 	TaskSlots             *int32                      `json:"taskSlots,omitempty"`
 	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
+}
+
+type IngressConfig struct {
+	Annotations map[string]string `json:"annotations"`
 }
 
 type EnvironmentConfig struct {
