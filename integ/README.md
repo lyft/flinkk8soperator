@@ -54,11 +54,11 @@ $ INTEGRATION=true RUN_DIRECT=true go test
 ### Running in Image mode
 
 ```
-$ INTEGRATION=true IMAGE={operator image} go test
+$ INTEGRATION=true OPERATOR_IMAGE={operator image} go test
 ```
 
-Note that you will need to either build an image with tag flinkk8soperator:latest specify the operator image using the
-`IMAGE` environment
+Note that you will need to either build an image with tag flinkk8soperator:latest or specify the operator image using the
+`OPERATOR_IMAGE` environment
 
 ### Options
 
@@ -73,7 +73,7 @@ variables. Supported options include:
   create or delete the namespace.
 * `RUN_DIRECT` If set, will run the operator directly; otherwise will
   submit run it via a deployment inside Kubernetes
-* `IMAGE` The image to use for the operator when running in image
+* `OPERATOR_IMAGE` The image to use for the operator when running in image
   mode. By default, `lyft/flinkk8soperator:latest`
 
 You can also pass [gocheck](http://labix.org/gocheck) options to the

@@ -2,9 +2,10 @@
 
 set -e
 
-docker login -u "$DOCKER_REGISTRY_USERNAME" -p "$DOCKER_REGISTRY_PASSWORD"
-
-sudo snap install microk8s --classic --channel=1.12/stable
+sudo snap install microk8s --classic --channel=1.13/stable
+microk8s.status --wait-ready
+microk8s.enable dns
+microk8s.enable registry
 
 sh boilerplate/lyft/golang_test_targets/dep_install.sh
 

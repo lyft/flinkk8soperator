@@ -11,10 +11,6 @@ services:
 jobs:
   include:
     - stage: build
-      name: docker build and push
-      install: true
-      script: make dockerhub_push
-    - stage: build
       name: unit tests
       install: make install
       script: make test_unit
@@ -22,8 +18,16 @@ jobs:
       install: make install
       name: lint
       script: make lint
-    - stage: integ-test
+    - stage: build
       name: integration tests
       install: integ/install.sh
       before_script: integ/setup.sh
       script: "sudo -E \"PATH=$PATH\" integ/test.sh"
+    - stage: release
+      if: TRAVIS_PULL_REQUEST = false
+      name: docker build and push
+      install: true
+      script: make dockerhub_push
+
+after_success:
+- bash < (curl -s https://codecov.io/bash)
