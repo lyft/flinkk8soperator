@@ -30,7 +30,7 @@ const httpGet = "GET"
 const httpPost = "POST"
 const httpPatch = "PATCH"
 const retryCount = 3
-const timeOut = 5 * time.Second
+const timeOut = 1 * time.Minute
 
 type FlinkAPIInterface interface {
 	CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error)
