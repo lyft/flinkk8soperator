@@ -30,8 +30,23 @@ data:
       level: 4
 ```
 
+Then create the ConfigMap containing the configurations:
 ```bash
 $ kubectl create -f deploy/config.yaml
+```
+
+Also edit the resource requirements for the operator deployment if needed. The default are:
+```yaml
+  requests:
+    memory: "4Gi"
+    cpu: "4"
+  limits:
+    memory: "8G"
+    cpu: "8"
+```
+
+Then create the operator Deployment:
+```
 $ kubectl create -f deploy/flinkk8soperator.yaml
 ```
 
