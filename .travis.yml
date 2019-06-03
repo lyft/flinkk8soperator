@@ -24,7 +24,7 @@ jobs:
       before_script: integ/setup.sh
       script: "sudo -E \"PATH=$PATH\" integ/test.sh"
     - stage: release
-      if: TRAVIS_PULL_REQUEST = false
+      if: (branch = master AND type = push) OR tag IS present
       name: docker build and push
       install: true
       script: make dockerhub_push
