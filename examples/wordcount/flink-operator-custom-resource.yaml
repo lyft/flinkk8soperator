@@ -2,7 +2,7 @@ apiVersion: flink.k8s.io/v1alpha1
 kind: FlinkApplication
 metadata:
   name: wordcount-operator-example
-  namespace: default
+  namespace: flink-operator
   annotations:
   labels:
     environment: development
