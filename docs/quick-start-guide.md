@@ -74,7 +74,7 @@ $ kubectl get deployments -n flink-operator
 
 Check the phase and other status attributes in the custom resource
 ```bash
-$ kubectl get flinkapplication.flink.k8s.io -n flink-operator wordcount-operator-example -o yaml
+$ kubectl get flinkapplication.flink.k8s.io -n default wordcount-operator-example -o yaml
 ```
 
 The output should be something like this
@@ -135,7 +135,7 @@ status:
 To check events for the `FlinkApplication` object, run the following command:
 
 ```bash
-$ kubectl describe flinkapplication.flink.k8s.io -n flink-operator wordcount-operator-example
+$ kubectl describe flinkapplication.flink.k8s.io -n default wordcount-operator-example
 ```
 
 This will show the events similarly to the following:
