@@ -109,7 +109,7 @@ func executeRootCmd(controllerCfg *controller_config.Config) error {
 
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
 
-	logConfigMap(ctx, controllerCfg)
+	logger.Infof(ctx, "%+v\n", controllerCfg)
 
 	if controllerCfg.MetricsPrefix == "" {
 		logAndExit(errors.New("Invalid config: Metric prefix empty"))
@@ -138,19 +138,6 @@ func executeRootCmd(controllerCfg *controller_config.Config) error {
 			cancelNow()
 		}
 	}
-}
-
-func logConfigMap(ctx context.Context, controllerCfg *controller_config.Config) {
-	logger.Infof(ctx, "Staleness Duration %v", controllerCfg.StatemachineStalenessDuration)
-	logger.Infof(ctx, "Workers %v", controllerCfg.Workers)
-	logger.Infof(ctx, "Container Name Format %v", controllerCfg.ContainerNameFormat)
-	logger.Infof(ctx, "Flink Ingress URL format %v", controllerCfg.FlinkIngressURLFormat)
-	logger.Infof(ctx, "Limit Namespace %v", controllerCfg.LimitNamespace)
-	logger.Infof(ctx, "Metrics Prefix %v", controllerCfg.MetricsPrefix)
-	logger.Infof(ctx, "Resync Period %v", controllerCfg.ResyncPeriod)
-	logger.Infof(ctx, "Profiler Port", controllerCfg.ProfilerPort)
-	logger.Infof(ctx, "Use Proxy", controllerCfg.UseProxy)
-	logger.Infof(ctx, "Proxy Port", controllerCfg.ProxyPort)
 }
 
 func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
