@@ -109,7 +109,7 @@ func executeRootCmd(controllerCfg *controller_config.Config) error {
 
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
 
-	logger.Infof(ctx, "Staleness Duration %v", controllerCfg.StatemachineStalenessDuration)
+	logger.Infof(ctx, "%+v\n", controllerCfg)
 
 	if controllerCfg.MetricsPrefix == "" {
 		logAndExit(errors.New("Invalid config: Metric prefix empty"))
