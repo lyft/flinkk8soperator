@@ -36,7 +36,7 @@ The Operator creates flink clusters dynamically using the specified custom resou
 
 Deploying and managing Flink applications in Kubernetes involves two steps:
 
-* **Building Flink application packaged as a docker image:** A docker image is built containing the application source code with the necessary dependencies built in. This is required to bootstrap the Jobmanager and Taskmanager pods. At Lyft we use Source-To-Image [S2I](https://docs.openshift.com/enterprise/3.0/using_images/s2i_images/index.html) as the image build tool that provides a common builder image with Apache Flink pre-installed. The docker image could be built using any pre-existing workflows at an organization.
+* **Building Flink application packaged as a docker image:** A docker image is built containing the application source code with the necessary dependencies built in. This is required to bootstrap the Jobmanager and Taskmanager pods. At Lyft we use Source-To-Image [S2I](https://docs.openshift.com/container-platform/3.11/architecture/core_concepts/builds_and_image_streams.html#source-build) as the image build tool that provides a common builder image with Apache Flink pre-installed. The docker image could be built using any pre-existing workflows at an organization.
 
 * **Creating the Flink application custom resource:** The custom resource for Flink application provides the spec for configuring and managing flink clusters in Kubernetes. The FlinkK8sOperator, deployed on Kubernetes, continuously monitors the resource and the corresponding flink cluster, and performs action based on the diff.
 

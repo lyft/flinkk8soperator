@@ -62,7 +62,7 @@ $ kubectl logs {pod-name} -n flink-operator
 You can find sample application to run with the flink operator [here](/examples/). To run a flink application, run the following command:
 
 ```bash
-$ kubectl create -f examples/wordcount/flink-operator-custom-resource.yaml -n flink-operator
+$ kubectl create -f examples/wordcount/flink-operator-custom-resource.yaml
 ```
 
 The above command will create the flink application custom resource in kubernetes. The operator will observe the custom resource, and will create a flink cluster in kubernetes.

@@ -1,8 +1,6 @@
 jobmanager.web.submit.enable: true
 jobmanager.web.log.path: /var/log/jobmanager/current
 
-jobmanager.web.upload.dir: /opt/flink
-
 taskmanager.log.path: /var/log/taskmanager/current
 taskmanager.exit-on-fatal-akka-error: true
 taskmanager.network.memory.max: 2147483648
@@ -11,6 +9,8 @@ taskmanager.network.memory.fraction: 0.125
 # Akka config
 akka.framesize: 20MB
 parallelism.default: 1
+
+web.upload.dir: /opt/flink
 
 # State backend config
 state.backend: rocksdb
