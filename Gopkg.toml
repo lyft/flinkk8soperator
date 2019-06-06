@@ -33,3 +33,7 @@ required = [
 [[override]]
   name = "k8s.io/apiextensions-apiserver"
   version = "kubernetes-1.11.2"
+
+[[constraint]]
+  name = "github.com/lyft/flytestdlib"
+  version = "0.2.6"
