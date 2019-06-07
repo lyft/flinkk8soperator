@@ -34,6 +34,9 @@ Below is the list of fields in the custom resource and their description
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
       remaining memory is allocated for heap.
 
+    * **NodeSelector** `type:map[string]string`
+      Configuration for the node selectors used for the task manager
+
   * **JobManagerConfig** `type:JobManagerConfig`
     Configuration for the Flink job manager
 
@@ -51,6 +54,9 @@ Below is the list of fields in the custom resource and their description
     * **OffHeapMemoryFraction** `type:float64`
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
       remaining memory is allocated for heap.
+
+    * **NodeSelector** `type:map[string]string`
+      Configuration for the node selectors used for the job manager
 
   * **JarName** `type:string required=true`
     Name of the jar file to be run. The application image needs to ensure that the jar file is present at the right location, as

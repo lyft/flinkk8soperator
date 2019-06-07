@@ -257,6 +257,13 @@ func (in *JobManagerConfig) DeepCopyInto(out *JobManagerConfig) {
 		*out = new(float64)
 		**out = **in
 	}
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
@@ -304,6 +311,13 @@ func (in *TaskManagerConfig) DeepCopyInto(out *TaskManagerConfig) {
 		in, out := &in.OffHeapMemoryFraction, &out.OffHeapMemoryFraction
 		*out = new(float64)
 		**out = **in
+	}
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 	return
 }

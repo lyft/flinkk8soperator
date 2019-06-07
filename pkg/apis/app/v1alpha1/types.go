@@ -101,6 +101,7 @@ type JobManagerConfig struct {
 	Environment           EnvironmentConfig           `json:"envConfig"`
 	Replicas              *int32                      `json:"replicas,omitempty"`
 	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
+	NodeSelector          map[string]string           `json:"nodeSelector"`
 }
 
 type TaskManagerConfig struct {
@@ -108,6 +109,7 @@ type TaskManagerConfig struct {
 	Environment           EnvironmentConfig           `json:"envConfig"`
 	TaskSlots             *int32                      `json:"taskSlots,omitempty"`
 	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
+	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
 }
 
 type EnvironmentConfig struct {
