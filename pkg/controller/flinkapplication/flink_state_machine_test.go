@@ -848,3 +848,16 @@ func TestDeleteModeNone(t *testing.T) {
 	assert.Equal(t, 2, updateCount)
 	assert.False(t, cancelled)
 }
+
+func TestHandleInvalidPhase(t *testing.T) {
+	stateMachineForTest := getTestStateMachine()
+
+	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{
+		Spec: v1alpha1.FlinkApplicationSpec{},
+		Status: v1alpha1.FlinkApplicationStatus{
+			Phase: "asd",
+		},
+	})
+	assert.NotNil(t, err)
+	assert.EqualError(t, err, "Invalid state asd for the application")
+}

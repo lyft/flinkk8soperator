@@ -98,6 +98,11 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 
 func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	currentPhase := application.Status.Phase
+	if _, ok := s.metrics.stateMachineHandlePhaseMap[currentPhase]; !ok {
+		errMsg := fmt.Sprintf("Invalid state %s for the application", currentPhase)
+		logger.Errorf(ctx, errMsg)
+		return errors.New(errMsg)
+	}
 	timer := s.metrics.stateMachineHandlePhaseMap[currentPhase].Start(ctx)
 	successTimer := s.metrics.stateMachineHandleSuccessPhaseMap[currentPhase].Start(ctx)
 
