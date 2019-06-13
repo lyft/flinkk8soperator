@@ -11,7 +11,7 @@ import (
 )
 
 type CreateClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) error
-type DeleteClusterFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) error
+type DeleteOldResourcesForApp func(ctx context.Context, application *v1alpha1.FlinkApplication) error
 type CancelWithSavepointFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (string, error)
 type ForceCancelFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) error
 type StartFlinkJobFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
@@ -20,38 +20,38 @@ type GetSavepointStatusFunc func(ctx context.Context, application *v1alpha1.Flin
 type IsClusterReadyFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type IsServiceReadyFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error)
 type GetJobsForApplicationFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) ([]client.FlinkJob, error)
-type GetCurrentAndOldDeploymentsForAppFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, []common.FlinkDeployment, error)
+type GetCurrentDeploymentsForAppFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, error)
 type FindExternalizedCheckpointFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (string, error)
 type CompareAndUpdateClusterStatusFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error)
 type CompareAndUpdateJobStatusFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error)
 
 type FlinkController struct {
-	CreateClusterFunc                     CreateClusterFunc
-	DeleteClusterFunc                     DeleteClusterFunc
-	CancelWithSavepointFunc               CancelWithSavepointFunc
-	ForceCancelFunc                       ForceCancelFunc
-	StartFlinkJobFunc                     StartFlinkJobFunc
-	GetSavepointStatusFunc                GetSavepointStatusFunc
-	IsClusterReadyFunc                    IsClusterReadyFunc
-	IsServiceReadyFunc                    IsServiceReadyFunc
-	GetJobsForApplicationFunc             GetJobsForApplicationFunc
-	GetCurrentAndOldDeploymentsForAppFunc GetCurrentAndOldDeploymentsForAppFunc
-	FindExternalizedCheckpointFunc        FindExternalizedCheckpointFunc
-	Events                                []corev1.Event
-	CompareAndUpdateClusterStatusFunc     CompareAndUpdateClusterStatusFunc
-	CompareAndUpdateJobStatusFunc         CompareAndUpdateJobStatusFunc
+	CreateClusterFunc                 CreateClusterFunc
+	DeleteOldResourcesForAppFunc      DeleteOldResourcesForApp
+	CancelWithSavepointFunc           CancelWithSavepointFunc
+	ForceCancelFunc                   ForceCancelFunc
+	StartFlinkJobFunc                 StartFlinkJobFunc
+	GetSavepointStatusFunc            GetSavepointStatusFunc
+	IsClusterReadyFunc                IsClusterReadyFunc
+	IsServiceReadyFunc                IsServiceReadyFunc
+	GetJobsForApplicationFunc         GetJobsForApplicationFunc
+	GetCurrentDeploymentsForAppFunc   GetCurrentDeploymentsForAppFunc
+	FindExternalizedCheckpointFunc    FindExternalizedCheckpointFunc
+	Events                            []corev1.Event
+	CompareAndUpdateClusterStatusFunc CompareAndUpdateClusterStatusFunc
+	CompareAndUpdateJobStatusFunc     CompareAndUpdateJobStatusFunc
 }
 
-func (m *FlinkController) GetCurrentAndOldDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, []common.FlinkDeployment, error) {
-	if m.GetCurrentAndOldDeploymentsForAppFunc != nil {
-		return m.GetCurrentAndOldDeploymentsForAppFunc(ctx, application)
+func (m *FlinkController) GetCurrentDeploymentsForApp(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, error) {
+	if m.GetCurrentDeploymentsForAppFunc != nil {
+		return m.GetCurrentDeploymentsForAppFunc(ctx, application)
 	}
-	return nil, nil, nil
+	return nil, nil
 }
 
-func (m *FlinkController) DeleteCluster(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) error {
-	if m.DeleteClusterFunc != nil {
-		return m.DeleteClusterFunc(ctx, application, hash)
+func (m *FlinkController) DeleteOldResourcesForApp(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+	if m.DeleteOldResourcesForAppFunc != nil {
+		return m.DeleteOldResourcesForAppFunc(ctx, application)
 	}
 	return nil
 }

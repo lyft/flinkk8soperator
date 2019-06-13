@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -91,44 +92,11 @@ func TestFlinkIsClusterReady(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestFlinkApplicationChangedReplicas(t *testing.T) {
-	flinkControllerForTest := getTestFlinkController()
-	labelMapVal := map[string]string{
-		"flink-app": testAppName,
-	}
-
-	flinkApp := getFlinkTestApp()
-	taskSlots := int32(16)
-	flinkApp.Spec.TaskManagerConfig.TaskSlots = &taskSlots
-	flinkApp.Spec.Parallelism = 8
-
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		assert.Equal(t, testNamespace, namespace)
-		assert.Equal(t, labelMapVal, labelMap)
-
-		newApp := flinkApp.DeepCopy()
-		newApp.Spec.Parallelism = 10
-		hash := HashForApplication(newApp)
-		tm := *FetchTaskMangerDeploymentCreateObj(newApp, hash)
-		jm := *FetchJobMangerDeploymentCreateObj(newApp, hash)
-
-		return &v1.DeploymentList{
-			Items: []v1.Deployment{tm, jm},
-		}, nil
-	}
-
-	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
-		context.Background(), &flinkApp,
-	)
-	assert.True(t, cur == nil)
-	assert.Nil(t, err)
-}
-
 func TestFlinkApplicationNotChanged(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	labelMapVal := map[string]string{
-		"flink-app": testAppName,
+		"flink-app":      testAppName,
+		"flink-app-hash": testAppHash,
 	}
 	flinkApp := getFlinkTestApp()
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
@@ -142,7 +110,7 @@ func TestFlinkApplicationNotChanged(t *testing.T) {
 			},
 		}, nil
 	}
-	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
+	cur, err := flinkControllerForTest.GetCurrentDeploymentsForApp(
 		context.Background(), &flinkApp,
 	)
 	assert.Nil(t, err)
@@ -152,7 +120,8 @@ func TestFlinkApplicationNotChanged(t *testing.T) {
 func TestFlinkApplicationChanged(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	labelMapVal := map[string]string{
-		"flink-app": testAppName,
+		"flink-app":      testAppName,
+		"flink-app-hash": testAppHash,
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
@@ -161,7 +130,7 @@ func TestFlinkApplicationChanged(t *testing.T) {
 		return &v1.DeploymentList{}, nil
 	}
 	flinkApp := getFlinkTestApp()
-	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
+	cur, err := flinkControllerForTest.GetCurrentDeploymentsForApp(
 		context.Background(), &flinkApp,
 	)
 	assert.True(t, cur == nil)
@@ -175,25 +144,27 @@ func testJobPropTriggersChange(t *testing.T, changeFun func(application *v1alpha
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		assert.Equal(t, testNamespace, namespace)
-		if val, ok := labelMap["flink-app-hash"]; ok {
-			assert.Equal(t, testAppHash, val)
-		}
 		if val, ok := labelMap["flink-app"]; ok {
 			assert.Equal(t, testAppName, val)
 		}
+
 		hash := HashForApplication(&flinkApp)
-		tm := FetchTaskMangerDeploymentCreateObj(&flinkApp, hash)
-		jm := FetchJobMangerDeploymentCreateObj(&flinkApp, hash)
-		return &v1.DeploymentList{
-			Items: []v1.Deployment{
-				*tm, *jm,
-			},
-		}, nil
+		if hash == labelMap[FlinkAppHash] {
+			tm := FetchTaskMangerDeploymentCreateObj(&flinkApp, hash)
+			jm := FetchJobMangerDeploymentCreateObj(&flinkApp, hash)
+			return &v1.DeploymentList{
+				Items: []v1.Deployment{
+					*tm, *jm,
+				},
+			}, nil
+		}
+
+		return &v1.DeploymentList{}, nil
 	}
 
 	newApp := flinkApp.DeepCopy()
 	changeFun(newApp)
-	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
+	cur, err := flinkControllerForTest.GetCurrentDeploymentsForApp(
 		context.Background(), newApp,
 	)
 	assert.True(t, cur == nil)
@@ -216,42 +187,6 @@ func TestFlinkApplicationChangedJobProps(t *testing.T) {
 	testJobPropTriggersChange(t, func(app *v1alpha1.FlinkApplication) {
 		app.Spec.EntryClass = "com.another.Class"
 	})
-}
-
-func TestFlinkApplicationNeedsUpdate(t *testing.T) {
-	flinkControllerForTest := getTestFlinkController()
-	flinkApp := getFlinkTestApp()
-
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		assert.Equal(t, testNamespace, namespace)
-		if val, ok := labelMap["flink-app-hash"]; ok {
-			assert.Equal(t, testAppHash, val)
-		}
-		if val, ok := labelMap["flink-app"]; ok {
-			assert.Equal(t, testAppName, val)
-		}
-
-		app := getFlinkTestApp()
-		jm := FetchJobMangerDeploymentCreateObj(&app, testAppHash)
-		tm := FetchTaskMangerDeploymentCreateObj(&app, testAppHash)
-
-		return &v1.DeploymentList{
-			Items: []v1.Deployment{
-				*jm, *tm,
-			},
-		}, nil
-	}
-
-	numberOfTaskManagers := int32(2)
-	taskSlots := int32(2)
-	flinkApp.Spec.TaskManagerConfig.TaskSlots = &taskSlots
-	flinkApp.Spec.Parallelism = taskSlots*numberOfTaskManagers + 1
-	cur, _, err := flinkControllerForTest.GetCurrentAndOldDeploymentsForApp(
-		context.Background(), &flinkApp,
-	)
-	assert.True(t, cur == nil)
-	assert.Nil(t, err)
 }
 
 func TestFlinkIsServiceReady(t *testing.T) {
@@ -368,29 +303,60 @@ func TestGetActiveJobEmpty(t *testing.T) {
 	assert.Nil(t, activeJob)
 }
 
-func TestDeleteCluster(t *testing.T) {
+func TestDeleteOldResources(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
-	flinkApp := getFlinkTestApp()
-	jmDeployment := FetchJobMangerDeploymentDeleteObj(&flinkApp, "hash")
-	tmDeployment := FetchTaskMangerDeploymentDeleteObj(&flinkApp, "hash")
-	service := FetchVersionedJobManagerServiceDeleteObj(&flinkApp, "hash")
+	app := getFlinkTestApp()
+
+	jmDeployment := FetchTaskMangerDeploymentCreateObj(&app, "oldhash")
+	tmDeployment := FetchJobMangerDeploymentCreateObj(&app, "oldhash")
+	service := FetchJobManagerServiceCreateObj(&app, "oldhash")
+	service.Labels[FlinkAppHash] = "oldhash"
+
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
+
+	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
+		curJobmanager := FetchJobMangerDeploymentCreateObj(&app, testAppHash)
+		curTaskmanager := FetchTaskMangerDeploymentCreateObj(&app, testAppHash)
+		return &v1.DeploymentList{
+			Items: []v1.Deployment{
+				*jmDeployment,
+				*tmDeployment,
+				*curJobmanager,
+				*curTaskmanager,
+			},
+		}, nil
+	}
+
+	mockK8Cluster.GetServicesWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.ServiceList, error) {
+		curService := FetchJobManagerServiceCreateObj(&app, testAppHash)
+		curService.Labels[FlinkAppHash] = testAppHash
+
+		generic := FetchJobManagerServiceCreateObj(&app, testAppHash)
+		return &corev1.ServiceList{
+			Items: []corev1.Service{
+				*service,
+				*curService,
+				*generic,
+			},
+		}, nil
+	}
 
 	ctr := 0
-	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.DeleteK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		ctr++
 		switch ctr {
 		case 1:
-			assert.Equal(t, object, jmDeployment)
+			assert.Equal(t, jmDeployment, object)
 		case 2:
-			assert.Equal(t, object, tmDeployment)
+			assert.Equal(t, tmDeployment, object)
 		case 3:
-			assert.Equal(t, object, service)
+			assert.Equal(t, service, object)
 		}
 		return nil
 	}
 
-	err := flinkControllerForTest.DeleteCluster(context.Background(), &flinkApp, "hash")
+	err := flinkControllerForTest.DeleteOldResourcesForApp(context.Background(), &app)
+	assert.Equal(t, 3, ctr)
 	assert.Nil(t, err)
 }
 

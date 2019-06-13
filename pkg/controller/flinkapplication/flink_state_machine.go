@@ -428,7 +428,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 
 	logger.Debugf(ctx, "Application running with job %v", activeJob)
 
-	cur, old, err := s.flinkController.GetCurrentAndOldDeploymentsForApp(ctx, application)
+	cur, err := s.flinkController.GetCurrentDeploymentsForApp(ctx, application)
 	if err != nil {
 		return err
 	}
@@ -441,13 +441,10 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		return s.updateApplicationPhase(ctx, application, v1alpha1.FlinkApplicationUpdating)
 	}
 
-	// If there are old deployments left-over from a previous version, clean them up
-	for _, fd := range old {
-		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeNormal, fmt.Sprintf("Deleting old cluster with hash %s", fd.Hash))
-		err := s.flinkController.DeleteCluster(ctx, application, fd.Hash)
-		if err != nil {
-			return err
-		}
+	// If there are old resources left-over from a previous version, clean them up
+	err = s.flinkController.DeleteOldResourcesForApp(ctx, application)
+	if err != nil {
+		logger.Warn(ctx, "Failed to clean up old resources: %v", err)
 	}
 
 	// Update status of the cluster
