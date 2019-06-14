@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-resty/resty"
 	"github.com/jarcoal/httpmock"
 	mockScope "github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
@@ -27,10 +26,7 @@ const fakeCancelURL = "http://abc.com/jobs/1/savepoints"
 const fakeTaskmanagersURL = "http://abc.com/taskmanagers"
 
 func getTestClient() FlinkJobManagerClient {
-	client := resty.SetRetryCount(1)
-	return FlinkJobManagerClient{
-		client: client,
-	}
+	return FlinkJobManagerClient{}
 }
 
 func getTestJobManagerClient() FlinkAPIInterface {
@@ -438,7 +434,7 @@ func TestClientInvalidMethod(t *testing.T) {
 	defer httpmock.DeactivateAndReset()
 
 	client := getTestClient()
-	_, err := client.executeRequest("random", testURL, nil)
+	_, err := client.executeRequest(context.Background(), "random", testURL, nil)
 	assert.NotNil(t, err)
 	assert.EqualError(t, err, "Invalid method random in request")
 }

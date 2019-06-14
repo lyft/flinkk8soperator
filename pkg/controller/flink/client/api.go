@@ -30,7 +30,8 @@ const httpGet = "GET"
 const httpPost = "POST"
 const httpPatch = "PATCH"
 const retryCount = 3
-const timeOut = 5 * time.Second
+const httpGetTimeOut = 5 * time.Second
+const defaultTimeOut = 1 * time.Minute
 
 type FlinkAPIInterface interface {
 	CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error)
@@ -47,7 +48,6 @@ type FlinkAPIInterface interface {
 }
 
 type FlinkJobManagerClient struct {
-	client  *resty.Client
 	metrics *flinkJobManagerClientMetrics
 }
 
@@ -98,7 +98,7 @@ func (c *FlinkJobManagerClient) GetJobConfig(ctx context.Context, url, jobID str
 	path := fmt.Sprintf(getJobConfigURL, jobID)
 	url = url + path
 
-	response, err := c.executeRequest(httpGet, url, nil)
+	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.getJobConfigFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "GetJobConfig API request failed")
@@ -120,7 +120,7 @@ func (c *FlinkJobManagerClient) GetJobConfig(ctx context.Context, url, jobID str
 
 func (c *FlinkJobManagerClient) GetClusterOverview(ctx context.Context, url string) (*ClusterOverviewResponse, error) {
 	url = url + getOverviewURL
-	response, err := c.executeRequest(httpGet, url, nil)
+	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.getClusterFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "GetClusterOverview API request failed")
@@ -142,16 +142,19 @@ func (c *FlinkJobManagerClient) GetClusterOverview(ctx context.Context, url stri
 }
 
 // Helper method to execute the requests
-func (c *FlinkJobManagerClient) executeRequest(
+func (c *FlinkJobManagerClient) executeRequest(ctx context.Context,
 	method string, url string, payload interface{}) (*resty.Response, error) {
+	client := resty.SetLogger(logger.GetLogWriter(ctx)).SetTimeout(defaultTimeOut)
+
 	var resp *resty.Response
 	var err error
 	if method == httpGet {
-		resp, err = c.client.R().Get(url)
+		client.SetTimeout(httpGetTimeOut).SetRetryCount(retryCount)
+		resp, err = client.R().Get(url)
 	} else if method == httpPatch {
-		resp, err = c.client.R().Patch(url)
+		resp, err = client.R().Patch(url)
 	} else if method == httpPost {
-		resp, err = c.client.R().
+		resp, err = client.R().
 			SetHeader("Content-Type", "application/json").
 			SetBody(payload).
 			Post(url)
@@ -168,7 +171,7 @@ func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url 
 	cancelJobRequest := CancelJobRequest{
 		CancelJob: true,
 	}
-	response, err := c.executeRequest(httpPost, url, cancelJobRequest)
+	response, err := c.executeRequest(ctx, httpPost, url, cancelJobRequest)
 	if err != nil {
 		c.metrics.cancelJobFailureCounter.Inc(ctx)
 		return "", errors.Wrap(err, "Cancel job API request failed")
@@ -192,7 +195,7 @@ func (c *FlinkJobManagerClient) ForceCancelJob(ctx context.Context, url string, 
 
 	url = url + path + "?mode=cancel"
 
-	response, err := c.executeRequest(httpPatch, url, nil)
+	response, err := c.executeRequest(ctx, httpPatch, url, nil)
 	if err != nil {
 		c.metrics.forceCancelJobFailureCounter.Inc(ctx)
 		return errors.Wrap(err, "Force cancel job API request failed")
@@ -211,7 +214,7 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID
 	path := fmt.Sprintf(submitJobURL, jarID)
 	url = url + path
 
-	response, err := c.executeRequest(httpPost, url, submitJobRequest)
+	response, err := c.executeRequest(ctx, httpPost, url, submitJobRequest)
 	if err != nil {
 		c.metrics.submitJobFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "Submit job API request failed")
@@ -236,7 +239,7 @@ func (c *FlinkJobManagerClient) CheckSavepointStatus(ctx context.Context, url st
 	path := fmt.Sprintf(checkSavepointStatusURL, jobID, triggerID)
 	url = url + path
 
-	response, err := c.executeRequest(httpGet, url, nil)
+	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.checkSavepointFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "Check savepoint status API request failed")
@@ -257,7 +260,7 @@ func (c *FlinkJobManagerClient) CheckSavepointStatus(ctx context.Context, url st
 
 func (c *FlinkJobManagerClient) GetJobs(ctx context.Context, url string) (*GetJobsResponse, error) {
 	url = url + getJobsURL
-	response, err := c.executeRequest(httpGet, url, nil)
+	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.getJobsFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "Get jobs API request failed")
@@ -279,7 +282,7 @@ func (c *FlinkJobManagerClient) GetJobs(ctx context.Context, url string) (*GetJo
 
 func (c *FlinkJobManagerClient) GetLatestCheckpoint(ctx context.Context, url string, jobID string) (*CheckpointStatistics, error) {
 	endpoint := fmt.Sprintf(url+checkpointsURL, jobID)
-	response, err := c.executeRequest(httpGet, endpoint, nil)
+	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
 		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "get checkpoints failed")
@@ -300,7 +303,7 @@ func (c *FlinkJobManagerClient) GetLatestCheckpoint(ctx context.Context, url str
 
 func (c *FlinkJobManagerClient) GetTaskManagers(ctx context.Context, url string) (*TaskManagersResponse, error) {
 	endpoint := url + taskmanagersURL
-	response, err := c.executeRequest(httpGet, endpoint, nil)
+	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "get taskmanagers failed")
 	}
@@ -320,7 +323,7 @@ func (c *FlinkJobManagerClient) GetTaskManagers(ctx context.Context, url string)
 
 func (c *FlinkJobManagerClient) GetCheckpointCounts(ctx context.Context, url string, jobID string) (*CheckpointResponse, error) {
 	endpoint := fmt.Sprintf(url+checkpointsURL, jobID)
-	response, err := c.executeRequest(httpGet, endpoint, nil)
+	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
 		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
 		return nil, errors.Wrap(err, "get checkpoints failed")
@@ -341,7 +344,7 @@ func (c *FlinkJobManagerClient) GetCheckpointCounts(ctx context.Context, url str
 
 func (c *FlinkJobManagerClient) GetJobOverview(ctx context.Context, url string, jobID string) (*FlinkJobOverview, error) {
 	endpoint := fmt.Sprintf(url+getJobsOverviewURL, jobID)
-	response, err := c.executeRequest(httpGet, endpoint, nil)
+	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "get job overview failed")
 	}
@@ -359,10 +362,8 @@ func (c *FlinkJobManagerClient) GetJobOverview(ctx context.Context, url string, 
 }
 
 func NewFlinkJobManagerClient(config config.RuntimeConfig) FlinkAPIInterface {
-	client := resty.SetRetryCount(retryCount).SetTimeout(timeOut)
 	metrics := newFlinkJobManagerClientMetrics(config.MetricsScope)
 	return &FlinkJobManagerClient{
-		client:  client,
 		metrics: metrics,
 	}
 }
