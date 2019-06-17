@@ -1,15 +1,17 @@
 #!/bin/sh
 
 drop_privs_cmd() {
-    if [ -x /sbin/su-exec ]; then
+    if [ $(id -u) != 0 ]; then
+        # Don't need to drop privs if EUID != 0
+        return
+    elif [ -x /sbin/su-exec ]; then
         # Alpine
         echo su-exec
     else
         # Others
-        echo gosu
+        echo gosu flink
     fi
 }
-
 
 envsubst < /usr/local/flink-conf.yaml > $FLINK_HOME/conf/flink-conf.yaml
 
@@ -18,7 +20,7 @@ envsubst < /usr/local/flink-conf.yaml > $FLINK_HOME/conf/flink-conf.yaml
 # variable, which is assigned to TASKMANAGER_HOSTNAME env var by the
 # operator.
 if [ -n "$TASKMANAGER_HOSTNAME" ]; then
-    echo "taskmanager.host: $TASKMANAGER_HOSTNAME" >> "$FLINK_HOME/conf/flink-conf.yaml"
+   echo "taskmanager.host: $TASKMANAGER_HOSTNAME" >> "$FLINK_HOME/conf/flink-conf.yaml"
 fi
 
 # Add in extra configs set by the operator
@@ -38,14 +40,14 @@ if [ "$COMMAND" = "help" ]; then
 elif [ "$COMMAND" = "jobmanager" ]; then
     echo "Starting Job Manager"
     echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
-    exec $(drop_privs_cmd) flink "$FLINK_HOME/bin/jobmanager.sh" start-foreground
+    exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground
 elif [ "$COMMAND" = "taskmanager" ]; then
     echo "Starting Task Manager"
     echo "config file: " && grep '^[^\n#]' "$FLINK_HOME/conf/flink-conf.yaml"
-    exec $(drop_privs_cmd) flink "$FLINK_HOME/bin/taskmanager.sh" start-foreground
+    exec $(drop_privs_cmd) "$FLINK_HOME/bin/taskmanager.sh" start-foreground
 elif [ "$COMMAND" = "local" ]; then
     echo "Starting local cluster"
-    exec $(drop_privs_cmd) flink "$FLINK_HOME/bin/jobmanager.sh" start-foreground local
+    exec $(drop_privs_cmd) "$FLINK_HOME/bin/jobmanager.sh" start-foreground local
 fi
 
 exec "$@"

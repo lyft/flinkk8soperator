@@ -10,7 +10,7 @@ COPY . /code
 
 # Configure Flink version
 ENV FLINK_VERSION=1.8.0 \
-    HADOOP_SCALA_VARIANT=scala_2.11
+    HADOOP_SCALA_VARIANT=scala_2.12
 
 # Install dependencies
 RUN set -ex; \
@@ -21,7 +21,7 @@ RUN set -ex; \
   rm -rf /var/lib/apt/lists/*
 
 # Grab gosu for easy step-down from root
-ENV GOSU_VERSION 1.7
+ENV GOSU_VERSION 1.11
 RUN set -ex; \
   wget -nv -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture)"; \
   wget -nv -O /usr/local/bin/gosu.asc "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$(dpkg --print-architecture).asc"; \
@@ -31,11 +31,12 @@ RUN set -ex; \
   gosu nobody true
 
 # Install Maven
+ENV MAVEN_VERSION 3.6.1
 RUN \
-  wget https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.5.3/apache-maven-3.5.3-bin.tar.gz; \
-  tar -zxvf apache-maven-3.5.3-bin.tar.gz; \
-  mv apache-maven-3.5.3 $MAVEN_HOME; \
-  rm apache-maven-3.5.3-bin.tar.gz
+  wget https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/$MAVEN_VERSION/apache-maven-$MAVEN_VERSION-bin.tar.gz; \
+  tar -zxvf apache-maven-$MAVEN_VERSION-bin.tar.gz; \
+  mv apache-maven-$MAVEN_VERSION $MAVEN_HOME; \
+  rm apache-maven-$MAVEN_VERSION-bin.tar.gz
 
 WORKDIR /code
 
@@ -60,6 +61,9 @@ RUN set -ex; \
   rm flink.tgz; \
   \
   chown -R flink:flink .;
+
+# Needed on OpenShift for the entrypoint script to work
+RUN chmod -R 777 /opt/flink
 
 #  control script expects manifest.yaml at this location
 RUN chown -R flink:flink /var
