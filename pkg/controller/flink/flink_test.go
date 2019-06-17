@@ -311,6 +311,7 @@ func TestDeleteOldResources(t *testing.T) {
 	tmDeployment := FetchJobMangerDeploymentCreateObj(&app, "oldhash")
 	service := FetchJobManagerServiceCreateObj(&app, "oldhash")
 	service.Labels[FlinkAppHash] = "oldhash"
+	service.Name = VersionedJobManagerServiceName(&app, "oldhash")
 
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 
@@ -330,6 +331,7 @@ func TestDeleteOldResources(t *testing.T) {
 	mockK8Cluster.GetServicesWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.ServiceList, error) {
 		curService := FetchJobManagerServiceCreateObj(&app, testAppHash)
 		curService.Labels[FlinkAppHash] = testAppHash
+		curService.Name = VersionedJobManagerServiceName(&app, testAppHash)
 
 		generic := FetchJobManagerServiceCreateObj(&app, testAppHash)
 		return &corev1.ServiceList{

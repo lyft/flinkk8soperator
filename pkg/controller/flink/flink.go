@@ -130,7 +130,7 @@ type Controller struct {
 }
 
 func getURLFromApp(application *v1alpha1.FlinkApplication, hash string) string {
-	service := VersionedJobManagerService(application, hash)
+	service := VersionedJobManagerServiceName(application, hash)
 	cfg := config.GetConfig()
 	if cfg.UseProxy {
 		return fmt.Sprintf(proxyURL, cfg.ProxyPort.Port, application.Namespace, service)
@@ -362,7 +362,11 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1alpha1
 	oldObjects := make([]metav1.Object, 0)
 
 	for _, d := range deployments.Items {
-		if d.Labels[FlinkAppHash] != curHash {
+		if d.Labels[FlinkAppHash] != "" &&
+			d.Labels[FlinkAppHash] != curHash &&
+			// verify that this deployment matches the jobmanager or taskmanager naming format
+			(d.Name == fmt.Sprintf(JobManagerNameFormat, app.Name, d.Labels[FlinkAppHash]) ||
+				d.Name == fmt.Sprintf(TaskManagerNameFormat, app.Name, d.Labels[FlinkAppHash])) {
 			oldObjects = append(oldObjects, d.DeepCopy())
 		}
 	}
@@ -373,7 +377,9 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1alpha1
 	}
 
 	for _, d := range services.Items {
-		if d.Labels[FlinkAppHash] != "" && d.Labels[FlinkAppHash] != curHash {
+		if d.Labels[FlinkAppHash] != "" &&
+			d.Labels[FlinkAppHash] != curHash &&
+			d.Name == VersionedJobManagerServiceName(app, d.Labels[FlinkAppHash]) {
 			oldObjects = append(oldObjects, d.DeepCopy())
 		}
 	}

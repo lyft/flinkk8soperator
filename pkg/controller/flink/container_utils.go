@@ -172,7 +172,7 @@ func InjectHashesIntoConfig(deployment *appsv1.Deployment, app *v1alpha1.FlinkAp
 		for _, env := range container.Env {
 			if env.Name == OperatorFlinkConfig {
 				env.Value = fmt.Sprintf("%s\nhigh-availability.cluster-id: %s-%s\n", env.Value, app.Name, hash)
-				env.Value = fmt.Sprintf("%sjobmanager.rpc.address: %s\n", env.Value, VersionedJobManagerService(app, hash))
+				env.Value = fmt.Sprintf("%sjobmanager.rpc.address: %s\n", env.Value, VersionedJobManagerServiceName(app, hash))
 			}
 			newEnv = append(newEnv, env)
 		}

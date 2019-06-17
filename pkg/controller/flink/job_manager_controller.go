@@ -40,7 +40,7 @@ const (
 	FlinkInternalMetricPortName = "metrics"
 )
 
-func VersionedJobManagerService(app *v1alpha1.FlinkApplication, hash string) string {
+func VersionedJobManagerServiceName(app *v1alpha1.FlinkApplication, hash string) string {
 	return fmt.Sprintf("%s-%s", app.Name, hash)
 }
 
@@ -121,7 +121,7 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 	// create the service for _this_ version of the flink application
 	// this gives us a stable and reliable way to target a particular cluster during upgrades
 	versionedJobManagerService := FetchJobManagerServiceCreateObj(application, hash)
-	versionedJobManagerService.Name = VersionedJobManagerService(application, hash)
+	versionedJobManagerService.Name = VersionedJobManagerServiceName(application, hash)
 	versionedJobManagerService.Labels[FlinkAppHash] = hash
 
 	err = j.k8Cluster.CreateK8Object(ctx, versionedJobManagerService)
