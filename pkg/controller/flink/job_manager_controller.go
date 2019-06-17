@@ -40,7 +40,7 @@ const (
 	FlinkInternalMetricPortName = "metrics"
 )
 
-func VersionedJobManagerService(app *v1alpha1.FlinkApplication, hash string) string {
+func VersionedJobManagerServiceName(app *v1alpha1.FlinkApplication, hash string) string {
 	return fmt.Sprintf("%s-%s", app.Name, hash)
 }
 
@@ -121,7 +121,8 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 	// create the service for _this_ version of the flink application
 	// this gives us a stable and reliable way to target a particular cluster during upgrades
 	versionedJobManagerService := FetchJobManagerServiceCreateObj(application, hash)
-	versionedJobManagerService.Name = VersionedJobManagerService(application, hash)
+	versionedJobManagerService.Name = VersionedJobManagerServiceName(application, hash)
+	versionedJobManagerService.Labels[FlinkAppHash] = hash
 
 	err = j.k8Cluster.CreateK8Object(ctx, versionedJobManagerService)
 	if err != nil {
@@ -174,19 +175,6 @@ func getJobManagerName(application *v1alpha1.FlinkApplication, hash string) stri
 	return fmt.Sprintf(JobManagerNameFormat, applicationName, hash)
 }
 
-func FetchVersionedJobManagerServiceDeleteObj(app *v1alpha1.FlinkApplication, hash string) *coreV1.Service {
-	return &coreV1.Service{
-		TypeMeta: metaV1.TypeMeta{
-			APIVersion: coreV1.SchemeGroupVersion.String(),
-			Kind:       k8.Service,
-		},
-		ObjectMeta: metaV1.ObjectMeta{
-			Name:      VersionedJobManagerService(app, hash),
-			Namespace: app.Namespace,
-		},
-	}
-}
-
 func FetchJobManagerServiceCreateObj(app *v1alpha1.FlinkApplication, hash string) *coreV1.Service {
 	jmServiceName := app.Name
 	serviceLabels := getCommonAppLabels(app)
@@ -204,6 +192,7 @@ func FetchJobManagerServiceCreateObj(app *v1alpha1.FlinkApplication, hash string
 			OwnerReferences: []metaV1.OwnerReference{
 				*metaV1.NewControllerRef(app, app.GroupVersionKind()),
 			},
+			Labels: getCommonAppLabels(app),
 		},
 		Spec: coreV1.ServiceSpec{
 			Ports:    getJobManagerServicePorts(app),
@@ -288,19 +277,6 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 
 func DeploymentIsJobmanager(deployment *v1.Deployment) bool {
 	return deployment.Labels[FlinkDeploymentType] == FlinkDeploymentTypeJobmanager
-}
-
-func FetchJobMangerDeploymentDeleteObj(app *v1alpha1.FlinkApplication, hash string) *v1.Deployment {
-	return &v1.Deployment{
-		TypeMeta: metaV1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       k8.Deployment,
-		},
-		ObjectMeta: metaV1.ObjectMeta{
-			Namespace: app.Namespace,
-			Name:      getJobManagerName(app, hash),
-		},
-	}
 }
 
 // Translates a FlinkApplication into a JobManager deployment. Changes to this function must be

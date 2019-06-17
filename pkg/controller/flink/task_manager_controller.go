@@ -178,19 +178,6 @@ func DeploymentIsTaskmanager(deployment *v1.Deployment) bool {
 	return deployment.Labels[FlinkDeploymentType] == FlinkDeploymentTypeTaskmanager
 }
 
-func FetchTaskMangerDeploymentDeleteObj(app *v1alpha1.FlinkApplication, hash string) *v1.Deployment {
-	return &v1.Deployment{
-		TypeMeta: metaV1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       k8.Deployment,
-		},
-		ObjectMeta: metaV1.ObjectMeta{
-			Namespace: app.Namespace,
-			Name:      getTaskManagerName(app, hash),
-		},
-	}
-}
-
 // Translates a FlinkApplication into a TaskManager deployment. Changes to this function must be
 // made very carefully. Any new version v' that causes DeploymentsEqual(v(x), v'(x)) to be false
 // will cause redeployments for all applications, and should be considered a breaking change that

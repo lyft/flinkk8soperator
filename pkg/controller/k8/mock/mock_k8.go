@@ -11,12 +11,14 @@ import (
 type GetDeploymentsWithLabelFunc func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
 type CreateK8ObjectFunc func(ctx context.Context, object runtime.Object) error
 type GetServiceFunc func(ctx context.Context, namespace string, name string) (*corev1.Service, error)
+type GetServiceWithLabelFunc func(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.ServiceList, error)
 type UpdateK8ObjectFunc func(ctx context.Context, object runtime.Object) error
 type DeleteK8ObjectFunc func(ctx context.Context, object runtime.Object) error
 
 type K8Cluster struct {
 	GetDeploymentsWithLabelFunc GetDeploymentsWithLabelFunc
 	GetServiceFunc              GetServiceFunc
+	GetServicesWithLabelFunc    GetServiceWithLabelFunc
 	CreateK8ObjectFunc          CreateK8ObjectFunc
 	UpdateK8ObjectFunc          UpdateK8ObjectFunc
 	DeleteK8ObjectFunc          DeleteK8ObjectFunc
@@ -25,6 +27,13 @@ type K8Cluster struct {
 func (m *K8Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 	if m.GetDeploymentsWithLabelFunc != nil {
 		return m.GetDeploymentsWithLabelFunc(ctx, namespace, labelMap)
+	}
+	return nil, nil
+}
+
+func (m *K8Cluster) GetServicesWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.ServiceList, error) {
+	if m.GetDeploymentsWithLabelFunc != nil {
+		return m.GetServicesWithLabelFunc(ctx, namespace, labelMap)
 	}
 	return nil, nil
 }

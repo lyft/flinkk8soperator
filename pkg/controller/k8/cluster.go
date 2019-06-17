@@ -29,6 +29,7 @@ type ClusterInterface interface {
 
 	// Tries to fetch the value from the controller runtime manager cache, if it does not exist, call API server
 	GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error)
+	GetServicesWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.ServiceList, error)
 
 	CreateK8Object(ctx context.Context, object runtime.Object) error
 	UpdateK8Object(ctx context.Context, object runtime.Object) error
@@ -97,6 +98,32 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 		return nil, err
 	}
 	return deploymentList, nil
+}
+
+func (k *Cluster) GetServicesWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.ServiceList, error) {
+	serviceList := &coreV1.ServiceList{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: coreV1.SchemeGroupVersion.String(),
+			Kind:       Service,
+		},
+	}
+	labelSelector := labels.SelectorFromSet(labelMap)
+	options := &client.ListOptions{
+		LabelSelector: labelSelector,
+	}
+	err := k.cache.List(ctx, options, serviceList)
+	if err != nil {
+		if IsK8sObjectDoesNotExist(err) {
+			err := k.client.List(ctx, options, serviceList)
+			if err != nil {
+				logger.Warnf(ctx, "Failed to list services %v", err)
+				return nil, err
+			}
+		}
+		logger.Warnf(ctx, "Failed to list services from cache %v", err)
+		return nil, err
+	}
+	return serviceList, nil
 }
 
 func (k *Cluster) CreateK8Object(ctx context.Context, object runtime.Object) error {

@@ -90,11 +90,11 @@ func TestHandleStartingDual(t *testing.T) {
 		return true, nil
 	}
 
-	mockFlinkController.GetCurrentAndOldDeploymentsForAppFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, []common.FlinkDeployment, error) {
+	mockFlinkController.GetCurrentDeploymentsForAppFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, error) {
 		fd := testFlinkDeployment(application)
 		fd.Taskmanager.Status.AvailableReplicas = 2
 		fd.Jobmanager.Status.AvailableReplicas = 1
-		return &fd, nil, nil
+		return &fd, nil
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
@@ -444,9 +444,9 @@ func TestHandleApplicationNotReady(t *testing.T) {
 func TestHandleApplicationRunning(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.GetCurrentAndOldDeploymentsForAppFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, []common.FlinkDeployment, error) {
+	mockFlinkController.GetCurrentDeploymentsForAppFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, error) {
 		fd := testFlinkDeployment(application)
-		return &fd, nil, nil
+		return &fd, nil
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
@@ -466,8 +466,8 @@ func TestRunningToClusterStarting(t *testing.T) {
 	updateInvoked := false
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.GetCurrentAndOldDeploymentsForAppFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, []common.FlinkDeployment, error) {
-		return nil, []common.FlinkDeployment{testFlinkDeployment(application)}, nil
+	mockFlinkController.GetCurrentDeploymentsForAppFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication) (*common.FlinkDeployment, error) {
+		return nil, nil
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
