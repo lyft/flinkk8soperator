@@ -425,7 +425,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 	return nil
 }
 
-// Check if the application is Runninrg.
+// Check if the application is Running.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
 func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1alpha1.FlinkApplication) error {
 	jobs, err := s.flinkController.GetJobsForApplication(ctx, application, application.Status.DeployHash)
