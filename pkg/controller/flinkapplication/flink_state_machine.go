@@ -351,25 +351,26 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 		app.Status.JobStatus.ProgramArgs = app.Spec.ProgramArgs
 		app.Status.JobStatus.JobID = "00000000000000000000000000000000"
 		return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationRunning)
-	} else {
-		activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
-			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
-		if err != nil {
-			return err
-		}
+	}
+	
 
-		if activeJob != nil && activeJob.Status == client.Running {
-			// Clear the savepoint info
-			app.Spec.SavepointInfo = v1alpha1.SavepointInfo{}
-			// Update the application status with the running job info
-			app.Status.DeployHash = hash
-			app.Status.JobStatus.JarName = app.Spec.JarName
-			app.Status.JobStatus.Parallelism = app.Spec.Parallelism
-			app.Status.JobStatus.EntryClass = app.Spec.EntryClass
-			app.Status.JobStatus.ProgramArgs = app.Spec.ProgramArgs
+	activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
+		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
+	if err != nil {
+		return err
+	}
 
-			return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationRunning)
-		}
+	if activeJob != nil && activeJob.Status == client.Running {
+		// Clear the savepoint info
+		app.Spec.SavepointInfo = v1alpha1.SavepointInfo{}
+		// Update the application status with the running job info
+		app.Status.DeployHash = hash
+		app.Status.JobStatus.JarName = app.Spec.JarName
+		app.Status.JobStatus.Parallelism = app.Spec.Parallelism
+		app.Status.JobStatus.EntryClass = app.Spec.EntryClass
+		app.Status.JobStatus.ProgramArgs = app.Spec.ProgramArgs
+
+		return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationRunning)
 	}
 
 	return nil
