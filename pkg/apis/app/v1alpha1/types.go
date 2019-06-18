@@ -41,6 +41,7 @@ type FlinkApplicationSpec struct {
 	ProgramArgs       string                       `json:"programArgs,omitempty"`
 	SavepointInfo     SavepointInfo                `json:"savepointInfo,omitempty"`
 	DeploymentMode    DeploymentMode               `json:"deploymentMode"`
+	ClusterMode       ClusterMode                  `json:"clusterMode,omitempty"`
 	RPCPort           *int32                       `json:"rpcPort,omitempty"`
 	BlobPort          *int32                       `json:"blobPort,omitempty"`
 	QueryPort         *int32                       `json:"queryPort,omitempty"`
@@ -225,6 +226,13 @@ type DeploymentMode string
 const (
 	DeploymentModeSingle DeploymentMode = "Single"
 	DeploymentModeDual   DeploymentMode = "Dual"
+)
+
+type ClusterMode string
+
+const (
+	JobClusterMode     ClusterMode = "JobCluster"
+	SessionClusterMode ClusterMode = "SessionCluster"
 )
 
 type DeleteMode string

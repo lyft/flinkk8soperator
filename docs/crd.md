@@ -1,7 +1,7 @@
 # Flink Application Custom Resource Definition
 The [flinkapplication](https://github.com/lyft/flinkk8soperator/blob/master/deploy/crd.yaml) is a [kubernetes custom resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/). Once the *flinkapplication* custom resource is created in Kubernetes, the FlinkK8sOperator watches the resource and tries to move it through a series of states until the desired state is reached.
 
-[FlinkApplication Custom Resource Example](https://github.com/lyft/flinkk8soperator/blob/master/examples/wordcount/flink-operator-custom-resource.yaml)
+[FlinkApplication Custom Resource Example](https://github.com/lyft/flinkk8soperator/blob/master/examples/wordcount-sessioncluster/flink-operator-custom-resource.yaml)
 
 Below is the list of fields in the custom resource and their description
 
@@ -58,9 +58,9 @@ Below is the list of fields in the custom resource and their description
     * **NodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the job manager
 
-  * **JarName** `type:string required=true`
+  * **JarName** `type:string`
     Name of the jar file to be run. The application image needs to ensure that the jar file is present at the right location, as
-    the operator uses the Web API to submit jobs.
+    the operator uses the Web API to submit jobs in the session cluster mode.
 
   * **Parallelism** `type:int32 required=true`
     Job level parallelism for the Flink Job
@@ -84,6 +84,11 @@ Below is the list of fields in the custom resource and their description
     Indicates the type of deployment that operator should perform if the custom resource is updated. Currently only Dual is supported.
 
     `Dual` This deployment mode is intended for applications where downtime during deployment needs to be as minimal as possible. In this deployment mode, the operator brings up a second Flink cluster with the new image, while the original Flink cluster is still active. Once the pods and containers in the new flink cluster are ready, the Operator cancels the job in the first Cluster with savepoint, deletes the cluster and starts the job in the second cluster. (More information in the state machine section below). This mode is suitable for real time processing applications.
+
+  * **ClusterMode** `type:ClusterMode`
+    Indicates whether to run the job in the session or job cluster mode. Session cluster mode by default.
+    
+    For details on the differences between two modes, refer to the Flink [documentation](https://ci.apache.org/projects/flink/flink-docs-stable/ops/deployment/docker.html).
 
   * **DeleteMode** `type:DeleteMode`
     Indicates how Flink jobs are torn down when the FlinkApplication resource is deleted

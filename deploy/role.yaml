@@ -59,7 +59,7 @@ rules:
    - watch
    - create
    - update
-# Allow Access to flink applications under flink.k8s.io
+# Allow Access to FlinkApplications under flink.k8s.io
  - apiGroups:
    - flink.k8s.io
    resources:

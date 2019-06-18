@@ -163,7 +163,7 @@ func isOwnedByFlinkApplication(ownerReferences []metaV1.OwnerReference) bool {
 
 // Predicate filters events before enqueuing the keys.
 // We are only interested in kubernetes objects that are owned by the FlinkApplication
-// This filters all the objects not owned by the flinkApplication, and ensures only subset reaches event handlers
+// This filters all the objects not owned by the FlinkApplication, and ensures only subset reaches event handlers
 func getPredicateFuncs() predicate.Funcs {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {

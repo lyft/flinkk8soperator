@@ -4,7 +4,7 @@ Copyright 2019-2020 Lyft Inc.
 This product includes software developed at Lyft Inc.
 
 Notices for file(s):
-  examples/wordcount/src/main/java/org/apache/flink/ contains work from https://github.com/apache/flink under the Apache2 license.
+  examples/wordcount-sessioncluster/src/main/java/org/apache/flink/ contains work from https://github.com/apache/flink under the Apache2 license.
 
 /*
 Copyright 2016 The Kubernetes Authors.

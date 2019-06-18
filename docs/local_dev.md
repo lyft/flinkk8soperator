@@ -82,7 +82,7 @@ $ kubectl create -f deploy/flinkk8soperator_local.yaml
 ## Run an application
 
 ```bash
-$ kubectl create -f examples/wordcount/flink-operator-custom-resource.yaml
+$ kubectl create -f examples/wordcount-sessioncluster/flink-operator-custom-resource.yaml
 ```
 
 Now you should be able to see two pods (one for the jobmanager and one

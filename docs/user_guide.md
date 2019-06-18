@@ -5,7 +5,7 @@ For a quick introduction on how to build and install the Kubernetes Operator for
 ## Working with FlinkApplications
 
 ### Building a new Flink application
-The Flink operator brings up Jobmanager and Taskmanager for an application in Kubernetes. It does this by creating [deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) objects based on the *image* field in the FlinkApplication custom resource object. For more information about building images, please refer to this [documentation](/examples/README.md) and [examples](/examples/wordcount/).
+The Flink operator brings up Jobmanager and Taskmanager for an application in Kubernetes. It does this by creating [deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) objects based on the *image* field in the FlinkApplication custom resource object. For more information about building images, please refer to this [documentation](/examples/README.md).
 
 ### Creating a New FlinkApplication
 

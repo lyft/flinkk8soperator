@@ -47,9 +47,18 @@ func getCommonAppLabels(app *v1alpha1.FlinkApplication) map[string]string {
 
 func getCommonAnnotations(app *v1alpha1.FlinkApplication) map[string]string {
 	annotations := common.DuplicateMap(app.Annotations)
-	annotations[FlinkJobProperties] = fmt.Sprintf(
-		"jarName: %s\nparallelism: %d\nentryClass:%s\nprogramArgs:\"%s\"",
-		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
+
+	var properties string
+	if app.Spec.ClusterMode == v1alpha1.JobClusterMode {
+		properties = fmt.Sprintf(
+			"parallelism: %d\nentryClass:%s\nprogramArgs:\"%s\"",
+			app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
+	} else {
+		properties = fmt.Sprintf(
+			"jarName: %s\nparallelism: %d\nentryClass:%s\nprogramArgs:\"%s\"",
+			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
+	}
+	annotations[FlinkJobProperties] = properties
 	if app.Spec.RestartNonce != "" {
 		annotations[RestartNonce] = app.Spec.RestartNonce
 	}

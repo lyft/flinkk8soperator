@@ -13,7 +13,7 @@ import (
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
-	k8_err "k8s.io/apimachinery/pkg/api/errors"
+	k8err "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -23,7 +23,8 @@ const (
 	JobManagerNameFormat                = "%s-%s-jm"
 	JobManagerPodNameFormat             = "%s-%s-jm-pod"
 	JobManagerContainerName             = "jobmanager"
-	JobManagerArg                       = "jobmanager"
+	JobManagerSessionClusterArg         = "jobmanager"
+	JobManagerJobClusterArg             = "jobcluster"
 	JobManagerReadinessPath             = "/config"
 	JobManagerReadinessInitialDelaySec  = 10
 	JobManagerReadinessTimeoutSec       = 1
@@ -91,7 +92,7 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 	jobManagerDeployment := FetchJobMangerDeploymentCreateObj(application, hash)
 	err := j.k8Cluster.CreateK8Object(ctx, jobManagerDeployment)
 	if err != nil {
-		if !k8_err.IsAlreadyExists(err) {
+		if !k8err.IsAlreadyExists(err) {
 			j.metrics.deploymentCreationFailure.Inc(ctx)
 			logger.Errorf(ctx, "Jobmanager deployment creation failed %v", err)
 			return false, err
@@ -107,7 +108,7 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 	genericService := FetchJobManagerServiceCreateObj(application, hash)
 	err = j.k8Cluster.CreateK8Object(ctx, genericService)
 	if err != nil {
-		if !k8_err.IsAlreadyExists(err) {
+		if !k8err.IsAlreadyExists(err) {
 			j.metrics.serviceCreationFailure.Inc(ctx)
 			logger.Errorf(ctx, "Jobmanager service creation failed %v", err)
 			return false, err
@@ -125,7 +126,7 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 
 	err = j.k8Cluster.CreateK8Object(ctx, versionedJobManagerService)
 	if err != nil {
-		if !k8_err.IsAlreadyExists(err) {
+		if !k8err.IsAlreadyExists(err) {
 			j.metrics.serviceCreationFailure.Inc(ctx)
 			logger.Errorf(ctx, "Versioned Jobmanager service creation failed %v", err)
 			return false, err
@@ -139,7 +140,7 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 	jobManagerIngress := FetchJobManagerIngressCreateObj(application)
 	err = j.k8Cluster.CreateK8Object(ctx, jobManagerIngress)
 	if err != nil {
-		if !k8_err.IsAlreadyExists(err) {
+		if !k8err.IsAlreadyExists(err) {
 			j.metrics.ingressCreationFailure.Inc(ctx)
 			logger.Errorf(ctx, "Jobmanager ingress creation failed %v", err)
 			return false, err
@@ -260,12 +261,22 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 	operatorEnv := GetFlinkContainerEnv(application)
 	operatorEnv = append(operatorEnv, jmConfig.Environment.Env...)
 
+	// In the job cluster mode, cluster starting and job starting are one single step.
+	// The application main class and arguments are passed to the cluster when starting
+	args := []string{JobManagerSessionClusterArg}
+	if application.Spec.ClusterMode == v1alpha1.JobClusterMode {
+		args = []string{JobManagerJobClusterArg, application.Spec.EntryClass}
+		if application.Spec.ProgramArgs != "" {
+			args = append(args, application.Spec.ProgramArgs)
+		}
+	}
+
 	return &coreV1.Container{
 		Name:            getFlinkContainerName(JobManagerContainerName),
 		Image:           application.Spec.Image,
 		ImagePullPolicy: ImagePullPolicy(application),
 		Resources:       *resources,
-		Args:            []string{JobManagerArg},
+		Args:            args,
 		Ports:           ports,
 		Env:             operatorEnv,
 		EnvFrom:         jmConfig.Environment.EnvFrom,
@@ -305,7 +316,7 @@ func FetchJobMangerDeploymentDeleteObj(app *v1alpha1.FlinkApplication, hash stri
 
 // Translates a FlinkApplication into a JobManager deployment. Changes to this function must be
 // made very carefully. Any new version v' that causes DeploymentsEqual(v(x), v'(x)) to be false
-// will cause redeployments for all applications, and should be considered a breaking change that
+// will cause re-deployments for all applications, and should be considered a breaking change that
 // requires a new version of the CRD.
 func jobmanagerTemplate(app *v1alpha1.FlinkApplication) *v1.Deployment {
 	labels := getCommonAppLabels(app)

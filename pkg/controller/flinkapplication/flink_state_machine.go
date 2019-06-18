@@ -340,23 +340,36 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 		return err
 	}
 
-	activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
-		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
-	if err != nil {
-		return err
-	}
-
-	if activeJob != nil && activeJob.Status == client.Running {
-		// Clear the savepoint info
+	// In the job cluster mode, no job submission is going to happen.
+	// The job cluster is used to run only one single job, which always has a jobID of 00000000000000000000000000000000
+	// More details can be found at https://github.com/apache/flink/blob/master/flink-container/kubernetes/README.md
+	if app.Spec.ClusterMode == v1alpha1.JobClusterMode {
 		app.Spec.SavepointInfo = v1alpha1.SavepointInfo{}
-		// Update the application status with the running job info
 		app.Status.DeployHash = hash
-		app.Status.JobStatus.JarName = app.Spec.JarName
 		app.Status.JobStatus.Parallelism = app.Spec.Parallelism
 		app.Status.JobStatus.EntryClass = app.Spec.EntryClass
 		app.Status.JobStatus.ProgramArgs = app.Spec.ProgramArgs
-
+		app.Status.JobStatus.JobID = "00000000000000000000000000000000"
 		return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationRunning)
+	} else {
+		activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
+			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
+		if err != nil {
+			return err
+		}
+
+		if activeJob != nil && activeJob.Status == client.Running {
+			// Clear the savepoint info
+			app.Spec.SavepointInfo = v1alpha1.SavepointInfo{}
+			// Update the application status with the running job info
+			app.Status.DeployHash = hash
+			app.Status.JobStatus.JarName = app.Spec.JarName
+			app.Status.JobStatus.Parallelism = app.Spec.Parallelism
+			app.Status.JobStatus.EntryClass = app.Spec.EntryClass
+			app.Status.JobStatus.ProgramArgs = app.Spec.ProgramArgs
+
+			return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationRunning)
+		}
 	}
 
 	return nil
@@ -388,6 +401,10 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 	isReady, _ := s.flinkController.IsServiceReady(ctx, app, app.Status.DeployHash)
 	// Ignore errors
 	if !isReady {
+		return nil
+	}
+
+	if app.Spec.ClusterMode == v1alpha1.JobClusterMode {
 		return nil
 	}
 

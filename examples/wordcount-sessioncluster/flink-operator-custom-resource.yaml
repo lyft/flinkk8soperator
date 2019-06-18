@@ -8,6 +8,7 @@ metadata:
     environment: development
 spec:
   image: docker.io/lyft/wordcount-operator-example:latest
+  imagePullPolicy: Always
   flinkConfig:
     taskmanager.heap.size: 200
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
@@ -26,6 +27,7 @@ spec:
         memory: "200Mi"
         cpu: "0.2"
   flinkVersion: "1.8"
+  clusterMode: "SessionCluster"
   jarName: "wordcount-operator-example-1.0.0-SNAPSHOT.jar"
   parallelism: 3
   entryClass: "org.apache.flink.WordCount"
