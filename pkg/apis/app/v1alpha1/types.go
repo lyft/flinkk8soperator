@@ -159,6 +159,8 @@ type FlinkApplicationStatus struct {
 	JobStatus        FlinkJobStatus        `json:"jobStatus"`
 	FailedDeployHash string                `json:"failedUpdateHash,omitEmpty"`
 	DeployHash       string                `json:"deployHash"`
+	RetryCount       int32                 `json:"retryCount,omitEmpty"`
+	LastSeenError    string                `json:"lastSeenError,omitEmpty"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {

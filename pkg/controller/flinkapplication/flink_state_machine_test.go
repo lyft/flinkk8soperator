@@ -2,6 +2,7 @@ package flinkapplication
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -611,28 +612,30 @@ func TestIsApplicationStuck(t *testing.T) {
 	assert.Nil(t, err)
 
 	stateMachineForTest := getTestStateMachine()
-
-	lastUpdated := metav1.NewTime(time.Now())
 	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 	app := &v1alpha1.FlinkApplication{
 		Status: v1alpha1.FlinkApplicationStatus{
 			Phase:         v1alpha1.FlinkApplicationClusterStarting,
-			LastUpdatedAt: &lastUpdated,
 			DeployHash:    "prevhash",
+			LastSeenError: client.GetErrorKey(client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED")),
 		},
 	}
-
+	// Retryable error
 	assert.False(t, stateMachineForTest.shouldRollback(context.Background(), app))
+	assert.Nil(t, app.Status.LastSeenError)
+	assert.Equal(t, int32(1), app.Status.RetryCount)
 
-	lastUpdated = metav1.NewTime(time.Now().Add(time.Duration(-8) * time.Minute))
-	app.Status.LastUpdatedAt = &lastUpdated
+	// Retryable error with retries exhausted
+	app.Status.RetryCount = 100
+	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED"))
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
+	assert.NotNil(t, app.Status.LastSeenError)
+	assert.Equal(t, int32(100), app.Status.RetryCount)
 
-	app.Status.Phase = v1alpha1.FlinkApplicationRunning
-	assert.False(t, stateMachineForTest.shouldRollback(context.Background(), app))
-
-	app.Status.Phase = v1alpha1.FlinkApplicationDeployFailed
-	assert.False(t, stateMachineForTest.shouldRollback(context.Background(), app))
+	// Non retryable error
+	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "SubmitJob", "FAILED"))
+	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
+	assert.NotNil(t, app.Status.LastSeenError)
 }
 
 func TestDeleteWithSavepoint(t *testing.T) {

@@ -81,8 +81,8 @@ func newFlinkJobManagerClientMetrics(scope promutils.Scope) *flinkJobManagerClie
 		cancelJobFailureCounter:      labeled.NewCounter("cancel_job_failure", "Flink job cancellation failed", flinkJmClientScope),
 		forceCancelJobSuccessCounter: labeled.NewCounter("force_cancel_job_success", "Flink forced job cancellation successful", flinkJmClientScope),
 		forceCancelJobFailureCounter: labeled.NewCounter("force_cancel_job_failure", "Flink forced job cancellation failed", flinkJmClientScope),
-		checkSavepointSuccessCounter: labeled.NewCounter("check_savepoint_status_success", "Flink check savepoint status successful", flinkJmClientScope),
-		checkSavepointFailureCounter: labeled.NewCounter("check_savepoint_status_failure", "Flink check savepoint status failed", flinkJmClientScope),
+		checkSavepointSuccessCounter: labeled.NewCounter("check_savepoint_status_success", "Flink check savepoint errorCode successful", flinkJmClientScope),
+		checkSavepointFailureCounter: labeled.NewCounter("check_savepoint_status_failure", "Flink check savepoint errorCode failed", flinkJmClientScope),
 		getJobsSuccessCounter:        labeled.NewCounter("get_jobs_success", "Get flink jobs succeeded", flinkJmClientScope),
 		getJobsFailureCounter:        labeled.NewCounter("get_jobs_failure", "Get flink jobs failed", flinkJmClientScope),
 		getJobConfigSuccessCounter:   labeled.NewCounter("get_job_config_success", "Get flink job config succeeded", flinkJmClientScope),
@@ -101,18 +101,18 @@ func (c *FlinkJobManagerClient) GetJobConfig(ctx context.Context, url, jobID str
 	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.getJobConfigFailureCounter.Inc(ctx)
-		return nil, errors.Wrap(err, "GetJobConfig API request failed")
+		return nil, GetError(err, "GetJobConfig", globalFailure)
 	}
 
 	if response != nil && !response.IsSuccess() {
 		c.metrics.getJobConfigFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Get Jobconfig failed with response %v", response))
-		return nil, errors.New(fmt.Sprintf("Get Jobconfig failed with status %v", response.Status()))
+		return nil, GetError(err, "GetJobConfig", response.Status())
 	}
 	var jobConfigResponse JobConfigResponse
 	if err := json.Unmarshal(response.Body(), &jobConfigResponse); err != nil {
-		logger.Errorf(ctx, "Unable to Unmarshal jobPlanResponse %v, err: %v", response, err)
-		return nil, err
+		logger.Errorf(ctx, "Unable to Unmarshal jobPlanResponse %v, appError: %v", response, err)
+		return nil, GetError(err, "GetJobConfig", jsonUnmarshalError)
 	}
 	c.metrics.getJobConfigSuccessCounter.Inc(ctx)
 	return &jobConfigResponse, nil
@@ -123,19 +123,19 @@ func (c *FlinkJobManagerClient) GetClusterOverview(ctx context.Context, url stri
 	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.getClusterFailureCounter.Inc(ctx)
-		return nil, errors.Wrap(err, "GetClusterOverview API request failed")
+		return nil, GetError(err, "GetClusterOverview", globalFailure)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.getClusterFailureCounter.Inc(ctx)
 		if response.StatusCode() != int(http.StatusNotFound) || response.StatusCode() != int(http.StatusServiceUnavailable) {
 			logger.Errorf(ctx, fmt.Sprintf("Get cluster overview failed with response %v", response))
 		}
-		return nil, errors.New(fmt.Sprintf("Get cluster overview failed with status %v", response.Status()))
+		return nil, GetError(err, "GetClusterOverview", response.Status())
 	}
 	var clusterOverviewResponse ClusterOverviewResponse
 	if err = json.Unmarshal(response.Body(), &clusterOverviewResponse); err != nil {
-		logger.Errorf(ctx, "Unable to Unmarshal clusterOverviewResponse %v, err: %v", response, err)
-		return nil, err
+		logger.Errorf(ctx, "Unable to Unmarshal clusterOverviewResponse %v, appError: %v", response, err)
+		return nil, GetError(err, "GetClusterOverview", jsonUnmarshalError)
 	}
 	c.metrics.getClusterSuccessCounter.Inc(ctx)
 	return &clusterOverviewResponse, nil
@@ -174,17 +174,17 @@ func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url 
 	response, err := c.executeRequest(ctx, httpPost, url, cancelJobRequest)
 	if err != nil {
 		c.metrics.cancelJobFailureCounter.Inc(ctx)
-		return "", errors.Wrap(err, "Cancel job API request failed")
+		return "", GetError(err, "CancelJobWithSavepoint", globalFailure)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.cancelJobFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Cancel job failed with response %v", response))
-		return "", errors.New(fmt.Sprintf("Cancel job failed with status %v", response.Status()))
+		return "", GetError(err, "CancelJobWithSavepoint", response.Status())
 	}
 	var cancelJobResponse CancelJobResponse
 	if err = json.Unmarshal(response.Body(), &cancelJobResponse); err != nil {
-		logger.Errorf(ctx, "Unable to Unmarshal cancelJobResponse %v, err: %v", response, err)
-		return "", err
+		logger.Errorf(ctx, "Unable to Unmarshal cancelJobResponse %v, appError: %v", response, err)
+		return "", GetError(err, "CancelJobWithSavepoint", jsonUnmarshalError)
 	}
 	c.metrics.cancelJobSuccessCounter.Inc(ctx)
 	return cancelJobResponse.TriggerID, nil
@@ -198,12 +198,12 @@ func (c *FlinkJobManagerClient) ForceCancelJob(ctx context.Context, url string, 
 	response, err := c.executeRequest(ctx, httpPatch, url, nil)
 	if err != nil {
 		c.metrics.forceCancelJobFailureCounter.Inc(ctx)
-		return errors.Wrap(err, "Force cancel job API request failed")
+		return GetError(err, "ForceCancelJob", globalFailure)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.forceCancelJobFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Force cancel job failed with response %v", response))
-		return errors.New(fmt.Sprintf("Force cancel job failed with status %v", response.Status()))
+		return GetError(err, "ForceCancelJob", response.Status())
 	}
 
 	c.metrics.forceCancelJobFailureCounter.Inc(ctx)
@@ -217,18 +217,17 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID
 	response, err := c.executeRequest(ctx, httpPost, url, submitJobRequest)
 	if err != nil {
 		c.metrics.submitJobFailureCounter.Inc(ctx)
-		return nil, errors.Wrap(err, "Submit job API request failed")
+		return nil, GetError(err, "SubmitJob", globalFailure)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.submitJobFailureCounter.Inc(ctx)
 		logger.Warnf(ctx, fmt.Sprintf("Job submission failed with response %v", response))
-		return nil, errors.New(fmt.Sprintf("Job submission failed with status %v\n%s",
-			response.Status(), string(response.Body())))
+		return nil, GetError(err, "SubmitJob", response.Status())
 	}
 	var submitJobResponse SubmitJobResponse
 	if err = json.Unmarshal(response.Body(), &submitJobResponse); err != nil {
-		logger.Errorf(ctx, "Unable to Unmarshal submitJobResponse %v, err: %v", response, err)
-		return nil, err
+		logger.Errorf(ctx, "Unable to Unmarshal submitJobResponse %v, appError: %v", response, err)
+		return nil, GetError(err, "SubmitJob", jsonUnmarshalError)
 	}
 
 	c.metrics.submitJobSuccessCounter.Inc(ctx)
@@ -242,17 +241,17 @@ func (c *FlinkJobManagerClient) CheckSavepointStatus(ctx context.Context, url st
 	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.checkSavepointFailureCounter.Inc(ctx)
-		return nil, errors.Wrap(err, "Check savepoint status API request failed")
+		return nil, GetError(err, "CheckSavepointStatus", globalFailure)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.checkSavepointFailureCounter.Inc(ctx)
-		logger.Errorf(ctx, fmt.Sprintf("Check savepoint status failed with response %v", response))
-		return nil, errors.New(fmt.Sprintf("Check savepoint status failed with status %v", response.Status()))
+		logger.Errorf(ctx, fmt.Sprintf("Check savepoint errorCode failed with response %v", response))
+		return nil, GetError(err, "CheckSavepointStatus", response.Status())
 	}
 	var savepointResponse SavepointResponse
 	if err = json.Unmarshal(response.Body(), &savepointResponse); err != nil {
-		logger.Errorf(ctx, "Unable to Unmarshal savepointResponse %v, err: %v", response, err)
-		return nil, err
+		logger.Errorf(ctx, "Unable to Unmarshal savepointResponse %v, appError: %v", response, err)
+		return nil, GetError(err, "CheckSavepointStatus", jsonUnmarshalError)
 	}
 	c.metrics.cancelJobSuccessCounter.Inc(ctx)
 	return &savepointResponse, nil
@@ -263,18 +262,18 @@ func (c *FlinkJobManagerClient) GetJobs(ctx context.Context, url string) (*GetJo
 	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.getJobsFailureCounter.Inc(ctx)
-		return nil, errors.Wrap(err, "Get jobs API request failed")
+		return nil, GetError(err, "GetJobs", globalFailure)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.getJobsFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("GetJobs failed with response %v", response))
-		return nil, errors.New(fmt.Sprintf("GetJobs request failed with status %v", response.Status()))
+		return nil, errors.New(fmt.Sprintf("GetJobs request failed with errorCode %v", response.Status()))
 	}
 	var getJobsResponse GetJobsResponse
 	if err = json.Unmarshal(response.Body(), &getJobsResponse); err != nil {
 		logger.Errorf(ctx, "%v", getJobsResponse)
-		logger.Errorf(ctx, "Unable to Unmarshal getJobsResponse %v, err: %v", response, err)
-		return nil, err
+		logger.Errorf(ctx, "Unable to Unmarshal getJobsResponse %v, appError: %v", response, err)
+		return nil, GetError(err, "GetJobs", response.Status())
 	}
 	c.metrics.getJobsSuccessCounter.Inc(ctx)
 	return &getJobsResponse, nil
@@ -285,16 +284,16 @@ func (c *FlinkJobManagerClient) GetLatestCheckpoint(ctx context.Context, url str
 	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
 		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
-		return nil, errors.Wrap(err, "get checkpoints failed")
+		return nil, GetError(err, "GetLatestCheckpoint", globalFailure)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
-		return nil, errors.New(fmt.Sprintf("get checkpoints failed with response %v", response))
+		return nil, GetError(err, "GetLatestCheckpoint", response.Status())
 	}
 
 	var checkpointResponse CheckpointResponse
 	if err = json.Unmarshal(response.Body(), &checkpointResponse); err != nil {
-		logger.Errorf(ctx, "Failed to unmarshal checkpointResponse %v, err %v", response, err)
+		logger.Errorf(ctx, "Failed to unmarshal checkpointResponse %v, appError %v", response, err)
 	}
 
 	c.metrics.getCheckpointsSuccessCounter.Inc(ctx)
@@ -305,16 +304,16 @@ func (c *FlinkJobManagerClient) GetTaskManagers(ctx context.Context, url string)
 	endpoint := url + taskmanagersURL
 	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "get taskmanagers failed")
+		return nil, GetError(err, "GetTaskManagers", globalFailure)
 	}
 
 	if response != nil && !response.IsSuccess() {
-		return nil, errors.New(fmt.Sprintf("get taskmanagers failed with response %v", response))
+		return nil, GetError(err, "GetTaskManagers", response.Status())
 	}
 
 	var taskmanagerResponse TaskManagersResponse
 	if err = json.Unmarshal(response.Body(), &taskmanagerResponse); err != nil {
-		logger.Errorf(ctx, "Failed to unmarshal taskmanagerResponse %v, err %v", response, err)
+		logger.Errorf(ctx, "Failed to unmarshal taskmanagerResponse %v, appError %v", response, err)
 	}
 
 	return &taskmanagerResponse, nil
@@ -326,16 +325,16 @@ func (c *FlinkJobManagerClient) GetCheckpointCounts(ctx context.Context, url str
 	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
 		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
-		return nil, errors.Wrap(err, "get checkpoints failed")
+		return nil, GetError(err, "GetCheckpointCounts", globalFailure)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
-		return nil, errors.New(fmt.Sprintf("get checkpoints failed with response %v", response))
+		return nil, GetError(err, "GetCheckpointCounts", response.Status())
 	}
 
 	var checkpointResponse CheckpointResponse
 	if err = json.Unmarshal(response.Body(), &checkpointResponse); err != nil {
-		logger.Errorf(ctx, "Failed to unmarshal checkpointResponse %v, err %v", response, err)
+		logger.Errorf(ctx, "Failed to unmarshal checkpointResponse %v, appError %v", response, err)
 	}
 
 	c.metrics.getCheckpointsSuccessCounter.Inc(ctx)
@@ -346,16 +345,16 @@ func (c *FlinkJobManagerClient) GetJobOverview(ctx context.Context, url string, 
 	endpoint := fmt.Sprintf(url+getJobsOverviewURL, jobID)
 	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "get job overview failed")
+		return nil, GetError(err, "GetJobOverview", globalFailure)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.getCheckpointsFailureCounter.Inc(ctx)
-		return nil, errors.New(fmt.Sprintf("get job overview failed with response %v", response))
+		return nil, GetError(err, "GetJobOverview", response.Status())
 	}
 
 	var jobOverviewResponse FlinkJobOverview
 	if err = json.Unmarshal(response.Body(), &jobOverviewResponse); err != nil {
-		logger.Errorf(ctx, "Failed to unmarshal FlinkJob %v, err %v", response, err)
+		logger.Errorf(ctx, "Failed to unmarshal FlinkJob %v, appError %v", response, err)
 	}
 
 	return &jobOverviewResponse, nil
