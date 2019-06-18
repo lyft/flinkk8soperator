@@ -352,7 +352,6 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 		app.Status.JobStatus.JobID = "00000000000000000000000000000000"
 		return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationRunning)
 	}
-	
 
 	activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
 		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
