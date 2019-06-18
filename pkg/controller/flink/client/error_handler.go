@@ -8,13 +8,16 @@ const (
 	jsonUnmarshalError = "JSONUNMARSHALERROR"
 )
 
+// evolving map of retryable errors
 var retryableErrors = map[string]struct{}{
-	"GetClusterOverview":   {},
-	"GetJobs":              {},
-	"CheckSavepointStatus": {},
+	"GetClusterOverview500":              {},
+	"GetClusterOverview503":              {},
+	"GetClusterOverview" + globalFailure: {},
+	"CheckSavepointStatus500":            {},
+	"CheckSavepointStatus503":            {},
 }
 
-// FlinkApplicationError implements the appError interface to make appError handling more structured
+// FlinkApplicationError implements the error interface to make error handling more structured
 type FlinkApplicationError struct {
 	appError  string
 	method    string
