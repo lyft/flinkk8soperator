@@ -528,13 +528,13 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 		return err
 	}
 
-	if len(jobs) == 0 {
-		// there are no jobs for this application -- this means that the job either finished or was manually cancelled
-		// _and_ the job manager was restarted
+	finished := jobFinished(jobs, app.Status.JobStatus.JobID)
+
+	if len(jobs) == 0 || finished {
+		// there are no running jobs for this application, we can just tear down
 		return s.clearFinalizers(ctx, app)
 	}
 
-	finished := jobFinished(jobs, app.Status.JobStatus.JobID)
 	switch app.Spec.DeleteMode {
 	case v1alpha1.DeleteModeForceCancel:
 		if finished {
