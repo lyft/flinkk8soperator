@@ -79,7 +79,7 @@ func TestGetJobs500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.GetJobs(ctx, testURL)
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "GetJobs request failed with errorCode 500")
+	assert.EqualError(t, err, "GetJobs500")
 }
 
 func TestGetJobsError(t *testing.T) {
@@ -99,7 +99,7 @@ func TestGetJobsFlinkJobUnmarshal(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	ctx := context.Background()
-	mockJobsResponse := `{"jobs":[{"id":"abc","errorCode":"RUNNING"}]}`
+	mockJobsResponse := `{"jobs":[{"id":"abc","status":"RUNNING"}]}`
 	responder := httpmock.NewStringResponder(200, mockJobsResponse)
 	httpmock.RegisterResponder("GET", fakeJobsURL, responder)
 
@@ -426,7 +426,7 @@ func TestHttpGetNon200Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	_, err := client.GetJobs(ctx, testURL)
 	assert.NotNil(t, err)
-	assert.EqualError(t, err, "GetJobs request failed with errorCode 500")
+	assert.EqualError(t, err, "GetJobs500")
 }
 
 func TestClientInvalidMethod(t *testing.T) {

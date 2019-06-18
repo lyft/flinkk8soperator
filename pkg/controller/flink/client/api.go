@@ -81,8 +81,8 @@ func newFlinkJobManagerClientMetrics(scope promutils.Scope) *flinkJobManagerClie
 		cancelJobFailureCounter:      labeled.NewCounter("cancel_job_failure", "Flink job cancellation failed", flinkJmClientScope),
 		forceCancelJobSuccessCounter: labeled.NewCounter("force_cancel_job_success", "Flink forced job cancellation successful", flinkJmClientScope),
 		forceCancelJobFailureCounter: labeled.NewCounter("force_cancel_job_failure", "Flink forced job cancellation failed", flinkJmClientScope),
-		checkSavepointSuccessCounter: labeled.NewCounter("check_savepoint_status_success", "Flink check savepoint errorCode successful", flinkJmClientScope),
-		checkSavepointFailureCounter: labeled.NewCounter("check_savepoint_status_failure", "Flink check savepoint errorCode failed", flinkJmClientScope),
+		checkSavepointSuccessCounter: labeled.NewCounter("check_savepoint_status_success", "Flink check savepoint status successful", flinkJmClientScope),
+		checkSavepointFailureCounter: labeled.NewCounter("check_savepoint_status_failure", "Flink check savepoint status failed", flinkJmClientScope),
 		getJobsSuccessCounter:        labeled.NewCounter("get_jobs_success", "Get flink jobs succeeded", flinkJmClientScope),
 		getJobsFailureCounter:        labeled.NewCounter("get_jobs_failure", "Get flink jobs failed", flinkJmClientScope),
 		getJobConfigSuccessCounter:   labeled.NewCounter("get_job_config_success", "Get flink job config succeeded", flinkJmClientScope),
@@ -245,7 +245,7 @@ func (c *FlinkJobManagerClient) CheckSavepointStatus(ctx context.Context, url st
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.checkSavepointFailureCounter.Inc(ctx)
-		logger.Errorf(ctx, fmt.Sprintf("Check savepoint errorCode failed with response %v", response))
+		logger.Errorf(ctx, fmt.Sprintf("Check savepoint status failed with response %v", response))
 		return nil, GetError(err, "CheckSavepointStatus", response.Status())
 	}
 	var savepointResponse SavepointResponse
@@ -267,7 +267,7 @@ func (c *FlinkJobManagerClient) GetJobs(ctx context.Context, url string) (*GetJo
 	if response != nil && !response.IsSuccess() {
 		c.metrics.getJobsFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("GetJobs failed with response %v", response))
-		return nil, errors.New(fmt.Sprintf("GetJobs request failed with errorCode %v", response.Status()))
+		return nil, GetError(err, "GetJobs", response.Status())
 	}
 	var getJobsResponse GetJobsResponse
 	if err = json.Unmarshal(response.Body(), &getJobsResponse); err != nil {
