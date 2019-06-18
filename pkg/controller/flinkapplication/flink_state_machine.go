@@ -84,14 +84,15 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 		return false
 	}
 
+	if application.Status.LastSeenError == "" {
+		return false
+	}
 	// Check if the error is retryable and we have retries left
-	if application.Status.LastSeenError != "" {
-		if client.IsErrorRetryable(application.Status.LastSeenError) && application.Status.RetryCount <= maxRetries {
-			application.Status.RetryCount++
-			// Reset error to always record latest error
-			application.Status.LastSeenError = ""
-			return false
-		}
+	if client.IsErrorRetryable(application.Status.LastSeenError) && application.Status.RetryCount <= maxRetries {
+		application.Status.RetryCount++
+		// Reset error to always record latest error
+		application.Status.LastSeenError = ""
+		return false
 	}
 
 	// If the error is not retryable, fail fast

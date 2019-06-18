@@ -20,7 +20,6 @@ type Config struct {
 	ProxyPort                     config.Port     `json:"ProxyPort" pflag:"\"8001\",The port at which flink cluster runs locally"`
 	ContainerNameFormat           string          `json:"containerNameFormat"`
 	Workers                       int             `json:"workers" pflag:"4,Number of routines to process custom resource"`
-	StatemachineStalenessDuration config.Duration `json:"statemachineStalenessDuration" pflag:"\"5m\",Duration for statemachine staleness."`
 }
 
 func GetConfig() *Config {

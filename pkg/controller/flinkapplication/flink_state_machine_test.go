@@ -6,10 +6,8 @@ import (
 	"testing"
 	"time"
 
-	controller_config "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
-	"github.com/lyft/flytestdlib/config"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -604,13 +602,6 @@ func TestRollingBack(t *testing.T) {
 }
 
 func TestIsApplicationStuck(t *testing.T) {
-	testDuration := config.Duration{}
-	testDuration.Duration = 5 * time.Minute
-	err := controller_config.ConfigSection.SetConfig(&controller_config.Config{
-		StatemachineStalenessDuration: testDuration,
-	})
-	assert.Nil(t, err)
-
 	stateMachineForTest := getTestStateMachine()
 	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 	app := &v1alpha1.FlinkApplication{
@@ -622,20 +613,20 @@ func TestIsApplicationStuck(t *testing.T) {
 	}
 	// Retryable error
 	assert.False(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.Nil(t, app.Status.LastSeenError)
+	assert.Empty(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(1), app.Status.RetryCount)
 
 	// Retryable error with retries exhausted
 	app.Status.RetryCount = 100
 	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED"))
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.NotNil(t, app.Status.LastSeenError)
+	assert.NotEmpty(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(100), app.Status.RetryCount)
 
 	// Non retryable error
 	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "SubmitJob", "FAILED"))
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.NotNil(t, app.Status.LastSeenError)
+	assert.NotEmpty(t, app.Status.LastSeenError)
 }
 
 func TestDeleteWithSavepoint(t *testing.T) {
