@@ -517,14 +517,21 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	// If https://github.com/kubernetes/kubernetes/issues/56567 is fixed users will be able to use
 	// kubectl delete --force, but for now they will need to update the DeleteMode.
 
-	if app.Spec.DeleteMode == v1alpha1.DeleteModeNone {
-		// just delete the finalizer so the cluster can be torn down
+	// If the delete mode is none or there's no deployhash set (which means we failed to submit the job on the
+	// first deploy) just delete the finalizer so the cluster can be torn down
+	if app.Spec.DeleteMode == v1alpha1.DeleteModeNone || app.Status.DeployHash == "" {
 		return s.clearFinalizers(ctx, app)
 	}
 
 	jobs, err := s.flinkController.GetJobsForApplication(ctx, app, app.Status.DeployHash)
 	if err != nil {
 		return err
+	}
+
+	if len(jobs) == 0 {
+		// there are no jobs for this application -- this means that the job either finished or was manually cancelled
+		// _and_ the job manager was restarted
+		return s.clearFinalizers(ctx, app)
 	}
 
 	finished := jobFinished(jobs, app.Status.JobStatus.JobID)

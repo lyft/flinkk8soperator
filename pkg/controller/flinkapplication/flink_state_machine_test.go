@@ -646,6 +646,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 		},
 		Status: v1alpha1.FlinkApplicationStatus{
 			Phase: v1alpha1.FlinkApplicationDeleting,
+			DeployHash: "deployhash",
 			JobStatus: v1alpha1.FlinkJobStatus{
 				JobID: jobID,
 			},
@@ -741,6 +742,7 @@ func TestDeleteWithForceCancel(t *testing.T) {
 			JobStatus: v1alpha1.FlinkJobStatus{
 				JobID: jobID,
 			},
+			DeployHash: "deployhash",
 		},
 	}
 
