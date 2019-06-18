@@ -160,7 +160,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	// Create the Flink cluster
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
-		application.Status.LastSeenError = err.(*client.FlinkApplicationError).Error()
+		application.Status.LastSeenError = client.GetErrorKey(err)
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
 		return err
 	}
@@ -190,7 +190,7 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	// Wait for all to be running
 	ready, err := s.flinkController.IsClusterReady(ctx, application)
 	if err != nil {
-		application.Status.LastSeenError = err.(*client.FlinkApplicationError).Error()
+		application.Status.LastSeenError = client.GetErrorKey(err)
 		return err
 	}
 	if !ready {
@@ -221,7 +221,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 		triggerID, err := s.flinkController.CancelWithSavepoint(ctx, application, application.Status.DeployHash)
 		if err != nil {
-			application.Status.LastSeenError = err.(*client.FlinkApplicationError).Error()
+			application.Status.LastSeenError = client.GetErrorKey(err)
 			return err
 		}
 
@@ -302,7 +302,7 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1alpha1
 			s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeWarning, fmt.Sprintf("Failed to submit job to cluster: %v", err))
 
 			// TODO: we probably want some kind of back-off here
-			app.Status.LastSeenError = err.(*client.FlinkApplicationError).Error()
+			app.Status.LastSeenError = client.GetErrorKey(err)
 			return nil, err
 		}
 
