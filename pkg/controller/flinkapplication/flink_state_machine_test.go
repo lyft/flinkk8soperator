@@ -645,7 +645,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 			DeletionTimestamp: &metav1.Time{Time: time.Now()},
 		},
 		Status: v1alpha1.FlinkApplicationStatus{
-			Phase: v1alpha1.FlinkApplicationDeleting,
+			Phase:      v1alpha1.FlinkApplicationDeleting,
 			DeployHash: "deployhash",
 			JobStatus: v1alpha1.FlinkJobStatus{
 				JobID: jobID,
