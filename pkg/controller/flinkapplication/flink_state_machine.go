@@ -173,6 +173,7 @@ func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1alpha1.Flin
 	app.Status.FailedDeployHash = flink.HashForApplication(app)
 
 	// Reset errors and retry count
+	app.Status.LastSeenError = ""
 	app.Status.RetryCount = 0
 
 	return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationDeployFailed)
