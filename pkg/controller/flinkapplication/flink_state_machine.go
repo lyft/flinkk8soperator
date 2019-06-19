@@ -517,8 +517,9 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	// If https://github.com/kubernetes/kubernetes/issues/56567 is fixed users will be able to use
 	// kubectl delete --force, but for now they will need to update the DeleteMode.
 
-	if app.Spec.DeleteMode == v1alpha1.DeleteModeNone {
-		// just delete the finalizer so the cluster can be torn down
+	// If the delete mode is none or there's no deployhash set (which means we failed to submit the job on the
+	// first deploy) just delete the finalizer so the cluster can be torn down
+	if app.Spec.DeleteMode == v1alpha1.DeleteModeNone || app.Status.DeployHash == "" {
 		return s.clearFinalizers(ctx, app)
 	}
 
@@ -528,20 +529,18 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	}
 
 	finished := jobFinished(jobs, app.Status.JobStatus.JobID)
+
+	if len(jobs) == 0 || finished {
+		// there are no running jobs for this application, we can just tear down
+		return s.clearFinalizers(ctx, app)
+	}
+
 	switch app.Spec.DeleteMode {
 	case v1alpha1.DeleteModeForceCancel:
-		if finished {
-			// the job has already been cancelled, so clear the finalizer
-			return s.clearFinalizers(ctx, app)
-		}
-
 		logger.Infof(ctx, "Force cancelling job as part of cleanup")
 		return s.flinkController.ForceCancel(ctx, app, app.Status.DeployHash)
 	case v1alpha1.DeleteModeSavepoint, "":
 		if app.Spec.SavepointInfo.SavepointLocation != "" {
-			if finished {
-				return s.clearFinalizers(ctx, app)
-			}
 			// we've already created the savepoint, now just waiting for the job to be cancelled
 			return nil
 		}

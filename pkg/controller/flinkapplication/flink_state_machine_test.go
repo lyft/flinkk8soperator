@@ -645,7 +645,8 @@ func TestDeleteWithSavepoint(t *testing.T) {
 			DeletionTimestamp: &metav1.Time{Time: time.Now()},
 		},
 		Status: v1alpha1.FlinkApplicationStatus{
-			Phase: v1alpha1.FlinkApplicationDeleting,
+			Phase:      v1alpha1.FlinkApplicationDeleting,
+			DeployHash: "deployhash",
 			JobStatus: v1alpha1.FlinkJobStatus{
 				JobID: jobID,
 			},
@@ -723,6 +724,50 @@ func TestDeleteWithSavepoint(t *testing.T) {
 
 }
 
+func TestDeleteWithSavepointAndFinishedJob(t *testing.T) {
+	stateMachineForTest := getTestStateMachine()
+	jobID := "j1"
+
+	app := v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Finalizers:        []string{jobFinalizer},
+			DeletionTimestamp: &metav1.Time{Time: time.Now()},
+		},
+		Status: v1alpha1.FlinkApplicationStatus{
+			Phase:      v1alpha1.FlinkApplicationDeleting,
+			DeployHash: "deployhash",
+			JobStatus: v1alpha1.FlinkJobStatus{
+				JobID: jobID,
+			},
+		},
+	}
+
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (jobs []client.FlinkJob, err error) {
+		return []client.FlinkJob{
+			{
+				JobID:  jobID,
+				Status: "FINISHED",
+			},
+		}, nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		application := object.(*v1alpha1.FlinkApplication)
+		assert.Equal(t, v1alpha1.FlinkApplicationDeleting, application.Status.Phase)
+
+		assert.Equal(t, 0, len(app.Finalizers))
+
+		return nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.NoError(t, err)
+}
+
 func TestDeleteWithForceCancel(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 
@@ -741,6 +786,7 @@ func TestDeleteWithForceCancel(t *testing.T) {
 			JobStatus: v1alpha1.FlinkJobStatus{
 				JobID: jobID,
 			},
+			DeployHash: "deployhash",
 		},
 	}
 
