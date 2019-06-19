@@ -537,18 +537,10 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 
 	switch app.Spec.DeleteMode {
 	case v1alpha1.DeleteModeForceCancel:
-		if finished {
-			// the job has already been cancelled, so clear the finalizer
-			return s.clearFinalizers(ctx, app)
-		}
-
 		logger.Infof(ctx, "Force cancelling job as part of cleanup")
 		return s.flinkController.ForceCancel(ctx, app, app.Status.DeployHash)
 	case v1alpha1.DeleteModeSavepoint, "":
 		if app.Spec.SavepointInfo.SavepointLocation != "" {
-			if finished {
-				return s.clearFinalizers(ctx, app)
-			}
 			// we've already created the savepoint, now just waiting for the job to be cancelled
 			return nil
 		}
