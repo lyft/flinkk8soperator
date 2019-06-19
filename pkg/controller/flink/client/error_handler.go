@@ -55,5 +55,9 @@ func GetErrorKey(error error) string {
 	if ok && flinkAppError != nil {
 		return flinkAppError.method + flinkAppError.errorCode
 	}
+	if error != nil {
+		// For some reason the error was not a FlinkApplicationError, still return an error key
+		return error.Error()
+	}
 	return ""
 }
