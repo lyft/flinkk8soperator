@@ -17,6 +17,8 @@ var retryableErrors = map[string]struct{}{
 	"GetClusterOverview" + globalFailure: {},
 	"CheckSavepointStatus500":            {},
 	"CheckSavepointStatus503":            {},
+	"CancelJobWithSavepoint500":          {},
+	"CancelJobWithSavepoint503":          {},
 }
 
 // FlinkApplicationError implements the error interface to make error handling more structured

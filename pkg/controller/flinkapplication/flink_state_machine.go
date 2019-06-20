@@ -165,7 +165,6 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
 		s.getAndUpdateError(ctx, application, err)
-
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
 		return err
 	}
@@ -349,6 +348,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 	hash := flink.HashForApplication(app)
 	err := s.updateGenericService(ctx, app, hash)
 	if err != nil {
+		s.getAndUpdateError(ctx, app, err)
 		return err
 	}
 
@@ -394,6 +394,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 	// update the service to point back to the old deployment if needed
 	err := s.updateGenericService(ctx, app, app.Status.DeployHash)
 	if err != nil {
+		s.getAndUpdateError(ctx, app, err)
 		return err
 	}
 

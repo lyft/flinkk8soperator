@@ -902,3 +902,132 @@ func TestHandleInvalidPhase(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.EqualError(t, err, "Invalid state asd for the application")
 }
+
+func TestRollbackWithRetryableError(t *testing.T) {
+	app := v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1alpha1.FlinkApplicationSpec{
+			JarName:     "job.jar",
+			Parallelism: 5,
+			EntryClass:  "com.my.Class",
+			ProgramArgs: "--test",
+		},
+		Status: v1alpha1.FlinkApplicationStatus{
+			Phase:      v1alpha1.FlinkApplicationSavepointing,
+			DeployHash: "old-hash-retry",
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, app *v1alpha1.FlinkApplication, hash string) (savepoint string, err error) {
+		return "", client.GetError(errors.New("failed to get savepoint status"), "CancelJobWithSavepoint", "500")
+	}
+
+	retries := 0
+	for ; app.Status.Phase != v1alpha1.FlinkApplicationDeployFailed; retries++ {
+		assert.Equal(t, v1alpha1.FlinkApplicationSavepointing, app.Status.Phase)
+		err := stateMachineForTest.Handle(context.Background(), &app)
+
+		// First attempt does not rollback
+		if retries > 0 && retries < 4 {
+			assert.Equal(t, int32(retries), app.Status.RetryCount)
+			assert.NotNil(t, err)
+			assert.NotEmpty(t, app.Status.LastSeenError)
+		}
+	}
+
+	assert.Equal(t, 6, retries)
+
+	// Retries should have been exhausted and errors and retry counts reset
+	assert.Equal(t, v1alpha1.FlinkApplicationDeployFailed, app.Status.Phase)
+	assert.Equal(t, int32(0), app.Status.RetryCount)
+	assert.Empty(t, app.Status.LastSeenError)
+}
+
+func TestRollbackWithNonRetryableError(t *testing.T) {
+	app := v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1alpha1.FlinkApplicationSpec{
+			JarName:     "job.jar",
+			Parallelism: 5,
+			EntryClass:  "com.my.Class",
+			ProgramArgs: "--test",
+		},
+		Status: v1alpha1.FlinkApplicationStatus{
+			Phase:      v1alpha1.FlinkApplicationSubmittingJob,
+			DeployHash: "old-hash-retry-err",
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+
+	getCount := 0
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
+		var res []client.FlinkJob
+		if getCount == 1 {
+			res = []client.FlinkJob{
+				{
+					JobID:  "jid1",
+					Status: client.Running,
+				}}
+		}
+		getCount++
+		return res, nil
+	}
+
+	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error) {
+		return true, nil
+	}
+	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
+		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
+		return "", client.GetError(errors.New("failed to get submit job"), "SubmitJob", "500")
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+	appHash := flink.HashForApplication(&app)
+	getServiceCount := 0
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string) (*v1.Service, error) {
+		hash := "old-hash-retry-err"
+		if getServiceCount > 0 {
+			hash = appHash
+		}
+
+		getServiceCount++
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-app",
+				Namespace: "flink",
+			},
+			Spec: v1.ServiceSpec{
+				Selector: map[string]string{
+					"flink-app-hash": hash,
+				},
+			},
+		}, nil
+	}
+	retries := 0
+	var err error
+	for ; app.Status.Phase == v1alpha1.FlinkApplicationSubmittingJob; retries++ {
+		err = stateMachineForTest.Handle(context.Background(), &app)
+		// once in rollingback phase, errors no longer exist
+		if app.Status.Phase == v1alpha1.FlinkApplicationSubmittingJob {
+			assert.NotNil(t, err)
+			assert.Equal(t, int32(0), app.Status.RetryCount)
+			assert.NotEmpty(t, app.Status.LastSeenError)
+		}
+
+	}
+
+	assert.Equal(t, 2, retries)
+	assert.Equal(t, v1alpha1.FlinkApplicationRollingBackJob, app.Status.Phase)
+	assert.Equal(t, int32(0), app.Status.RetryCount)
+	assert.Empty(t, app.Status.LastSeenError)
+}
