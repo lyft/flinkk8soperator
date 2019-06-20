@@ -97,6 +97,10 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 
 	// If the error is not retryable, fail fast
 	s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress in the %v phase", application.Status.Phase))
+
+	// Reset error and retry count
+	application.Status.LastSeenError = ""
+	application.Status.RetryCount = 0
 	return true
 }
 
@@ -172,10 +176,6 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1alpha1.FlinkApplication) error {
 	s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeWarning, "Deployment failed, rolled back successfully")
 	app.Status.FailedDeployHash = flink.HashForApplication(app)
-
-	// Reset errors and retry count
-	app.Status.LastSeenError = ""
-	app.Status.RetryCount = 0
 
 	return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationDeployFailed)
 }
