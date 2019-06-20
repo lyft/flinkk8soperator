@@ -620,13 +620,14 @@ func TestIsApplicationStuck(t *testing.T) {
 	app.Status.RetryCount = 100
 	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED"))
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.NotEmpty(t, app.Status.LastSeenError)
-	assert.Equal(t, int32(100), app.Status.RetryCount)
+	assert.Empty(t, app.Status.LastSeenError)
+	assert.Equal(t, int32(0), app.Status.RetryCount)
 
 	// Non retryable error
 	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "SubmitJob", "FAILED"))
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.NotEmpty(t, app.Status.LastSeenError)
+	assert.Empty(t, app.Status.LastSeenError)
+	assert.Equal(t, int32(0), app.Status.RetryCount)
 }
 
 func TestDeleteWithSavepoint(t *testing.T) {
