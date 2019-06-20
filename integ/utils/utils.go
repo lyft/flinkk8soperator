@@ -139,7 +139,7 @@ func (f *TestUtil) CreateCRD() error {
 
 func (f *TestUtil) CreateOperator() error {
 	configValue := make(map[string]string)
-	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n  statemachineStalenessDuration: 40s\n  resyncPeriod: 5s"
+	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n resyncPeriod: 5s"
 
 	configMap := v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
