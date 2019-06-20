@@ -297,26 +297,4 @@ func TestConfig_SetFlags(t *testing.T) {
 			}
 		})
 	})
-	t.Run("Test_statemachineStalenessDuration", func(t *testing.T) {
-		t.Run("DefaultValue", func(t *testing.T) {
-			// Test that default value is set properly
-			if vString, err := cmdFlags.GetString("statemachineStalenessDuration"); err == nil {
-				assert.Equal(t, string("5m"), vString)
-			} else {
-				assert.FailNow(t, err.Error())
-			}
-		})
-
-		t.Run("Override", func(t *testing.T) {
-			testValue := "5m"
-
-			cmdFlags.Set("statemachineStalenessDuration", testValue)
-			if vString, err := cmdFlags.GetString("statemachineStalenessDuration"); err == nil {
-				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.StatemachineStalenessDuration)
-
-			} else {
-				assert.FailNow(t, err.Error())
-			}
-		})
-	})
 }

@@ -22,6 +22,5 @@ func (Config) GetPFlagSet(prefix string) *pflag.FlagSet {
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "ProxyPort"), "8001", "The port at which flink cluster runs locally")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "containerNameFormat"), *new(string), "")
 	cmdFlags.Int(fmt.Sprintf("%v%v", prefix, "workers"), 4, "Number of routines to process custom resource")
-	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "statemachineStalenessDuration"), "5m", "Duration for statemachine staleness.")
 	return cmdFlags
 }

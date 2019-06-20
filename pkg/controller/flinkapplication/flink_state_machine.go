@@ -160,7 +160,8 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	// Create the Flink cluster
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
-		application.Status.LastSeenError = client.GetErrorKey(err)
+		s.getAndUpdateError(ctx, application, err)
+
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
 		return err
 	}
@@ -190,7 +191,7 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	// Wait for all to be running
 	ready, err := s.flinkController.IsClusterReady(ctx, application)
 	if err != nil {
-		application.Status.LastSeenError = client.GetErrorKey(err)
+		s.getAndUpdateError(ctx, application, err)
 		return err
 	}
 	if !ready {
@@ -221,7 +222,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 		triggerID, err := s.flinkController.CancelWithSavepoint(ctx, application, application.Status.DeployHash)
 		if err != nil {
-			application.Status.LastSeenError = client.GetErrorKey(err)
+			s.getAndUpdateError(ctx, application, err)
 			return err
 		}
 
@@ -282,7 +283,6 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1alpha1
 
 	// add the job running finalizer if necessary
 	if err := s.addFinalizerIfMissing(ctx, app, jobFinalizer); err != nil {
-		app.Status.LastSeenError = client.GetErrorKey(err)
 		return nil, err
 	}
 
@@ -302,7 +302,6 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1alpha1
 			s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeWarning, fmt.Sprintf("Failed to submit job to cluster: %v", err))
 
 			// TODO: we probably want some kind of back-off here
-			app.Status.LastSeenError = client.GetErrorKey(err)
 			return nil, err
 		}
 
@@ -356,7 +355,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 	activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
 		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
 	if err != nil {
-		app.Status.LastSeenError = client.GetErrorKey(err)
+		s.getAndUpdateError(ctx, app, err)
 		return err
 	}
 
@@ -395,7 +394,6 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 	// update the service to point back to the old deployment if needed
 	err := s.updateGenericService(ctx, app, app.Status.DeployHash)
 	if err != nil {
-		app.Status.LastSeenError = client.GetErrorKey(err)
 		return err
 	}
 
@@ -412,7 +410,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs)
 
 	if err != nil {
-		app.Status.LastSeenError = client.GetErrorKey(err)
+		s.getAndUpdateError(ctx, app, err)
 		return err
 	}
 
@@ -446,7 +444,6 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 
 	cur, err := s.flinkController.GetCurrentDeploymentsForApp(ctx, application)
 	if err != nil {
-		application.Status.LastSeenError = client.GetErrorKey(err)
 		return err
 	}
 
@@ -461,7 +458,6 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	// If there are old resources left-over from a previous version, clean them up
 	err = s.flinkController.DeleteOldResourcesForApp(ctx, application)
 	if err != nil {
-		application.Status.LastSeenError = client.GetErrorKey(err)
 		logger.Warn(ctx, "Failed to clean up old resources: %v", err)
 	}
 
@@ -563,7 +559,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 			// delete with savepoint
 			triggerID, err := s.flinkController.CancelWithSavepoint(ctx, app, app.Status.DeployHash)
 			if err != nil {
-				app.Status.LastSeenError = client.GetErrorKey(err)
+				s.getAndUpdateError(ctx, app, err)
 				return err
 			}
 			s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeNormal, fmt.Sprintf("Cancelling job with savepoint %v", triggerID))
@@ -572,7 +568,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 			// we've already started savepointing; check the status
 			status, err := s.flinkController.GetSavepointStatus(ctx, app, app.Status.DeployHash)
 			if err != nil {
-				app.Status.LastSeenError = client.GetErrorKey(err)
+				s.getAndUpdateError(ctx, app, err)
 				return err
 			}
 
@@ -595,6 +591,14 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	}
 
 	return nil
+}
+
+func (s *FlinkStateMachine) getAndUpdateError(ctx context.Context, application *v1alpha1.FlinkApplication, err error) {
+	application.Status.LastSeenError = client.GetErrorKey(err)
+	updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
+	if updateErr != nil {
+		logger.Errorf(ctx, "Updating last seen error failed with %v", updateErr)
+	}
 }
 
 func NewFlinkStateMachine(k8sCluster k8.ClusterInterface, config config.RuntimeConfig) FlinkHandlerInterface {
