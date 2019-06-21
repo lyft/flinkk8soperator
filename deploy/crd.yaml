@@ -11,9 +11,357 @@ spec:
     singular: flinkapplication
     shortNames:
       - flinkapp
-
   scope: Namespaced
   version: v1alpha1
+  validation:
+    # openAPIV3Schema is the schema for validating custom objects.
+    openAPIV3Schema:
+      type: object
+      properties:
+        spec:
+          type: object
+          properties:
+            image:
+              type: string
+            imagePullPolicy:
+              type: string
+              enum: [Always, Never, IfNotPresent]
+            imagePullSecrets:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+            jarName:
+              type: string
+            programArgs:
+              type: string
+            entryClass:
+              type: string
+            flinkVersion:
+              type: string
+            restartNonce:
+              type: string
+            parallelism:
+              type: integer
+              minimum: 1
+            deleteMode:
+              type: string
+              enum: [Savepoint, None, ForceCancel]
+            deploymentMode:
+              type: string
+              enum: [Single, Dual]
+            rpcPort:
+              type: integer
+              minimum: 1
+              maximum: 65535
+            blobPort:
+              type: integer
+              minimum: 1
+              maximum: 65535
+            queryPort:
+              type: integer
+              minimum: 1
+              maximum: 65535
+            metricsQueryPort:
+              type: integer
+              minimum: 1
+              maximum: 65535
+            flinkConfig:
+              type: object
+              properties:
+                additionalProperties:
+                  type: string
+            savepointInfo:
+              type: object
+              properties:
+                savepointLocation:
+                  type: string
+            jobManagerConfig:
+              type: object
+              properties:
+                replicas:
+                  type: integer
+                  minimum: 1
+                offHeapMemoryFraction:
+                  type: float
+                nodeSelector:
+                  type: object
+                  properties:
+                    additionalProperties:
+                      type: string
+                envConfig:
+                  type: object
+                  properties:
+                    env:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          value:
+                            type: string
+                          valueFrom:
+                            properties:
+                              configMapKeyRef:
+                                properties:
+                                  key:
+                                    type: string
+                                  name:
+                                    type: string
+                                  optional:
+                                    type: boolean
+                                required:
+                                  - key
+                                type: object
+                              fieldRef:
+                                properties:
+                                  apiVersion:
+                                    type: string
+                                  fieldPath:
+                                    type: string
+                                required:
+                                  - fieldPath
+                                type: object
+                              resourceFieldRef:
+                                properties:
+                                  containerName:
+                                    type: string
+                                  divisor: {}
+                                  resource:
+                                    type: string
+                                required:
+                                  - resource
+                                type: object
+                              secretKeyRef:
+                                properties:
+                                  key:
+                                    type: string
+                                  name:
+                                    type: string
+                                  optional:
+                                    type: boolean
+                                required:
+                                  - key
+                                type: object
+                            type: object
+                        required:
+                          - name
+                        type: object
+                      type: array
+                    envFrom:
+                      items:
+                        properties:
+                          configMapRef:
+                            properties:
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            type: object
+                          prefix:
+                            type: string
+                          secretRef:
+                            properties:
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            type: object
+                        type: object
+                      type: array
+                resources:
+                  type: object
+                  properties:
+                    requests:
+                      type: object
+                      properties:
+                        memory:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        cpu:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        storage:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        ephemeral-storage:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                    limits:
+                      type: object
+                      properties:
+                        memory:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        cpu:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        storage:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        ephemeral-storage:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+            taskManagerConfig:
+              type: object
+              properties:
+                taskSlots:
+                  type: integer
+                  minimum: 1
+                offHeapMemoryFraction:
+                  type: float
+                nodeSelector:
+                  type: object
+                  properties:
+                    additionalProperties:
+                      type: string
+                envConfig:
+                  type: object
+                  properties:
+                    env:
+                      items:
+                        properties:
+                          name:
+                            type: string
+                          value:
+                            type: string
+                          valueFrom:
+                            properties:
+                              configMapKeyRef:
+                                properties:
+                                  key:
+                                    type: string
+                                  name:
+                                    type: string
+                                  optional:
+                                    type: boolean
+                                required:
+                                  - key
+                                type: object
+                              fieldRef:
+                                properties:
+                                  apiVersion:
+                                    type: string
+                                  fieldPath:
+                                    type: string
+                                required:
+                                  - fieldPath
+                                type: object
+                              resourceFieldRef:
+                                properties:
+                                  containerName:
+                                    type: string
+                                  divisor: {}
+                                  resource:
+                                    type: string
+                                required:
+                                  - resource
+                                type: object
+                              secretKeyRef:
+                                properties:
+                                  key:
+                                    type: string
+                                  name:
+                                    type: string
+                                  optional:
+                                    type: boolean
+                                required:
+                                  - key
+                                type: object
+                            type: object
+                        required:
+                          - name
+                        type: object
+                      type: array
+                    envFrom:
+                      items:
+                        properties:
+                          configMapRef:
+                            properties:
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            type: object
+                          prefix:
+                            type: string
+                          secretRef:
+                            properties:
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
+                            type: object
+                        type: object
+                      type: array
+                resources:
+                  type: object
+                  properties:
+                    requests:
+                      type: object
+                      properties:
+                        memory:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        cpu:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        storage:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        ephemeral-storage:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                    limits:
+                      type: object
+                      properties:
+                        memory:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        cpu:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        storage:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+                        ephemeral-storage:
+                          type: string
+                          pattern: ^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$
+            volumes:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                required:
+                  - name
+            volumeMounts:
+              type: array
+              items:
+                type: object
+                properties:
+                  mountPath:
+                    type: string
+                  mountPropagation:
+                    type: string
+                  name:
+                    type: string
+                  readOnly:
+                    type: boolean
+                  subPath:
+                    type: string
+                  subPathExpr:
+                    type: string
+                required:
+                  - name
+                  - mountPath
+          required:
+            - image
+            - jarName
+            - parallelism
+            - entryClass
 
   additionalPrinterColumns:
     - name: Phase
