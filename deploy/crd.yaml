@@ -51,7 +51,7 @@ spec:
               enum: [Savepoint, None, ForceCancel]
             deploymentMode:
               type: string
-              enum: [Single, Dual]
+              enum: [Dual]
             rpcPort:
               type: integer
               minimum: 1
