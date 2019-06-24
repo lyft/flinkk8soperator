@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	jobFinalizer = "job.finalizers.flink.k8s.io"
-	maxRetries   = 3
+	jobFinalizer           = "job.finalizers.flink.k8s.io"
+	maxRetries             = 3
+	retryBaseBackoffMillis = 100
 )
 
 // The core state machine that manages Flink clusters and jobs. See docs/state_machine.md for a description of the
@@ -37,6 +38,7 @@ type FlinkStateMachine struct {
 	k8Cluster       k8.ClusterInterface
 	clock           clock.Clock
 	metrics         *stateMachineMetrics
+	retryHandler    client.RetryHandler
 }
 
 type stateMachineMetrics struct {
@@ -87,17 +89,20 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 	if application.Status.LastSeenError == "" {
 		return false
 	}
-	// Check if the error is retryable and we have retries left
-	if client.IsErrorRetryable(application.Status.LastSeenError) && application.Status.RetryCount <= maxRetries {
+	// Check if the error is retryable
+	if s.retryHandler.IsErrorRetryable(application.Status.LastSeenError, application.Status.RetryCount) {
+		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application in phase %v retrying with error %v", application.Status.Phase, application.Status.LastSeenError))
+		// backoff exponentially
+		s.retryHandler.BackOff(application.Status.RetryCount)
 		application.Status.RetryCount++
+
 		// Reset error to always record latest error
 		application.Status.LastSeenError = ""
 		return false
 	}
 
 	// If the error is not retryable, fail fast
-	s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress in the %v phase", application.Status.Phase))
-
+	s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress in the %v phase with error %v", application.Status.Phase, application.Status.LastSeenError))
 	// Reset error and retry count
 	application.Status.LastSeenError = ""
 	application.Status.RetryCount = 0
@@ -298,7 +303,7 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1alpha1
 		jobID, err := s.flinkController.StartFlinkJob(ctx, app, hash,
 			jarName, parallelism, entryClass, programArgs)
 		if err != nil {
-			s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeWarning, fmt.Sprintf("Failed to submit job to cluster: %v", err))
+			s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeWarning, fmt.Sprintf("Failed to submit job to cluster: %v", err.Error()))
 
 			// TODO: we probably want some kind of back-off here
 			return nil, err
@@ -610,5 +615,6 @@ func NewFlinkStateMachine(k8sCluster k8.ClusterInterface, config config.RuntimeC
 		flinkController: flink.NewController(k8sCluster, config),
 		clock:           clock.RealClock{},
 		metrics:         metrics,
+		retryHandler:    client.NewRetryHandler(maxRetries, retryBaseBackoffMillis),
 	}
 }

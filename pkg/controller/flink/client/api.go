@@ -222,7 +222,7 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID
 	if response != nil && !response.IsSuccess() {
 		c.metrics.submitJobFailureCounter.Inc(ctx)
 		logger.Warnf(ctx, fmt.Sprintf("Job submission failed with response %v", response))
-		return nil, GetError(err, "SubmitJob", response.Status())
+		return nil, GetError(err, "SubmitJob", response.Status(), string(response.Body()))
 	}
 	var submitJobResponse SubmitJobResponse
 	if err = json.Unmarshal(response.Body(), &submitJobResponse); err != nil {

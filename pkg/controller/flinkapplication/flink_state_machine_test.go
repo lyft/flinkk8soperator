@@ -33,6 +33,7 @@ func getTestStateMachine() FlinkStateMachine {
 		k8Cluster:       &k8mock.K8Cluster{},
 		clock:           &clock.FakeClock{},
 		metrics:         newStateMachineMetrics(testScope),
+		retryHandler:    client.NewRetryHandler(3, 10),
 	}
 }
 
@@ -934,6 +935,8 @@ func TestRollbackWithRetryableError(t *testing.T) {
 
 		// First attempt does not rollback
 		if retries > 0 && retries < 4 {
+			sleepTime := stateMachineForTest.retryHandler.GetRetryDelay(int32(retries))
+			time.Sleep(sleepTime)
 			assert.Equal(t, int32(retries), app.Status.RetryCount)
 			assert.NotNil(t, err)
 			assert.NotEmpty(t, app.Status.LastSeenError)
