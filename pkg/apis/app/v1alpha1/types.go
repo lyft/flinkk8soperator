@@ -40,7 +40,7 @@ type FlinkApplicationSpec struct {
 	EntryClass        string                       `json:"entryClass,omitempty"`
 	ProgramArgs       string                       `json:"programArgs,omitempty"`
 	SavepointInfo     SavepointInfo                `json:"savepointInfo,omitempty"`
-	DeploymentMode    DeploymentMode               `json:"deploymentMode"`
+	DeploymentMode    DeploymentMode               `json:"deploymentMode,omitempty"`
 	RPCPort           *int32                       `json:"rpcPort,omitempty"`
 	BlobPort          *int32                       `json:"blobPort,omitempty"`
 	QueryPort         *int32                       `json:"queryPort,omitempty"`
@@ -49,7 +49,7 @@ type FlinkApplicationSpec struct {
 	Volumes           []apiv1.Volume               `json:"volumes,omitempty"`
 	VolumeMounts      []apiv1.VolumeMount          `json:"volumeMounts,omitempty"`
 	RestartNonce      string                       `json:"restartNonce"`
-	DeleteMode        DeleteMode                   `json:"deleteMode"`
+	DeleteMode        DeleteMode                   `json:"deleteMode,omitempty"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -101,7 +101,7 @@ type JobManagerConfig struct {
 	Environment           EnvironmentConfig           `json:"envConfig"`
 	Replicas              *int32                      `json:"replicas,omitempty"`
 	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
-	NodeSelector          map[string]string           `json:"nodeSelector"`
+	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
 }
 
 type TaskManagerConfig struct {
