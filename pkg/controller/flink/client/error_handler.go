@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,6 +20,7 @@ const (
 var retryableErrors = map[string]int32{
 	"GetClusterOverview500":              defaultRetries,
 	"GetClusterOverview503":              defaultRetries,
+	"GetClusterOverview404NotFound":      defaultRetries,
 	"GetClusterOverview" + globalFailure: defaultRetries,
 	"CheckSavepointStatus500":            defaultRetries,
 	"CheckSavepointStatus503":            defaultRetries,
@@ -28,8 +30,7 @@ var retryableErrors = map[string]int32{
 
 // evolving map of errors where the operator fails after a single attempt
 var failFastErrors = map[string]struct{}{
-	"SubmitJob400":              {},
-	"SubmitJob403":              {},
+	"SubmitJob400BadRequest":    {},
 	"SubmitJob" + globalFailure: {},
 }
 
@@ -61,7 +62,8 @@ func GetError(err error, method string, errorCode string, message ...string) err
 func GetErrorKey(error error) string {
 	flinkAppError, ok := error.(*FlinkApplicationError)
 	if ok && flinkAppError != nil {
-		return flinkAppError.method + flinkAppError.errorCode
+		errorKey := flinkAppError.method + flinkAppError.errorCode
+		return strings.Replace(errorKey, " ", "", -1)
 	}
 	if error != nil {
 		// For some reason the error was not a FlinkApplicationError, still return an error key

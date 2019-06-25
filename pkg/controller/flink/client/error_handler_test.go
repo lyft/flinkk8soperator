@@ -35,6 +35,9 @@ func TestGetErrorKey(t *testing.T) {
 	ferr := GetError(testErr, "GetTest", "500")
 	assert.NotEmpty(t, GetErrorKey(ferr))
 	assert.Equal(t, GetErrorKey(ferr), "GetTest500")
+
+	testErrWithSpace := GetError(testErr, "Get Test Err", "500")
+	assert.Equal(t, GetErrorKey(testErrWithSpace), "GetTestErr500")
 }
 
 func TestErrors(t *testing.T) {
@@ -43,7 +46,7 @@ func TestErrors(t *testing.T) {
 	assert.True(t, retryer.IsErrorRetryable(retryableError))
 	assert.False(t, retryer.IsErrorFailFast(retryableError))
 
-	failFastError := "SubmitJob400"
+	failFastError := "SubmitJob400BadRequest"
 	assert.False(t, retryer.IsErrorRetryable(failFastError))
 	assert.True(t, retryer.IsErrorFailFast(failFastError))
 

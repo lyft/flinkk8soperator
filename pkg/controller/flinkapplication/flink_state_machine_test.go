@@ -626,7 +626,7 @@ func TestIsApplicationStuck(t *testing.T) {
 
 	// Fail fast error
 	app.Status.RetryCount = 0
-	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "SubmitJob", "400"))
+	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "SubmitJob", "400BadRequest"))
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
 	assert.NotEmpty(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
@@ -1017,7 +1017,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	}
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
 		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
-		return "", client.GetError(errors.New("failed to get submit job"), "SubmitJob", "400")
+		return "", client.GetError(errors.New("failed to get submit job"), "SubmitJob", "400BadRequest")
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
