@@ -23,8 +23,8 @@ import (
 
 const (
 	jobFinalizer           = "job.finalizers.flink.k8s.io"
-	maxRetries             = 3
 	retryBaseBackoffMillis = 100
+	timeToWaitMillis       = 5 * 60 * 1000
 )
 
 // The core state machine that manages Flink clusters and jobs. See docs/state_machine.md for a description of the
@@ -90,23 +90,37 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 		return false
 	}
 	// Check if the error is retryable
-	if s.retryHandler.IsErrorRetryable(application.Status.LastSeenError, application.Status.RetryCount) {
-		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application in phase %v retrying with error %v", application.Status.Phase, application.Status.LastSeenError))
-		// backoff exponentially
-		s.retryHandler.BackOff(application.Status.RetryCount)
-		application.Status.RetryCount++
+	if s.retryHandler.IsErrorRetryable(application.Status.LastSeenError) {
+		if s.retryHandler.IsRetryRemaining(application.Status.LastSeenError, application.Status.RetryCount) {
+			s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application in phase %v retrying with error %v", application.Status.Phase, application.Status.LastSeenError))
+			// backoff exponentially
+			s.retryHandler.BackOff(application.Status.RetryCount)
+			application.Status.RetryCount++
 
-		// Reset error to always record latest error
-		application.Status.LastSeenError = ""
-		return false
+			// Reset error to always record latest error
+			application.Status.LastSeenError = ""
+			return false
+		}
+		// Retryable error with retries exhausted
+		return true
 	}
 
-	// If the error is not retryable, fail fast
-	s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress in the %v phase with error %v", application.Status.Phase, application.Status.LastSeenError))
-	// Reset error and retry count
-	application.Status.LastSeenError = ""
-	application.Status.RetryCount = 0
-	return true
+	// For a class of errors that should fail fast, e.g. submitjob failures, always fail fast
+	if s.retryHandler.IsErrorFailFast(application.Status.LastSeenError) {
+		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress in the %v phase with error %v", application.Status.Phase, application.Status.LastSeenError))
+		return true
+	}
+
+	// All other errors, use a time based wait to determine whether to rollback or not.
+	if application.Status.LastSeenError != "" && application.Status.LastUpdatedAt != nil {
+		if elapsedTime, ok := s.retryHandler.WaitOnError(s.clock, application.Status.LastUpdatedAt.Time); !ok {
+			s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress for %v in the %v phase",
+				elapsedTime, application.Status.Phase))
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.FlinkApplication) error {
@@ -137,24 +151,29 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 	if !v1alpha1.IsRunningPhase(application.Status.Phase) {
 		logger.Infof(ctx, "Handling state %s for application", application.Status.Phase)
 	}
-
+	var appErr error
 	switch application.Status.Phase {
 	case v1alpha1.FlinkApplicationNew, v1alpha1.FlinkApplicationUpdating:
 		// Currently just transitions to the next state
-		return s.handleNewOrUpdating(ctx, application)
+		appErr = s.handleNewOrUpdating(ctx, application)
 	case v1alpha1.FlinkApplicationClusterStarting:
-		return s.handleClusterStarting(ctx, application)
+		appErr = s.handleClusterStarting(ctx, application)
 	case v1alpha1.FlinkApplicationSubmittingJob:
-		return s.handleSubmittingJob(ctx, application)
+		appErr = s.handleSubmittingJob(ctx, application)
 	case v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed:
-		return s.handleApplicationRunning(ctx, application)
+		appErr = s.handleApplicationRunning(ctx, application)
 	case v1alpha1.FlinkApplicationSavepointing:
-		return s.handleApplicationSavepointing(ctx, application)
+		appErr = s.handleApplicationSavepointing(ctx, application)
 	case v1alpha1.FlinkApplicationRollingBackJob:
-		return s.handleRollingBack(ctx, application)
+		appErr = s.handleRollingBack(ctx, application)
 	case v1alpha1.FlinkApplicationDeleting:
-		return s.handleApplicationDeleting(ctx, application)
+		appErr = s.handleApplicationDeleting(ctx, application)
 	}
+	if appErr != nil {
+		s.getAndUpdateError(ctx, application, appErr)
+		return appErr
+	}
+
 	return nil
 }
 
@@ -169,7 +188,6 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	// Create the Flink cluster
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
-		s.getAndUpdateError(ctx, application, err)
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
 		return err
 	}
@@ -180,6 +198,10 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1alpha1.FlinkApplication) error {
 	s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeWarning, "Deployment failed, rolled back successfully")
 	app.Status.FailedDeployHash = flink.HashForApplication(app)
+
+	// Reset error and retry count
+	app.Status.LastSeenError = ""
+	app.Status.RetryCount = 0
 
 	return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationDeployFailed)
 }
@@ -195,7 +217,6 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	// Wait for all to be running
 	ready, err := s.flinkController.IsClusterReady(ctx, application)
 	if err != nil {
-		s.getAndUpdateError(ctx, application, err)
 		return err
 	}
 	if !ready {
@@ -226,7 +247,6 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 		triggerID, err := s.flinkController.CancelWithSavepoint(ctx, application, application.Status.DeployHash)
 		if err != nil {
-			s.getAndUpdateError(ctx, application, err)
 			return err
 		}
 
@@ -353,14 +373,12 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 	hash := flink.HashForApplication(app)
 	err := s.updateGenericService(ctx, app, hash)
 	if err != nil {
-		s.getAndUpdateError(ctx, app, err)
 		return err
 	}
 
 	activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
 		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
 	if err != nil {
-		s.getAndUpdateError(ctx, app, err)
 		return err
 	}
 
@@ -399,7 +417,6 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 	// update the service to point back to the old deployment if needed
 	err := s.updateGenericService(ctx, app, app.Status.DeployHash)
 	if err != nil {
-		s.getAndUpdateError(ctx, app, err)
 		return err
 	}
 
@@ -416,7 +433,6 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs)
 
 	if err != nil {
-		s.getAndUpdateError(ctx, app, err)
 		return err
 	}
 
@@ -565,7 +581,6 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 			// delete with savepoint
 			triggerID, err := s.flinkController.CancelWithSavepoint(ctx, app, app.Status.DeployHash)
 			if err != nil {
-				s.getAndUpdateError(ctx, app, err)
 				return err
 			}
 			s.flinkController.LogEvent(ctx, app, "", corev1.EventTypeNormal, fmt.Sprintf("Cancelling job with savepoint %v", triggerID))
@@ -574,7 +589,6 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 			// we've already started savepointing; check the status
 			status, err := s.flinkController.GetSavepointStatus(ctx, app, app.Status.DeployHash)
 			if err != nil {
-				s.getAndUpdateError(ctx, app, err)
 				return err
 			}
 
@@ -615,6 +629,6 @@ func NewFlinkStateMachine(k8sCluster k8.ClusterInterface, config config.RuntimeC
 		flinkController: flink.NewController(k8sCluster, config),
 		clock:           clock.RealClock{},
 		metrics:         metrics,
-		retryHandler:    client.NewRetryHandler(maxRetries, retryBaseBackoffMillis),
+		retryHandler:    client.NewRetryHandler(retryBaseBackoffMillis, timeToWaitMillis),
 	}
 }

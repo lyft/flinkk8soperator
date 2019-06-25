@@ -9,7 +9,7 @@ import (
 )
 
 func getTestRetryer() RetryHandler {
-	return NewRetryHandler(2, 10)
+	return NewRetryHandler(10, 10)
 }
 
 func TestGetError(t *testing.T) {
@@ -37,18 +37,30 @@ func TestGetErrorKey(t *testing.T) {
 	assert.Equal(t, GetErrorKey(ferr), "GetTest500")
 }
 
-func TestRetryHandler_IsErrorRetryable(t *testing.T) {
-	errString := "GetClusterOverview500"
+func TestErrors(t *testing.T) {
+	retryableError := "GetClusterOverview500"
 	retryer := getTestRetryer()
-	assert.True(t, retryer.IsErrorRetryable(errString, 0))
-	assert.False(t, retryer.IsErrorRetryable(errString, 3))
+	assert.True(t, retryer.IsErrorRetryable(retryableError))
+	assert.False(t, retryer.IsErrorFailFast(retryableError))
 
-	errString = "NotRetryableError"
-	assert.False(t, retryer.IsErrorRetryable(errString, 0))
+	failFastError := "SubmitJob400"
+	assert.False(t, retryer.IsErrorRetryable(failFastError))
+	assert.True(t, retryer.IsErrorFailFast(failFastError))
+
+	otherError := "CancelJob500"
+	assert.False(t, retryer.IsErrorRetryable(otherError))
+	assert.False(t, retryer.IsErrorFailFast(otherError))
 }
 
 func TestRetryHandler_BackOff(t *testing.T) {
 	retryHandler := getTestRetryer()
 	assert.Equal(t, 10*time.Millisecond, retryHandler.GetRetryDelay(0))
 	assert.Equal(t, 20*time.Millisecond, retryHandler.GetRetryDelay(1))
+}
+
+func TestRetryHandler_IsRetryRemaining(t *testing.T) {
+	retryableError := "GetClusterOverview500"
+	retryer := getTestRetryer()
+	assert.True(t, retryer.IsRetryRemaining(retryableError, 2))
+	assert.False(t, retryer.IsRetryRemaining(retryableError, 10))
 }

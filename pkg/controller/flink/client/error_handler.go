@@ -5,23 +5,32 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/util/clock"
 )
 
 // appError codes
 const (
 	globalFailure      = "FAILED"
 	jsonUnmarshalError = "JSONUNMARSHALERROR"
+	defaultRetries     = 5
 )
 
 // evolving map of retryable errors
-var retryableErrors = map[string]struct{}{
-	"GetClusterOverview500":              {},
-	"GetClusterOverview503":              {},
-	"GetClusterOverview" + globalFailure: {},
-	"CheckSavepointStatus500":            {},
-	"CheckSavepointStatus503":            {},
-	"CancelJobWithSavepoint500":          {},
-	"CancelJobWithSavepoint503":          {},
+var retryableErrors = map[string]int32{
+	"GetClusterOverview500":              defaultRetries,
+	"GetClusterOverview503":              defaultRetries,
+	"GetClusterOverview" + globalFailure: defaultRetries,
+	"CheckSavepointStatus500":            defaultRetries,
+	"CheckSavepointStatus503":            defaultRetries,
+	"CancelJobWithSavepoint500":          defaultRetries,
+	"CancelJobWithSavepoint503":          defaultRetries,
+}
+
+// evolving map of errors where the operator fails after a single attempt
+var failFastErrors = map[string]struct{}{
+	"SubmitJob400":              {},
+	"SubmitJob403":              {},
+	"SubmitJob" + globalFailure: {},
 }
 
 // FlinkApplicationError implements the error interface to make error handling more structured
@@ -63,20 +72,40 @@ func GetErrorKey(error error) string {
 
 // A Retryer that has methods to determine if an error is retryable and also does exponential backoff
 type RetryHandler struct {
-	maxRetries        int32
 	baseBackOffMillis int32
+	timeToWaitMillis  int32
 }
 
-func NewRetryHandler(maxRetries int32, baseBackoff int32) RetryHandler {
-	return RetryHandler{maxRetries, baseBackoff}
+func NewRetryHandler(baseBackoff int32, timeToWait int32) RetryHandler {
+	return RetryHandler{baseBackoff, timeToWait}
 }
-func (r RetryHandler) IsErrorRetryable(err string, retryCount int32) bool {
-	if _, ok := retryableErrors[err]; ok && retryCount <= r.maxRetries {
+func (r RetryHandler) IsErrorRetryable(err string) bool {
+	if _, ok := retryableErrors[err]; ok {
 		return true
 	}
 	return false
 }
 
+func (r RetryHandler) IsRetryRemaining(err string, retryCount int32) bool {
+	if maxRetries, ok := retryableErrors[err]; ok {
+		return retryCount <= maxRetries
+	}
+
+	return false
+}
+
+func (r RetryHandler) IsErrorFailFast(err string) bool {
+	if _, ok := failFastErrors[err]; ok {
+		return true
+	}
+	return false
+}
+
+func (r RetryHandler) WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool) {
+	elapsedTime := clock.Since(lastUpdatedTime)
+	return elapsedTime, elapsedTime <= time.Millisecond*time.Duration(r.timeToWaitMillis)
+
+}
 func (r RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
 	return time.Duration(1<<uint(retryCount)*r.baseBackOffMillis) * time.Millisecond
 }
