@@ -152,6 +152,17 @@ func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
 	return nil
 }
 
+// returns the deployments for the application
+func (f *Controller) getDeploymentsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) (*v1.DeploymentList, error) {
+	labelMap := GetAppHashSelector(application)
+	depList, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, labelMap)
+	if err != nil {
+		logger.Warnf(ctx, "Failed to get deployments for label map %v", labelMap)
+		return nil, err
+	}
+	return depList, nil
+}
+
 // returns true iff the deployment exactly matches the flink application
 func (f *Controller) deploymentMatches(ctx context.Context, deployment *v1.Deployment, application *v1alpha1.FlinkApplication) bool {
 	if DeploymentIsTaskmanager(deployment) {
@@ -254,15 +265,12 @@ func (f *Controller) GetSavepointStatus(ctx context.Context, application *v1alph
 }
 
 func (f *Controller) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	labelMap := GetAppHashSelector(application)
-
-	deploymentList, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, labelMap)
+	deploymentList, err := f.getDeploymentsForApplication(ctx, application)
 	if err != nil {
-		logger.Warnf(ctx, "Failed to get deployments for label map %v", labelMap)
 		return false, err
 	}
 	if deploymentList == nil || len(deploymentList.Items) == 0 {
-		logger.Infof(ctx, "No deployments present for label map %v", labelMap)
+		logger.Infof(ctx, "No deployments present for application")
 		return false, nil
 	}
 
@@ -442,36 +450,41 @@ func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplicatio
 
 // Gets and updates the cluster status
 func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error) {
+	// Error retrieving cluster / taskmanagers overview (after startup/readiness) --> Red
+	// If there is an error this loop will return with Health set to Red
 	oldClusterStatus := application.Status.ClusterStatus
-	clusterErrors := ""
+	application.Status.ClusterStatus.Health = v1alpha1.Red
+
+	deploymentList, err := f.getDeploymentsForApplication(ctx, application)
+	if err != nil || deploymentList == nil {
+		return false, err
+	}
+	tmDeployment := getTaskManagerDeployment(deploymentList.Items, application)
+	if tmDeployment == nil {
+		logger.Error(ctx, "Unable to find task manager deployment")
+		return false, nil
+	}
+	application.Status.ClusterStatus.NumberOfTaskManagers = tmDeployment.Status.AvailableReplicas
 	// Get Cluster overview
 	response, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
-
 	if err != nil {
-		clusterErrors = err.Error()
-	} else {
-		// Update cluster overview
-		application.Status.ClusterStatus.NumberOfTaskManagers = response.TaskManagerCount
-		application.Status.ClusterStatus.AvailableTaskSlots = response.SlotsAvailable
-		application.Status.ClusterStatus.NumberOfTaskSlots = response.NumberOfTaskSlots
+		return false, err
 	}
+	// Update cluster overview
+	application.Status.ClusterStatus.AvailableTaskSlots = response.SlotsAvailable
+	application.Status.ClusterStatus.NumberOfTaskSlots = response.NumberOfTaskSlots
 
 	// Get Healthy Taskmanagers
 	tmResponse, tmErr := f.flinkClient.GetTaskManagers(ctx, getURLFromApp(application, hash))
 	if tmErr != nil {
-		clusterErrors += tmErr.Error()
-	} else {
-		application.Status.ClusterStatus.HealthyTaskManagers = getHealthyTaskManagerCount(tmResponse)
+		return false, tmErr
 	}
+	application.Status.ClusterStatus.HealthyTaskManagers = getHealthyTaskManagerCount(tmResponse)
+
 	// Determine Health of the cluster.
-	// Error retrieving cluster / taskmanagers overview (after startup/readiness) --> Red
 	// Healthy TaskManagers == Number of taskmanagers --> Green
 	// Else --> Yellow
-	if clusterErrors != "" && (application.Status.Phase != v1alpha1.FlinkApplicationClusterStarting &&
-		application.Status.Phase != v1alpha1.FlinkApplicationSubmittingJob) {
-		application.Status.ClusterStatus.Health = v1alpha1.Red
-		return false, errors.New(clusterErrors)
-	} else if application.Status.ClusterStatus.HealthyTaskManagers == application.Status.ClusterStatus.NumberOfTaskManagers {
+	if application.Status.ClusterStatus.HealthyTaskManagers == tmDeployment.Status.Replicas {
 		application.Status.ClusterStatus.Health = v1alpha1.Green
 	} else {
 		application.Status.ClusterStatus.Health = v1alpha1.Yellow
