@@ -2,16 +2,18 @@ package flink
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 
-	"github.com/lyft/flinkk8soperator/pkg/controller/config"
+	controllerConfig "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flytestdlib/logger"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
@@ -82,7 +84,7 @@ type ControllerInterface interface {
 	FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (string, error)
 
 	// Logs an event to the FlinkApplication resource and to the operator log
-	LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, fieldPath string, eventType string, message string)
+	LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, message string)
 
 	// Compares and updates new cluster status with current cluster status
 	// Returns true if there is a change in ClusterStatus
@@ -93,14 +95,15 @@ type ControllerInterface interface {
 	CompareAndUpdateJobStatus(ctx context.Context, app *v1alpha1.FlinkApplication, hash string) (bool, error)
 }
 
-func NewController(k8sCluster k8.ClusterInterface, config config.RuntimeConfig) ControllerInterface {
+func NewController(k8sCluster k8.ClusterInterface, mgr manager.Manager, config controllerConfig.RuntimeConfig) ControllerInterface {
 	metrics := newControllerMetrics(config.MetricsScope)
 	return &Controller{
-		k8Cluster:   k8sCluster,
-		jobManager:  NewJobManagerController(k8sCluster, config),
-		taskManager: NewTaskManagerController(k8sCluster, config),
-		flinkClient: client.NewFlinkJobManagerClient(config),
-		metrics:     metrics,
+		k8Cluster:     k8sCluster,
+		jobManager:    NewJobManagerController(k8sCluster, config),
+		taskManager:   NewTaskManagerController(k8sCluster, config),
+		flinkClient:   client.NewFlinkJobManagerClient(config),
+		metrics:       metrics,
+		eventRecorder: mgr.GetRecorder(controllerConfig.AppName),
 	}
 }
 
@@ -122,16 +125,17 @@ type controllerMetrics struct {
 }
 
 type Controller struct {
-	k8Cluster   k8.ClusterInterface
-	jobManager  JobManagerControllerInterface
-	taskManager TaskManagerControllerInterface
-	flinkClient client.FlinkAPIInterface
-	metrics     *controllerMetrics
+	k8Cluster     k8.ClusterInterface
+	jobManager    JobManagerControllerInterface
+	taskManager   TaskManagerControllerInterface
+	flinkClient   client.FlinkAPIInterface
+	metrics       *controllerMetrics
+	eventRecorder record.EventRecorder
 }
 
 func getURLFromApp(application *v1alpha1.FlinkApplication, hash string) string {
 	service := VersionedJobManagerServiceName(application, hash)
-	cfg := config.GetConfig()
+	cfg := controllerConfig.GetConfig()
 	if cfg.UseProxy {
 		return fmt.Sprintf(proxyURL, cfg.ProxyPort.Port, application.Namespace, service)
 	}
@@ -204,7 +208,7 @@ func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.Fl
 	newlyCreatedJm, err := f.jobManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Job manager cluster creation did not succeed %v", err)
-		f.LogEvent(ctx, application, "", corev1.EventTypeWarning,
+		f.LogEvent(ctx, application, corev1.EventTypeWarning,
 			fmt.Sprintf("Failed to create job managers: %v", err))
 
 		return err
@@ -212,13 +216,13 @@ func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.Fl
 	newlyCreatedTm, err := f.taskManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Task manager cluster creation did not succeed %v", err)
-		f.LogEvent(ctx, application, "", corev1.EventTypeWarning,
+		f.LogEvent(ctx, application, corev1.EventTypeWarning,
 			fmt.Sprintf("Failed to create task managers: %v", err))
 		return err
 	}
 
 	if newlyCreatedJm || newlyCreatedTm {
-		f.LogEvent(ctx, application, "", corev1.EventTypeNormal, "Flink cluster created")
+		f.LogEvent(ctx, application, corev1.EventTypeNormal, "Flink cluster created")
 	}
 	return nil
 }
@@ -397,7 +401,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1alpha1
 	}
 
 	for k := range deletedHashes {
-		f.LogEvent(ctx, app, "", corev1.EventTypeNormal, fmt.Sprintf("Deleted old cluster with hash %s", k))
+		f.LogEvent(ctx, app, corev1.EventTypeNormal, fmt.Sprintf("Deleted old cluster with hash %s", k))
 	}
 
 	return nil
@@ -420,7 +424,7 @@ func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application
 	return checkpoint.ExternalPath, nil
 }
 
-func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, fieldPath string, eventType string, message string) {
+func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, message string) {
 	reason := "Create"
 	if app.Status.DeployHash != "" {
 		// this is not the first deploy
@@ -430,14 +434,8 @@ func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplicatio
 		reason = "Delete"
 	}
 
-	event := k8.CreateEvent(app, fieldPath, eventType, reason, message)
+	f.eventRecorder.Event(app, eventType, reason, message)
 	logger.Infof(ctx, "Logged %s event: %s: %s", eventType, reason, message)
-
-	// TODO: switch to using EventRecorder once we switch to controller runtime
-	if err := f.k8Cluster.CreateK8Object(ctx, &event); err != nil {
-		b, _ := json.Marshal(event)
-		logger.Errorf(ctx, "Failed to log event %v: %v", string(b), err)
-	}
 }
 
 // Gets and updates the cluster status
