@@ -3,7 +3,6 @@ package client
 import (
 	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -15,38 +14,40 @@ const (
 	GlobalFailure      = "FAILED"
 	JSONUnmarshalError = "JSONUNMARSHALERROR"
 	defaultRetries     = 20
+	noRetries          = 0
 )
 
-// evolving map of retryable errors
-var retryableErrors = map[string]int32{
-	"GetClusterOverview500":              defaultRetries,
-	"GetClusterOverview503":              defaultRetries,
-	"GetClusterOverview404NotFound":      defaultRetries,
-	"GetClusterOverview" + GlobalFailure: defaultRetries,
-	"CheckSavepointStatus500":            defaultRetries,
-	"CheckSavepointStatus503":            defaultRetries,
-	"CancelJobWithSavepoint500":          defaultRetries,
-	"CancelJobWithSavepoint503":          defaultRetries,
-}
+type FlinkMethod string
 
-// evolving map of errors where the operator fails after a single attempt
-var failFastErrors = map[string]struct{}{
-	"SubmitJob400BadRequest":    {},
-	"SubmitJob" + GlobalFailure: {},
-}
+const (
+	CancelJobWithSavepoint FlinkMethod = "CancelJobWithSavepoint"
+	ForceCancelJob         FlinkMethod = "ForceCancelJob"
+	SubmitJob              FlinkMethod = "SubmitJob"
+	CheckSavepointStatus   FlinkMethod = "CheckSavepointStatus"
+	GetJobs                FlinkMethod = "GetJobs"
+	GetClusterOverview     FlinkMethod = "GetClusterOverview"
+	GetLatestCheckpoint    FlinkMethod = "GetLatestCheckpoint"
+	GetJobConfig           FlinkMethod = "GetJobConfig"
+	GetTaskManagers        FlinkMethod = "GetTaskManagers"
+	GetCheckpointCounts    FlinkMethod = "GetCheckpointCounts"
+	GetJobOverview         FlinkMethod = "GetJobOverview"
+)
 
 // FlinkApplicationError implements the error interface to make error handling more structured
 type FlinkApplicationError struct {
-	appError  error
-	method    string
-	errorCode string
+	AppError    string      `json:"appError,omitempty"`
+	Method      FlinkMethod `json:"method,omitempty"`
+	ErrorCode   string      `json:"errorCode,omitempty"`
+	IsRetryable bool        `json:"isRetryable,omitempty"`
+	IsFailFast  bool        `json:"isFailFast,omitempty"`
+	MaxRetries  int32       `json:"maxRetries,omitempty"`
 }
 
 func (f *FlinkApplicationError) Error() string {
-	return f.appError.Error()
+	return f.AppError
 }
 
-func GetError(err error, method string, errorCode string, message ...string) error {
+func GetError(err error, method FlinkMethod, errorCode string, isRetryable bool, isFailFast bool, maxRetries int32, message ...string) error {
 	var f = new(FlinkApplicationError)
 	if err == nil {
 		err = errors.New(fmt.Sprintf("%v call failed with status %v and message %v", method, errorCode, message))
@@ -54,24 +55,14 @@ func GetError(err error, method string, errorCode string, message ...string) err
 		err = errors.Wrapf(err, "%v call failed with status %v and message %v", method, errorCode, message)
 	}
 
-	f.errorCode = errorCode
-	f.appError = err
-	f.method = method
+	f.ErrorCode = errorCode
+	f.AppError = err.Error()
+	f.Method = method
+	f.IsFailFast = isFailFast
+	f.IsRetryable = isRetryable
+	f.MaxRetries = maxRetries
 
 	return f
-}
-
-func GetErrorKey(error error) string {
-	flinkAppError, ok := error.(*FlinkApplicationError)
-	if ok && flinkAppError != nil {
-		errorKey := flinkAppError.method + flinkAppError.errorCode
-		return strings.Replace(errorKey, " ", "", -1)
-	}
-	if error != nil {
-		// For some reason the error was not a FlinkApplicationError, still return an error key
-		return error.Error()
-	}
-	return ""
 }
 
 func min(a, b int) int {
@@ -82,9 +73,9 @@ func min(a, b int) int {
 }
 
 type RetryHandlerInterface interface {
-	IsErrorRetryable(err string) bool
-	IsRetryRemaining(err string, retryCount int32) bool
-	IsErrorFailFast(err string) bool
+	IsErrorRetryable(err error) bool
+	IsRetryRemaining(err error, retryCount int32) bool
+	IsErrorFailFast(err error) bool
 	WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool)
 	GetRetryDelay(retryCount int32) time.Duration
 	BackOff(retryCount int32)
@@ -101,25 +92,30 @@ func NewRetryHandler(baseBackoff time.Duration, timeToWait time.Duration, maxBac
 	rand.Seed(time.Now().UnixNano())
 	return RetryHandler{baseBackoff, timeToWait, maxBackOff}
 }
-func (r RetryHandler) IsErrorRetryable(err string) bool {
-	if _, ok := retryableErrors[err]; ok {
-		return true
-	}
-	return false
-}
-
-func (r RetryHandler) IsRetryRemaining(err string, retryCount int32) bool {
-	if maxRetries, ok := retryableErrors[err]; ok {
-		return retryCount <= maxRetries
+func (r RetryHandler) IsErrorRetryable(err error) bool {
+	flinkAppError, ok := err.(*FlinkApplicationError)
+	if ok && flinkAppError != nil {
+		return flinkAppError.IsRetryable
 	}
 
 	return false
 }
 
-func (r RetryHandler) IsErrorFailFast(err string) bool {
-	if _, ok := failFastErrors[err]; ok {
-		return true
+func (r RetryHandler) IsRetryRemaining(err error, retryCount int32) bool {
+	flinkAppError, ok := err.(*FlinkApplicationError)
+	if ok && flinkAppError != nil {
+		return retryCount <= flinkAppError.MaxRetries
 	}
+
+	return false
+}
+
+func (r RetryHandler) IsErrorFailFast(err error) bool {
+	flinkAppError, ok := err.(*FlinkApplicationError)
+	if ok && flinkAppError != nil {
+		return flinkAppError.IsFailFast
+	}
+
 	return false
 }
 

@@ -6,9 +6,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/clock"
 )
 
-type IsErrorRetryableFunc func(err string) bool
-type IsRetryRemainingFunc func(err string, retryCount int32) bool
-type IsErrorFailFastFunc func(err string) bool
+type IsErrorRetryableFunc func(err error) bool
+type IsRetryRemainingFunc func(err error, retryCount int32) bool
+type IsErrorFailFastFunc func(err error) bool
 type WaitOnErrorFunc func(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool)
 type GetRetryDelayFunc func(retryCount int32) time.Duration
 type BackOffFunc func(retryCount int32)
@@ -22,7 +22,7 @@ type RetryHandler struct {
 	BackOffFunc          BackOffFunc
 }
 
-func (e RetryHandler) IsErrorRetryable(err string) bool {
+func (e RetryHandler) IsErrorRetryable(err error) bool {
 	if e.IsErrorRetryableFunc != nil {
 		return e.IsErrorRetryableFunc(err)
 	}
@@ -30,7 +30,7 @@ func (e RetryHandler) IsErrorRetryable(err string) bool {
 	return false
 }
 
-func (e RetryHandler) IsErrorFailFast(err string) bool {
+func (e RetryHandler) IsErrorFailFast(err error) bool {
 	if e.IsErrorFailFastFunc != nil {
 		return e.IsErrorFailFastFunc(err)
 	}
@@ -38,7 +38,7 @@ func (e RetryHandler) IsErrorFailFast(err string) bool {
 	return false
 }
 
-func (e RetryHandler) IsRetryRemaining(err string, retryCount int32) bool {
+func (e RetryHandler) IsRetryRemaining(err error, retryCount int32) bool {
 	if e.IsRetryRemainingFunc != nil {
 		return e.IsRetryRemainingFunc(err, retryCount)
 	}

@@ -24,17 +24,6 @@ import (
 
 const testSavepointLocation = "location"
 
-// evolving map of retryable errors
-var retryableErrors = map[string]int32{
-	"CancelJobWithSavepoint500": 3,
-	"GetClusterOverviewFAILED":  3,
-}
-
-// evolving map of retryable errors
-var failFastErrors = map[string]struct{}{
-	"SubmitJob400BadRequest": {},
-}
-
 func getTestStateMachine() FlinkStateMachine {
 	testScope := mockScope.NewTestScope()
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
@@ -616,33 +605,34 @@ func TestRollingBack(t *testing.T) {
 func TestIsApplicationStuck(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
+	retryableErr := client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED", true, false, 3)
+	failFastError := client.GetError(errors.New("blah"), "SubmitJob", "400BadRequest", false, true, 0)
+	otherError := client.GetError(errors.New("blah"), "NeitherRetryableNorFailfast", "500", false, false, 0)
+
 	app := &v1alpha1.FlinkApplication{
 		Status: v1alpha1.FlinkApplicationStatus{
 			Phase:         v1alpha1.FlinkApplicationClusterStarting,
 			DeployHash:    "prevhash",
-			LastSeenError: client.GetErrorKey(client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED")),
+			LastSeenError: retryableErr.(*client.FlinkApplicationError),
 		},
 	}
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
-	mockRetryHandler.IsErrorRetryableFunc = func(err string) bool {
-		if _, ok := retryableErrors[err]; ok {
-			return true
-		}
-		return false
+	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
+		ferr, ok := err.(*client.FlinkApplicationError)
+		assert.True(t, ok)
+		return ferr.IsRetryable
 	}
 
-	mockRetryHandler.IsRetryRemainingFunc = func(err string, retryCount int32) bool {
-		if maxRetries, ok := retryableErrors[err]; ok {
-			return retryCount <= maxRetries
-		}
-		return false
+	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
+		ferr, ok := err.(*client.FlinkApplicationError)
+		assert.True(t, ok)
+		return retryCount <= ferr.MaxRetries
 	}
 
-	mockRetryHandler.IsErrorFailFastFunc = func(err string) bool {
-		if _, ok := failFastErrors[err]; ok {
-			return true
-		}
-		return false
+	mockRetryHandler.IsErrorFailFastFunc = func(err error) bool {
+		ferr, ok := err.(*client.FlinkApplicationError)
+		assert.True(t, ok)
+		return ferr.IsFailFast
 	}
 	// Retryable error
 	assert.False(t, stateMachineForTest.shouldRollback(context.Background(), app))
@@ -651,14 +641,14 @@ func TestIsApplicationStuck(t *testing.T) {
 
 	// Retryable error with retries exhausted
 	app.Status.RetryCount = 100
-	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED"))
+	app.Status.LastSeenError = retryableErr.(*client.FlinkApplicationError)
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
 	assert.Empty(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(100), app.Status.RetryCount)
 
 	// Fail fast error
 	app.Status.RetryCount = 0
-	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "SubmitJob", "400BadRequest"))
+	app.Status.LastSeenError = failFastError.(*client.FlinkApplicationError)
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
 	assert.Empty(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
@@ -674,7 +664,7 @@ func TestIsApplicationStuck(t *testing.T) {
 		},
 	}
 	app.Status.RetryCount = 0
-	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "CancelJob", "FAILED"))
+	app.Status.LastSeenError = otherError.(*client.FlinkApplicationError)
 	lastUpdated = metav1.NewTime(time.Now().Add(time.Duration(-1) * time.Minute))
 	app.Status.LastUpdatedAt = &lastUpdated
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
@@ -979,26 +969,24 @@ func TestRollbackWithRetryableError(t *testing.T) {
 			DeployHash: "old-hash-retry",
 		},
 	}
-
+	retryableErr := client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED", true, false, 3)
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, app *v1alpha1.FlinkApplication, hash string) (savepoint string, err error) {
-		return "", client.GetError(errors.New("failed to get savepoint status"), "CancelJobWithSavepoint", "500")
+		return "", retryableErr
 	}
 
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
-	mockRetryHandler.IsErrorRetryableFunc = func(err string) bool {
-		if _, ok := retryableErrors[err]; ok {
-			return true
-		}
-		return false
+	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
+		ferr, ok := err.(*client.FlinkApplicationError)
+		assert.True(t, ok)
+		return ferr.IsRetryable
 	}
 
-	mockRetryHandler.IsRetryRemainingFunc = func(err string, retryCount int32) bool {
-		if maxRetries, ok := retryableErrors[err]; ok {
-			return retryCount <= maxRetries
-		}
-		return false
+	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
+		ferr, ok := err.(*client.FlinkApplicationError)
+		assert.True(t, ok)
+		return retryCount <= ferr.MaxRetries
 	}
 
 	mockRetryHandler.GetRetryDelayFunc = func(retryCount int32) time.Duration {
@@ -1064,9 +1052,10 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error) {
 		return true, nil
 	}
+	failFastError := client.GetError(errors.New("blah"), "SubmitJob", "400BadRequest", false, true, 0)
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
 		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
-		return "", client.GetError(errors.New("failed to get submit job"), "SubmitJob", "400BadRequest")
+		return "", failFastError
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
@@ -1092,11 +1081,10 @@ func TestRollbackWithFailFastError(t *testing.T) {
 		}, nil
 	}
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
-	mockRetryHandler.IsErrorFailFastFunc = func(err string) bool {
-		if _, ok := failFastErrors[err]; ok {
-			return true
-		}
-		return false
+	mockRetryHandler.IsErrorFailFastFunc = func(err error) bool {
+		ferr, ok := err.(*client.FlinkApplicationError)
+		assert.True(t, ok)
+		return ferr.IsFailFast
 	}
 	retries := 0
 	var err error
@@ -1158,9 +1146,10 @@ func TestRollbackWithOtherError(t *testing.T) {
 	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error) {
 		return true, nil
 	}
+	otherError := client.GetError(errors.New("blah"), "NeitherRetryableNorFailfast", "500", false, false, 0)
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
 		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
-		return "", client.GetError(errors.New("failed to get submit job"), "NeitherFailFastNotRetryable", "400")
+		return "", otherError
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
@@ -1186,17 +1175,15 @@ func TestRollbackWithOtherError(t *testing.T) {
 		}, nil
 	}
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
-	mockRetryHandler.IsErrorRetryableFunc = func(err string) bool {
-		if _, ok := retryableErrors[err]; ok {
-			return true
-		}
-		return false
+	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
+		ferr, ok := err.(*client.FlinkApplicationError)
+		assert.True(t, ok)
+		return ferr.IsRetryable
 	}
-	mockRetryHandler.IsErrorFailFastFunc = func(err string) bool {
-		if _, ok := failFastErrors[err]; ok {
-			return true
-		}
-		return false
+	mockRetryHandler.IsErrorFailFastFunc = func(err error) bool {
+		ferr, ok := err.(*client.FlinkApplicationError)
+		assert.True(t, ok)
+		return ferr.IsFailFast
 	}
 	retries := 0
 	var err error

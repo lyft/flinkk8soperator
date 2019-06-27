@@ -79,13 +79,13 @@ func (s *FlinkStateMachine) updateApplicationPhase(ctx context.Context, applicat
 }
 
 func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1alpha1.FlinkApplication) bool {
-	if application.Status.DeployHash == "" && application.Status.LastSeenError == "" {
+	if application.Status.DeployHash == "" {
 		// TODO: we may want some more sophisticated way of handling this case
 		// there's no previous deploy for this application, so nothing to roll back to
 		return false
 	}
 
-	if application.Status.LastSeenError == "" {
+	if application.Status.LastSeenError == nil {
 		return false
 	}
 	// Check if the error is retryable
@@ -97,27 +97,27 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 			application.Status.RetryCount++
 
 			// Reset error to always record latest error
-			application.Status.LastSeenError = ""
+			application.Status.LastSeenError = nil
 			return false
 		}
 		// Retryable error with retries exhausted
-		application.Status.LastSeenError = ""
+		application.Status.LastSeenError = nil
 		return true
 	}
 
 	// For a class of errors that should fail fast, e.g. submitjob failures, always fail fast
 	if s.retryHandler.IsErrorFailFast(application.Status.LastSeenError) {
 		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress in the %v phase with error %v", application.Status.Phase, application.Status.LastSeenError))
-		application.Status.LastSeenError = ""
+		application.Status.LastSeenError = nil
 		return true
 	}
 
 	// All other errors, use a time based wait to determine whether to rollback or not.
-	if application.Status.LastSeenError != "" && application.Status.LastUpdatedAt != nil {
+	if application.Status.LastSeenError != nil && application.Status.LastUpdatedAt != nil {
 		if elapsedTime, ok := s.retryHandler.WaitOnError(s.clock, application.Status.LastUpdatedAt.Time); !ok {
 			s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress for %v in the %v phase",
 				elapsedTime, application.Status.Phase))
-			application.Status.LastSeenError = ""
+			application.Status.LastSeenError = nil
 			return true
 		}
 	}
@@ -202,7 +202,7 @@ func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1alpha1.Flin
 	app.Status.FailedDeployHash = flink.HashForApplication(app)
 
 	// Reset error and retry count
-	app.Status.LastSeenError = ""
+	app.Status.LastSeenError = nil
 	app.Status.RetryCount = 0
 
 	return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationDeployFailed)
@@ -616,14 +616,19 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 }
 
 func (s *FlinkStateMachine) getAndUpdateError(ctx context.Context, application *v1alpha1.FlinkApplication, err error) {
-	application.Status.LastSeenError = client.GetErrorKey(err)
+	if flinkAppError, ok := err.(*client.FlinkApplicationError); ok {
+		application.Status.LastSeenError = flinkAppError
+	} else {
+		err = client.GetError(err, "UnKnownMethod", client.GlobalFailure, false, false, 0)
+		application.Status.LastSeenError = err.(*client.FlinkApplicationError)
+	}
 	updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
 	if updateErr != nil {
 		logger.Errorf(ctx, "Updating last seen error failed with %v", updateErr)
 	}
 }
 
-func createRetryHandler() client.RetryHandler {
+func createRetryHandler() client.RetryHandlerInterface {
 	return client.NewRetryHandler(config.GetConfig().BaseBackoffDuration.Duration, config.GetConfig().MaxErrDuration.Duration,
 		config.GetConfig().MaxBackoffDuration.Duration)
 }
