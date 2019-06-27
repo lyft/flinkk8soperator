@@ -50,5 +50,8 @@ func (cfg Config) GetPFlagSet(prefix string) *pflag.FlagSet {
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "ProxyPort"), "8001", "The port at which flink cluster runs locally")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "containerNameFormat"), *new(string), "")
 	cmdFlags.Int(fmt.Sprintf("%v%v", prefix, "workers"), 4, "Number of routines to process custom resource")
+	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "baseBackoffDuration"), "100ms", "Determines the base backoff for exponential retries.")
+	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "maxBackoffDuration"), "30s", "Determines the max backoff for exponential retries.")
+	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "maxErrDuration"), "5m", "Determines the max time to wait on errors.")
 	return cmdFlags
 }

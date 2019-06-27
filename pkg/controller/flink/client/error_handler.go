@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -11,9 +12,9 @@ import (
 
 // appError codes
 const (
-	globalFailure      = "FAILED"
-	jsonUnmarshalError = "JSONUNMARSHALERROR"
-	defaultRetries     = 5
+	GlobalFailure      = "FAILED"
+	JSONUnmarshalError = "JSONUNMARSHALERROR"
+	defaultRetries     = 20
 )
 
 // evolving map of retryable errors
@@ -21,7 +22,7 @@ var retryableErrors = map[string]int32{
 	"GetClusterOverview500":              defaultRetries,
 	"GetClusterOverview503":              defaultRetries,
 	"GetClusterOverview404NotFound":      defaultRetries,
-	"GetClusterOverview" + globalFailure: defaultRetries,
+	"GetClusterOverview" + GlobalFailure: defaultRetries,
 	"CheckSavepointStatus500":            defaultRetries,
 	"CheckSavepointStatus503":            defaultRetries,
 	"CancelJobWithSavepoint500":          defaultRetries,
@@ -31,7 +32,7 @@ var retryableErrors = map[string]int32{
 // evolving map of errors where the operator fails after a single attempt
 var failFastErrors = map[string]struct{}{
 	"SubmitJob400BadRequest":    {},
-	"SubmitJob" + globalFailure: {},
+	"SubmitJob" + GlobalFailure: {},
 }
 
 // FlinkApplicationError implements the error interface to make error handling more structured
@@ -56,6 +57,7 @@ func GetError(err error, method string, errorCode string, message ...string) err
 	f.errorCode = errorCode
 	f.appError = err
 	f.method = method
+
 	return f
 }
 
@@ -72,14 +74,32 @@ func GetErrorKey(error error) string {
 	return ""
 }
 
-// A Retryer that has methods to determine if an error is retryable and also does exponential backoff
-type RetryHandler struct {
-	baseBackOffMillis int32
-	timeToWaitMillis  int32
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
-func NewRetryHandler(baseBackoff int32, timeToWait int32) RetryHandler {
-	return RetryHandler{baseBackoff, timeToWait}
+type RetryHandlerInterface interface {
+	IsErrorRetryable(err string) bool
+	IsRetryRemaining(err string, retryCount int32) bool
+	IsErrorFailFast(err string) bool
+	WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool)
+	GetRetryDelay(retryCount int32) time.Duration
+	BackOff(retryCount int32)
+}
+
+// A Retryer that has methods to determine if an error is retryable and also does exponential backoff
+type RetryHandler struct {
+	baseBackOffDuration      time.Duration
+	maxErrWaitDuration       time.Duration
+	maxBackOffMillisDuration time.Duration
+}
+
+func NewRetryHandler(baseBackoff time.Duration, timeToWait time.Duration, maxBackOff time.Duration) RetryHandler {
+	rand.Seed(time.Now().UnixNano())
+	return RetryHandler{baseBackoff, timeToWait, maxBackOff}
 }
 func (r RetryHandler) IsErrorRetryable(err string) bool {
 	if _, ok := retryableErrors[err]; ok {
@@ -105,11 +125,13 @@ func (r RetryHandler) IsErrorFailFast(err string) bool {
 
 func (r RetryHandler) WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool) {
 	elapsedTime := clock.Since(lastUpdatedTime)
-	return elapsedTime, elapsedTime <= time.Millisecond*time.Duration(r.timeToWaitMillis)
+	return elapsedTime, elapsedTime <= r.maxErrWaitDuration
 
 }
 func (r RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
-	return time.Duration(1<<uint(retryCount)*r.baseBackOffMillis) * time.Millisecond
+	timeInMillis := int(r.baseBackOffDuration.Nanoseconds() / int64(time.Millisecond))
+	delay := 1 << uint(retryCount) * (rand.Intn(timeInMillis) + timeInMillis)
+	return time.Duration(min(delay, int(r.maxBackOffMillisDuration))) * time.Millisecond
 }
 func (r RetryHandler) BackOff(retryCount int32) {
 	time.Sleep(r.GetRetryDelay(retryCount))

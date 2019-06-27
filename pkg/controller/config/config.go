@@ -20,6 +20,9 @@ type Config struct {
 	ProxyPort             config.Port     `json:"ProxyPort" pflag:"\"8001\",The port at which flink cluster runs locally"`
 	ContainerNameFormat   string          `json:"containerNameFormat"`
 	Workers               int             `json:"workers" pflag:"4,Number of routines to process custom resource"`
+	BaseBackoffDuration   config.Duration `json:"baseBackoffDuration" pflag:"\"100ms\",Determines the base backoff for exponential retries."`
+	MaxBackoffDuration    config.Duration `json:"maxBackoffDuration" pflag:"\"30s\",Determines the max backoff for exponential retries."`
+	MaxErrDuration        config.Duration `json:"maxErrDuration" pflag:"\"5m\",Determines the max time to wait on errors."`
 }
 
 func GetConfig() *Config {

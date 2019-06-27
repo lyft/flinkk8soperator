@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
+
 	"github.com/pkg/errors"
 
 	"fmt"
@@ -11,7 +13,6 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
-	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
@@ -22,9 +23,7 @@ import (
 )
 
 const (
-	jobFinalizer           = "job.finalizers.flink.k8s.io"
-	retryBaseBackoffMillis = 100
-	timeToWaitMillis       = 5 * 60 * 1000
+	jobFinalizer = "job.finalizers.flink.k8s.io"
 )
 
 // The core state machine that manages Flink clusters and jobs. See docs/state_machine.md for a description of the
@@ -38,7 +37,7 @@ type FlinkStateMachine struct {
 	k8Cluster       k8.ClusterInterface
 	clock           clock.Clock
 	metrics         *stateMachineMetrics
-	retryHandler    client.RetryHandler
+	retryHandler    client.RetryHandlerInterface
 }
 
 type stateMachineMetrics struct {
@@ -102,12 +101,14 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 			return false
 		}
 		// Retryable error with retries exhausted
+		application.Status.LastSeenError = ""
 		return true
 	}
 
 	// For a class of errors that should fail fast, e.g. submitjob failures, always fail fast
 	if s.retryHandler.IsErrorFailFast(application.Status.LastSeenError) {
 		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress in the %v phase with error %v", application.Status.Phase, application.Status.LastSeenError))
+		application.Status.LastSeenError = ""
 		return true
 	}
 
@@ -116,6 +117,7 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 		if elapsedTime, ok := s.retryHandler.WaitOnError(s.clock, application.Status.LastUpdatedAt.Time); !ok {
 			s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress for %v in the %v phase",
 				elapsedTime, application.Status.Phase))
+			application.Status.LastSeenError = ""
 			return true
 		}
 	}
@@ -621,6 +623,11 @@ func (s *FlinkStateMachine) getAndUpdateError(ctx context.Context, application *
 	}
 }
 
+func createRetryHandler() client.RetryHandler {
+	return client.NewRetryHandler(config.GetConfig().BaseBackoffDuration.Duration, config.GetConfig().MaxErrDuration.Duration,
+		config.GetConfig().MaxBackoffDuration.Duration)
+}
+
 func NewFlinkStateMachine(k8sCluster k8.ClusterInterface, config config.RuntimeConfig) FlinkHandlerInterface {
 
 	metrics := newStateMachineMetrics(config.MetricsScope)
@@ -629,6 +636,6 @@ func NewFlinkStateMachine(k8sCluster k8.ClusterInterface, config config.RuntimeC
 		flinkController: flink.NewController(k8sCluster, config),
 		clock:           clock.RealClock{},
 		metrics:         metrics,
-		retryHandler:    client.NewRetryHandler(retryBaseBackoffMillis, timeToWaitMillis),
+		retryHandler:    createRetryHandler(),
 	}
 }

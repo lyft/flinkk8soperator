@@ -9,7 +9,7 @@ import (
 )
 
 func getTestRetryer() RetryHandler {
-	return NewRetryHandler(10, 10)
+	return NewRetryHandler(10*time.Millisecond, 10*time.Millisecond, 50*time.Millisecond)
 }
 
 func TestGetError(t *testing.T) {
@@ -57,13 +57,13 @@ func TestErrors(t *testing.T) {
 
 func TestRetryHandler_BackOff(t *testing.T) {
 	retryHandler := getTestRetryer()
-	assert.Equal(t, 10*time.Millisecond, retryHandler.GetRetryDelay(0))
-	assert.Equal(t, 20*time.Millisecond, retryHandler.GetRetryDelay(1))
+	assert.True(t, retryHandler.GetRetryDelay(0) <= 50*time.Millisecond)
+	assert.True(t, retryHandler.GetRetryDelay(1) <= 50*time.Millisecond)
 }
 
 func TestRetryHandler_IsRetryRemaining(t *testing.T) {
 	retryableError := "GetClusterOverview500"
 	retryer := getTestRetryer()
 	assert.True(t, retryer.IsRetryRemaining(retryableError, 2))
-	assert.False(t, retryer.IsRetryRemaining(retryableError, 10))
+	assert.False(t, retryer.IsRetryRemaining(retryableError, 22))
 }

@@ -24,6 +24,17 @@ import (
 
 const testSavepointLocation = "location"
 
+// evolving map of retryable errors
+var retryableErrors = map[string]int32{
+	"CancelJobWithSavepoint500": 3,
+	"GetClusterOverviewFAILED":  3,
+}
+
+// evolving map of retryable errors
+var failFastErrors = map[string]struct{}{
+	"SubmitJob400BadRequest": {},
+}
+
 func getTestStateMachine() FlinkStateMachine {
 	testScope := mockScope.NewTestScope()
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
@@ -33,7 +44,7 @@ func getTestStateMachine() FlinkStateMachine {
 		k8Cluster:       &k8mock.K8Cluster{},
 		clock:           &clock.FakeClock{},
 		metrics:         newStateMachineMetrics(testScope),
-		retryHandler:    client.NewRetryHandler(10, 5000),
+		retryHandler:    &mock.RetryHandler{},
 	}
 }
 
@@ -612,6 +623,27 @@ func TestIsApplicationStuck(t *testing.T) {
 			LastSeenError: client.GetErrorKey(client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED")),
 		},
 	}
+	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
+	mockRetryHandler.IsErrorRetryableFunc = func(err string) bool {
+		if _, ok := retryableErrors[err]; ok {
+			return true
+		}
+		return false
+	}
+
+	mockRetryHandler.IsRetryRemainingFunc = func(err string, retryCount int32) bool {
+		if maxRetries, ok := retryableErrors[err]; ok {
+			return retryCount <= maxRetries
+		}
+		return false
+	}
+
+	mockRetryHandler.IsErrorFailFastFunc = func(err string) bool {
+		if _, ok := failFastErrors[err]; ok {
+			return true
+		}
+		return false
+	}
 	// Retryable error
 	assert.False(t, stateMachineForTest.shouldRollback(context.Background(), app))
 	assert.Empty(t, app.Status.LastSeenError)
@@ -621,14 +653,14 @@ func TestIsApplicationStuck(t *testing.T) {
 	app.Status.RetryCount = 100
 	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "GetClusterOverview", "FAILED"))
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.NotEmpty(t, app.Status.LastSeenError)
+	assert.Empty(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(100), app.Status.RetryCount)
 
 	// Fail fast error
 	app.Status.RetryCount = 0
 	app.Status.LastSeenError = client.GetErrorKey(client.GetError(errors.New("blah"), "SubmitJob", "400BadRequest"))
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.NotEmpty(t, app.Status.LastSeenError)
+	assert.Empty(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
 
 	// Other error - wait based on time
@@ -646,13 +678,13 @@ func TestIsApplicationStuck(t *testing.T) {
 	lastUpdated = metav1.NewTime(time.Now().Add(time.Duration(-1) * time.Minute))
 	app.Status.LastUpdatedAt = &lastUpdated
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.NotEmpty(t, app.Status.LastSeenError)
+	assert.Empty(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
 
 	lastUpdated = metav1.NewTime(time.Now().Add(time.Duration(-1) * time.Second))
 	app.Status.LastUpdatedAt = &lastUpdated
 	assert.False(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.NotEmpty(t, app.Status.LastSeenError)
+	assert.Empty(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
 
 }
@@ -954,6 +986,25 @@ func TestRollbackWithRetryableError(t *testing.T) {
 		return "", client.GetError(errors.New("failed to get savepoint status"), "CancelJobWithSavepoint", "500")
 	}
 
+	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
+	mockRetryHandler.IsErrorRetryableFunc = func(err string) bool {
+		if _, ok := retryableErrors[err]; ok {
+			return true
+		}
+		return false
+	}
+
+	mockRetryHandler.IsRetryRemainingFunc = func(err string, retryCount int32) bool {
+		if maxRetries, ok := retryableErrors[err]; ok {
+			return retryCount <= maxRetries
+		}
+		return false
+	}
+
+	mockRetryHandler.GetRetryDelayFunc = func(retryCount int32) time.Duration {
+		return time.Duration(0)
+	}
+
 	retries := 0
 	for ; app.Status.Phase != v1alpha1.FlinkApplicationDeployFailed; retries++ {
 		assert.Equal(t, v1alpha1.FlinkApplicationSavepointing, app.Status.Phase)
@@ -961,15 +1012,13 @@ func TestRollbackWithRetryableError(t *testing.T) {
 
 		// First attempt does not rollback
 		if retries > 0 && retries < 4 {
-			sleepTime := stateMachineForTest.retryHandler.GetRetryDelay(int32(retries))
-			time.Sleep(sleepTime)
 			assert.Equal(t, int32(retries), app.Status.RetryCount)
 			assert.NotNil(t, err)
 			assert.NotEmpty(t, app.Status.LastSeenError)
 		}
 	}
 
-	assert.Equal(t, 8, retries)
+	assert.Equal(t, 6, retries)
 
 	// Retries should have been exhausted and errors and retry counts reset
 	assert.Equal(t, v1alpha1.FlinkApplicationDeployFailed, app.Status.Phase)
@@ -1042,6 +1091,13 @@ func TestRollbackWithFailFastError(t *testing.T) {
 			},
 		}, nil
 	}
+	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
+	mockRetryHandler.IsErrorFailFastFunc = func(err string) bool {
+		if _, ok := failFastErrors[err]; ok {
+			return true
+		}
+		return false
+	}
 	retries := 0
 	var err error
 	for ; app.Status.Phase == v1alpha1.FlinkApplicationSubmittingJob; retries++ {
@@ -1058,7 +1114,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	assert.Equal(t, 2, retries)
 	assert.Equal(t, v1alpha1.FlinkApplicationRollingBackJob, app.Status.Phase)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
-	assert.NotEmpty(t, app.Status.LastSeenError)
+	assert.Empty(t, app.Status.LastSeenError)
 }
 
 func TestRollbackWithOtherError(t *testing.T) {
@@ -1129,6 +1185,19 @@ func TestRollbackWithOtherError(t *testing.T) {
 			},
 		}, nil
 	}
+	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
+	mockRetryHandler.IsErrorRetryableFunc = func(err string) bool {
+		if _, ok := retryableErrors[err]; ok {
+			return true
+		}
+		return false
+	}
+	mockRetryHandler.IsErrorFailFastFunc = func(err string) bool {
+		if _, ok := failFastErrors[err]; ok {
+			return true
+		}
+		return false
+	}
 	retries := 0
 	var err error
 	for ; app.Status.Phase == v1alpha1.FlinkApplicationSubmittingJob; retries++ {
@@ -1144,5 +1213,5 @@ func TestRollbackWithOtherError(t *testing.T) {
 	assert.Equal(t, 2, retries)
 	assert.Equal(t, v1alpha1.FlinkApplicationRollingBackJob, app.Status.Phase)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
-	assert.NotEmpty(t, app.Status.LastSeenError)
+	assert.Empty(t, app.Status.LastSeenError)
 }
