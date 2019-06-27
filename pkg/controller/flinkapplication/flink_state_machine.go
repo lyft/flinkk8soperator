@@ -342,6 +342,12 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 		return err
 	}
 
+	// Update status of the cluster
+	_, clusterErr := s.flinkController.CompareAndUpdateClusterStatus(ctx, app, hash)
+	if clusterErr != nil {
+		logger.Errorf(ctx, "Updating cluster status failed with error: %v", clusterErr)
+	}
+
 	activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
 		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
 	if err != nil {
