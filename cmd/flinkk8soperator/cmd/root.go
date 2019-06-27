@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller"
-	controller_config "github.com/lyft/flinkk8soperator/pkg/controller/config"
+	controllerConfig "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	ctrlRuntimeConfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/kubernetes-sigs/controller-runtime/pkg/runtime/signals"
@@ -27,10 +27,6 @@ import (
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-)
-
-const (
-	appName = "flinkk8soperator"
 )
 
 var (
@@ -46,27 +42,27 @@ var rootCmd = &cobra.Command{
 		return initConfig(cmd.Flags())
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return executeRootCmd(controller_config.GetConfig())
+		return executeRootCmd(controllerConfig.GetConfig())
 	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	version.LogBuildInformation(appName)
+	version.LogBuildInformation(controllerConfig.AppName)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
-func Run(config *controller_config.Config) error {
-	if err := controller_config.SetConfig(config); err != nil {
+func Run(config *controllerConfig.Config) error {
+	if err := controllerConfig.SetConfig(config); err != nil {
 		logger.Errorf(context.Background(), "Failed to set config: %v", err)
 		return err
 	}
 
-	return executeRootCmd(controller_config.GetConfig())
+	return executeRootCmd(controllerConfig.GetConfig())
 }
 
 func init() {
@@ -104,7 +100,7 @@ func logAndExit(err error) {
 	os.Exit(-1)
 }
 
-func executeRootCmd(controllerCfg *controller_config.Config) error {
+func executeRootCmd(controllerCfg *controllerConfig.Config) error {
 	ctx, cancelNow := context.WithCancel(context.Background())
 
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
@@ -141,7 +137,7 @@ func executeRootCmd(controllerCfg *controller_config.Config) error {
 }
 
 func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
-	controllerCfg *controller_config.Config) (stopCh <-chan struct{}, err error) {
+	controllerCfg *controllerConfig.Config) (stopCh <-chan struct{}, err error) {
 
 	// Get a config to talk to the apiserver
 	cfg, err := ctrlRuntimeConfig.GetConfig()
@@ -167,7 +163,7 @@ func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
 
 	// Setup all Controllers
 	logger.Infof(ctx, "Adding controllers.")
-	if err := controller.AddToManager(ctx, mgr, controller_config.RuntimeConfig{
+	if err := controller.AddToManager(ctx, mgr, controllerConfig.RuntimeConfig{
 		MetricsScope: metricsScope,
 	}); err != nil {
 		return nil, err

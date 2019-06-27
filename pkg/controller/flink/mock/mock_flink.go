@@ -6,7 +6,6 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
-	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -120,8 +119,17 @@ func (m *FlinkController) FindExternalizedCheckpoint(ctx context.Context, applic
 	return "", nil
 }
 
-func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, fieldPath string, eventType string, message string) {
-	m.Events = append(m.Events, k8.CreateEvent(app, fieldPath, eventType, "Test", message))
+func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, message string) {
+	m.Events = append(m.Events, corev1.Event{
+		InvolvedObject: corev1.ObjectReference{
+			Kind:      app.Kind,
+			Name:      app.Name,
+			Namespace: app.Namespace,
+		},
+		Type:    eventType,
+		Reason:  "Test",
+		Message: message,
+	})
 }
 
 func (m *FlinkController) CompareAndUpdateClusterStatus(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error) {

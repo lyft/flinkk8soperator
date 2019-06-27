@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/scheme"
+	"k8s.io/client-go/tools/record"
+
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
@@ -35,12 +38,16 @@ const testFlinkVersion = "1.7"
 func getTestFlinkController() Controller {
 	testScope := mockScope.NewTestScope()
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
+
+	recorderProvider := record.NewBroadcaster()
+
 	return Controller{
-		jobManager:  &mock.JobManagerController{},
-		taskManager: &mock.TaskManagerController{},
-		k8Cluster:   &k8mock.K8Cluster{},
-		flinkClient: &clientMock.JobManagerClient{},
-		metrics:     newControllerMetrics(testScope),
+		jobManager:    &mock.JobManagerController{},
+		taskManager:   &mock.TaskManagerController{},
+		k8Cluster:     &k8mock.K8Cluster{},
+		flinkClient:   &clientMock.JobManagerClient{},
+		metrics:       newControllerMetrics(testScope),
+		eventRecorder: recorderProvider.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "test"}),
 	}
 }
 
