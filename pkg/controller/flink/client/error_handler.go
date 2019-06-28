@@ -49,6 +49,24 @@ func (f *FlinkApplicationError) Error() string {
 	return f.AppError
 }
 
+func (f *FlinkApplicationError) DeepCopyInto(out *FlinkApplicationError) {
+	*out = *f
+	if f.LastErrorUpdateTime != nil {
+		f, out := &f.LastErrorUpdateTime, &out.LastErrorUpdateTime
+		*out = (*f).DeepCopy()
+	}
+}
+
+
+func (f *FlinkApplicationError) DeepCopy() *FlinkApplicationError {
+	if f == nil {
+		return nil
+	}
+	out := new(FlinkApplicationError)
+	f.DeepCopyInto(out)
+	return out
+}
+
 func GetError(err error, method FlinkMethod, errorCode string, isRetryable bool, isFailFast bool, maxRetries int32, message ...string) error {
 	var f = new(FlinkApplicationError)
 	if err == nil {

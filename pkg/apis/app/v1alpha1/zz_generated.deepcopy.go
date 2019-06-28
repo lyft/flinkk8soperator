@@ -5,7 +5,6 @@
 package v1alpha1
 
 import (
-	client "github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	v1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -180,8 +179,7 @@ func (in *FlinkApplicationStatus) DeepCopyInto(out *FlinkApplicationStatus) {
 	in.JobStatus.DeepCopyInto(&out.JobStatus)
 	if in.LastSeenError != nil {
 		in, out := &in.LastSeenError, &out.LastSeenError
-		*out = new(client.FlinkApplicationError)
-		(*in).DeepCopyInto(*out)
+		*out = (*in).DeepCopy()
 	}
 	return
 }
