@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/clock"
 )
 
@@ -35,12 +36,13 @@ const (
 
 // FlinkApplicationError implements the error interface to make error handling more structured
 type FlinkApplicationError struct {
-	AppError    string      `json:"appError,omitempty"`
-	Method      FlinkMethod `json:"method,omitempty"`
-	ErrorCode   string      `json:"errorCode,omitempty"`
-	IsRetryable bool        `json:"isRetryable,omitempty"`
-	IsFailFast  bool        `json:"isFailFast,omitempty"`
-	MaxRetries  int32       `json:"maxRetries,omitempty"`
+	AppError            string       `json:"appError,omitempty"`
+	Method              FlinkMethod  `json:"method,omitempty"`
+	ErrorCode           string       `json:"errorCode,omitempty"`
+	IsRetryable         bool         `json:"isRetryable,omitempty"`
+	IsFailFast          bool         `json:"isFailFast,omitempty"`
+	MaxRetries          int32        `json:"maxRetries,omitempty"`
+	LastErrorUpdateTime *metav1.Time `json:"startedAt,omitempty"`
 }
 
 func (f *FlinkApplicationError) Error() string {
@@ -78,7 +80,7 @@ type RetryHandlerInterface interface {
 	IsErrorFailFast(err error) bool
 	WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool)
 	GetRetryDelay(retryCount int32) time.Duration
-	BackOff(retryCount int32)
+	IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool
 }
 
 // A Retryer that has methods to determine if an error is retryable and also does exponential backoff
@@ -93,6 +95,9 @@ func NewRetryHandler(baseBackoff time.Duration, timeToWait time.Duration, maxBac
 	return RetryHandler{baseBackoff, timeToWait, maxBackOff}
 }
 func (r RetryHandler) IsErrorRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
 	flinkAppError, ok := err.(*FlinkApplicationError)
 	if ok && flinkAppError != nil {
 		return flinkAppError.IsRetryable
@@ -111,6 +116,9 @@ func (r RetryHandler) IsRetryRemaining(err error, retryCount int32) bool {
 }
 
 func (r RetryHandler) IsErrorFailFast(err error) bool {
+	if err == nil {
+		return false
+	}
 	flinkAppError, ok := err.(*FlinkApplicationError)
 	if ok && flinkAppError != nil {
 		return flinkAppError.IsFailFast
@@ -129,6 +137,7 @@ func (r RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
 	delay := 1 << uint(retryCount) * (rand.Intn(timeInMillis) + timeInMillis)
 	return time.Duration(min(delay, int(r.maxBackOffMillisDuration))) * time.Millisecond
 }
-func (r RetryHandler) BackOff(retryCount int32) {
-	time.Sleep(r.GetRetryDelay(retryCount))
+func (r RetryHandler) IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
+	elapsedTime := clock.Since(lastUpdatedTime)
+	return elapsedTime <= r.GetRetryDelay(retryCount)
 }

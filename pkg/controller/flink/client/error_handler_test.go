@@ -4,8 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/clock"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func getTestRetryer() RetryHandler {
@@ -47,7 +50,7 @@ func TestErrors(t *testing.T) {
 	assert.False(t, retryer.IsErrorFailFast(otherError))
 }
 
-func TestRetryHandler_BackOff(t *testing.T) {
+func TestRetryHandler_GetRetryDelay(t *testing.T) {
 	retryHandler := getTestRetryer()
 	assert.True(t, retryHandler.GetRetryDelay(0) <= 50*time.Millisecond)
 	assert.True(t, retryHandler.GetRetryDelay(1) <= 50*time.Millisecond)
@@ -59,4 +62,13 @@ func TestRetryHandler_IsRetryRemaining(t *testing.T) {
 	retryer := getTestRetryer()
 	assert.True(t, retryer.IsRetryRemaining(ferr, 2))
 	assert.False(t, retryer.IsRetryRemaining(ferr, 22))
+}
+
+func TestRetryHandler_IsTimeToRetry(t *testing.T) {
+	retryer := getTestRetryer()
+	currTime := metav1.NewTime(time.Now())
+	olderTime := currTime.Add(-5 * time.Second)
+	fakeClock := clock.NewFakeClock(currTime.Time)
+	fakeClock.SetTime(time.Now())
+	assert.True(t, retryer.IsTimeToRetry(fakeClock, olderTime, 10))
 }

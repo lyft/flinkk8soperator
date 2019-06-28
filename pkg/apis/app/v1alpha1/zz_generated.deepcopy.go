@@ -181,7 +181,7 @@ func (in *FlinkApplicationStatus) DeepCopyInto(out *FlinkApplicationStatus) {
 	if in.LastSeenError != nil {
 		in, out := &in.LastSeenError, &out.LastSeenError
 		*out = new(client.FlinkApplicationError)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }

@@ -92,12 +92,6 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 	if s.retryHandler.IsErrorRetryable(application.Status.LastSeenError) {
 		if s.retryHandler.IsRetryRemaining(application.Status.LastSeenError, application.Status.RetryCount) {
 			s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application in phase %v retrying with error %v", application.Status.Phase, application.Status.LastSeenError))
-			// backoff exponentially
-			s.retryHandler.BackOff(application.Status.RetryCount)
-			application.Status.RetryCount++
-
-			// Reset error to always record latest error
-			application.Status.LastSeenError = nil
 			return false
 		}
 		// Retryable error with retries exhausted
@@ -153,30 +147,48 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 	if !v1alpha1.IsRunningPhase(application.Status.Phase) {
 		logger.Infof(ctx, "Handling state %s for application", application.Status.Phase)
 	}
-	var appErr error
-	switch application.Status.Phase {
-	case v1alpha1.FlinkApplicationNew, v1alpha1.FlinkApplicationUpdating:
-		// Currently just transitions to the next state
-		appErr = s.handleNewOrUpdating(ctx, application)
-	case v1alpha1.FlinkApplicationClusterStarting:
-		appErr = s.handleClusterStarting(ctx, application)
-	case v1alpha1.FlinkApplicationSubmittingJob:
-		appErr = s.handleSubmittingJob(ctx, application)
-	case v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed:
-		appErr = s.handleApplicationRunning(ctx, application)
-	case v1alpha1.FlinkApplicationSavepointing:
-		appErr = s.handleApplicationSavepointing(ctx, application)
-	case v1alpha1.FlinkApplicationRollingBackJob:
-		appErr = s.handleRollingBack(ctx, application)
-	case v1alpha1.FlinkApplicationDeleting:
-		appErr = s.handleApplicationDeleting(ctx, application)
+	if s.IsTimeToHandlePhase(application) {
+		var appErr error
+		switch application.Status.Phase {
+		case v1alpha1.FlinkApplicationNew, v1alpha1.FlinkApplicationUpdating:
+			// Currently just transitions to the next state
+			appErr = s.handleNewOrUpdating(ctx, application)
+		case v1alpha1.FlinkApplicationClusterStarting:
+			appErr = s.handleClusterStarting(ctx, application)
+		case v1alpha1.FlinkApplicationSubmittingJob:
+			appErr = s.handleSubmittingJob(ctx, application)
+		case v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed:
+			appErr = s.handleApplicationRunning(ctx, application)
+		case v1alpha1.FlinkApplicationSavepointing:
+			appErr = s.handleApplicationSavepointing(ctx, application)
+		case v1alpha1.FlinkApplicationRollingBackJob:
+			appErr = s.handleRollingBack(ctx, application)
+		case v1alpha1.FlinkApplicationDeleting:
+			appErr = s.handleApplicationDeleting(ctx, application)
+		}
+		if appErr != nil {
+			s.getAndUpdateError(ctx, application, appErr)
+			return appErr
+		}
 	}
-	if appErr != nil {
-		s.getAndUpdateError(ctx, application, appErr)
-		return appErr
+	return nil
+}
+
+func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1alpha1.FlinkApplication) bool {
+	lastSeenError := application.Status.LastSeenError
+	if application.Status.LastSeenError == nil || !s.retryHandler.IsErrorRetryable(application.Status.LastSeenError) {
+		return true
 	}
 
-	return nil
+	retryCount := application.Status.RetryCount
+	if s.retryHandler.IsRetryRemaining(lastSeenError, retryCount) {
+		if s.retryHandler.IsTimeToRetry(s.clock, lastSeenError.LastErrorUpdateTime.Time, retryCount) {
+			application.Status.RetryCount++
+			return true
+		}
+	}
+
+	return false
 }
 
 // In this state we create a new cluster, either due to an entirely new FlinkApplication or due to an update.
@@ -622,6 +634,10 @@ func (s *FlinkStateMachine) getAndUpdateError(ctx context.Context, application *
 		err = client.GetError(err, "UnKnownMethod", client.GlobalFailure, false, false, 0)
 		application.Status.LastSeenError = err.(*client.FlinkApplicationError)
 	}
+
+	now := v1.NewTime(s.clock.Now())
+	application.Status.LastSeenError.LastErrorUpdateTime = &now
+
 	updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
 	if updateErr != nil {
 		logger.Errorf(ctx, "Updating last seen error failed with %v", updateErr)

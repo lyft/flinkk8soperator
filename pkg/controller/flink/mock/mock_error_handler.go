@@ -11,7 +11,7 @@ type IsRetryRemainingFunc func(err error, retryCount int32) bool
 type IsErrorFailFastFunc func(err error) bool
 type WaitOnErrorFunc func(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool)
 type GetRetryDelayFunc func(retryCount int32) time.Duration
-type BackOffFunc func(retryCount int32)
+type IsTimeToRetryFunc func(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool
 
 type RetryHandler struct {
 	IsErrorRetryableFunc IsErrorRetryableFunc
@@ -19,7 +19,7 @@ type RetryHandler struct {
 	IsErrorFailFastFunc  IsErrorFailFastFunc
 	WaitOnErrorFunc      WaitOnErrorFunc
 	GetRetryDelayFunc    GetRetryDelayFunc
-	BackOffFunc          BackOffFunc
+	IsTimeToRetryFunc    IsTimeToRetryFunc
 }
 
 func (e RetryHandler) IsErrorRetryable(err error) bool {
@@ -62,8 +62,9 @@ func (e RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
 	return time.Duration(time.Now().UnixNano())
 }
 
-func (e RetryHandler) BackOff(retryCount int32) {
-	if e.BackOffFunc != nil {
-		e.BackOffFunc(retryCount)
+func (e RetryHandler) IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
+	if e.IsTimeToRetryFunc != nil {
+		return e.IsTimeToRetryFunc(clock, lastUpdatedTime, retryCount)
 	}
+	return false
 }
