@@ -57,7 +57,6 @@ func (f *FlinkApplicationError) DeepCopyInto(out *FlinkApplicationError) {
 	}
 }
 
-
 func (f *FlinkApplicationError) DeepCopy() *FlinkApplicationError {
 	if f == nil {
 		return nil
