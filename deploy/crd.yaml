@@ -49,6 +49,8 @@ spec:
             deleteMode:
               type: string
               enum: [Savepoint, None, ForceCancel]
+            allowNonRestoredState:
+              type: boolean
             deploymentMode:
               type: string
               enum: [Dual]
@@ -110,7 +112,7 @@ spec:
                                   name:
                                     type: string
                                   optional:
-                                    type: boolean
+                                 f   type: boolean
                                 required:
                                   - key
                                 type: object
