@@ -28,7 +28,7 @@ spec:
       labels:
         app: flinkk8soperator
         app.kubernetes.io/name: flinkk8soperator
-        app.kubernetes.io/version: 0.0.1
+        app.kubernetes.io/version: 0.0.3
     spec:
       volumes:
       - name: config-volume
@@ -39,7 +39,7 @@ spec:
             path: flinkk8soperator_config.yaml
       containers:
       - name: flinkk8soperator
-        image: flinkk8soperator
+        image: flinkk8soperator:0.1.4
         env:
         - name: OPERATOR_NAME
           value: flinkk8soperator
