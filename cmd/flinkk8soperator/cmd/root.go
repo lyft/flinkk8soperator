@@ -5,8 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/lyft/flytestdlib/config/viper"
 	"github.com/lyft/flytestdlib/version"
@@ -157,7 +158,7 @@ func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
 	} else {
 		namespaceList := strings.Split(limitNameSpace, ",")
 		mgr, err = manager.New(cfg, manager.Options{
-			NewCache: cache.MultiNamespacedCacheBuilder(namespaceList),
+			NewCache:   cache.MultiNamespacedCacheBuilder(namespaceList),
 			SyncPeriod: &controllerCfg.ResyncPeriod.Duration,
 		})
 	}
