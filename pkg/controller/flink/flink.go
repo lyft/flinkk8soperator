@@ -103,7 +103,7 @@ func NewController(k8sCluster k8.ClusterInterface, mgr manager.Manager, config c
 		taskManager:   NewTaskManagerController(k8sCluster, config),
 		flinkClient:   client.NewFlinkJobManagerClient(config),
 		metrics:       metrics,
-		eventRecorder: mgr.GetRecorder(controllerConfig.AppName),
+		eventRecorder: mgr.GetEventRecorderFor(controllerConfig.AppName),
 	}
 }
 

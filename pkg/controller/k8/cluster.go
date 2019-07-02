@@ -85,10 +85,11 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 	options := &client.ListOptions{
 		LabelSelector: labelSelector,
 	}
-	err := k.cache.List(ctx, options, deploymentList)
+	listOptionsFunc := client.UseListOptions(options)
+	err := k.cache.List(ctx, deploymentList, listOptionsFunc)
 	if err != nil {
 		if IsK8sObjectDoesNotExist(err) {
-			err := k.client.List(ctx, options, deploymentList)
+			err := k.client.List(ctx, deploymentList, listOptionsFunc)
 			if err != nil {
 				logger.Warnf(ctx, "Failed to list deployments %v", err)
 				return nil, err
@@ -111,10 +112,12 @@ func (k *Cluster) GetServicesWithLabel(ctx context.Context, namespace string, la
 	options := &client.ListOptions{
 		LabelSelector: labelSelector,
 	}
-	err := k.cache.List(ctx, options, serviceList)
+	listOptionsFunc := client.UseListOptions(options)
+
+	err := k.cache.List(ctx, serviceList, listOptionsFunc)
 	if err != nil {
 		if IsK8sObjectDoesNotExist(err) {
-			err := k.client.List(ctx, options, serviceList)
+			err := k.client.List(ctx, serviceList, listOptionsFunc)
 			if err != nil {
 				logger.Warnf(ctx, "Failed to list services %v", err)
 				return nil, err

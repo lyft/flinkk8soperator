@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"strings"
 
 	"github.com/lyft/flytestdlib/config/viper"
 	"github.com/lyft/flytestdlib/version"
@@ -145,11 +147,21 @@ func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
 		return nil, err
 	}
 
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:  controllerCfg.LimitNamespace,
-		SyncPeriod: &controllerCfg.ResyncPeriod.Duration,
-	})
+	limitNameSpace := strings.TrimSpace(controllerCfg.LimitNamespace)
+	var mgr manager.Manager
+
+	if limitNameSpace == "" {
+		mgr, err = manager.New(cfg, manager.Options{
+			SyncPeriod: &controllerCfg.ResyncPeriod.Duration,
+		})
+	} else {
+		namespaceList := strings.Split(limitNameSpace, ",")
+		mgr, err = manager.New(cfg, manager.Options{
+			NewCache: cache.MultiNamespacedCacheBuilder(namespaceList),
+			SyncPeriod: &controllerCfg.ResyncPeriod.Duration,
+		})
+	}
+
 	if err != nil {
 		return nil, err
 	}
