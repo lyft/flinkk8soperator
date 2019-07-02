@@ -112,7 +112,7 @@ spec:
                                   name:
                                     type: string
                                   optional:
-                                 f   type: boolean
+                                    type: boolean
                                 required:
                                   - key
                                 type: object
