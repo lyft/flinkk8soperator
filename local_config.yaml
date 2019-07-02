@@ -9,7 +9,6 @@ operator:
   metricsPrefix: "flinkk8soperator"
   resyncPeriod: 10s
   proxyPort: 8001
-  limitNamespace: "flinkoperatortest,flink-operator"
 logger:
   show-source: true
   level: 5
