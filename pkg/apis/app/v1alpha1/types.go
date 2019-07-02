@@ -136,10 +136,11 @@ type FlinkJobStatus struct {
 	Health HealthStatus `json:"health,omitEmpty"`
 	State  JobState     `json:"state,omitEmpty"`
 
-	JarName     string `json:"jarName"`
-	Parallelism int32  `json:"parallelism"`
-	EntryClass  string `json:"entryClass,omitempty"`
-	ProgramArgs string `json:"programArgs,omitempty"`
+	JarName               string `json:"jarName"`
+	Parallelism           int32  `json:"parallelism"`
+	EntryClass            string `json:"entryClass,omitempty"`
+	ProgramArgs           string `json:"programArgs,omitempty"`
+	AllowNonRestoredState bool   `json:"allowNonRestoredState,omitempty"`
 
 	StartTime                *metav1.Time `json:"startTime,omitEmpty"`
 	JobRestartCount          int32        `json:"jobRestartCount,omitEmpty"`

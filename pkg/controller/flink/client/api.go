@@ -30,7 +30,7 @@ const httpGet = "GET"
 const httpPost = "POST"
 const httpPatch = "PATCH"
 const retryCount = 3
-const httpGetTimeOut = 5 * time.Minute
+const httpGetTimeOut = 5 * time.Second
 const defaultTimeOut = 1 * time.Minute
 
 type FlinkAPIInterface interface {

@@ -264,7 +264,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 }
 
 func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1alpha1.FlinkApplication, hash string,
-	jarName string, parallelism int32, entryClass string, programArgs string) (*client.FlinkJob, error) {
+	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (*client.FlinkJob, error) {
 	isReady, _ := s.flinkController.IsServiceReady(ctx, app, hash)
 	// Ignore errors
 	if !isReady {
@@ -287,7 +287,7 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1alpha1
 	if activeJob == nil {
 		logger.Infof(ctx, "No active job found for the application %v", jobs)
 		jobID, err := s.flinkController.StartFlinkJob(ctx, app, hash,
-			jarName, parallelism, entryClass, programArgs)
+			jarName, parallelism, entryClass, programArgs, allowNonRestoredState)
 		if err != nil {
 			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, fmt.Sprintf("Failed to submit job to cluster: %v", err))
 
@@ -349,7 +349,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 	}
 
 	activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
-		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
+		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs, app.Spec.AllowNonRestoredState)
 	if err != nil {
 		return err
 	}
@@ -363,6 +363,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 		app.Status.JobStatus.Parallelism = app.Spec.Parallelism
 		app.Status.JobStatus.EntryClass = app.Spec.EntryClass
 		app.Status.JobStatus.ProgramArgs = app.Spec.ProgramArgs
+		app.Status.JobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
 
 		return s.updateApplicationPhase(ctx, app, v1alpha1.FlinkApplicationRunning)
 	}
@@ -402,7 +403,8 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 	// submit the old job
 	activeJob, err := s.submitJobIfNeeded(ctx, app, app.Status.DeployHash,
 		app.Status.JobStatus.JarName, app.Status.JobStatus.Parallelism,
-		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs)
+		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs,
+		app.Status.JobStatus.AllowNonRestoredState)
 
 	if err != nil {
 		return err

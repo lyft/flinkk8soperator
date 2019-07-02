@@ -14,7 +14,7 @@ spec:
     metadata:
       labels:
         app: flinkoperator
-        app.kubernetes.io/version: 0.1.3
+        app.kubernetes.io/version: 0.1.1
     spec:
       serviceAccountName: flinkoperator
       volumes:
@@ -26,7 +26,7 @@ spec:
             path: config.yaml
       containers:
       - name: flinkoperator-gojson
-        image: 685648138888.dkr.ecr.us-west-2.amazonaws.com/flinkk8soperator:0.1.3
+        image: docker.io/lyft/flinkk8soperator:v0.1.1
         command:
         - flinkoperator
         args:
