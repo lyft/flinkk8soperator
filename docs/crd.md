@@ -71,7 +71,7 @@ Below is the list of fields in the custom resource and their description
   * **ProgramArgs** `type:string`
     External configuration parameters to be passed as arguments to the job like input and output sources, etc
     
-  * **AllowNonRestoredSavepoint** `type:boolean`
+  * **AllowNonRestoredState** `type:boolean`
     Skips savepoint operator state that cannot be mapped to the new program version  
 
   * **SavepointInfo** `type:SavepointInfo`
