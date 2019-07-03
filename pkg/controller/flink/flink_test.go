@@ -436,6 +436,26 @@ func TestStartFlinkJob(t *testing.T) {
 		assert.Equal(t, submitJobRequest.ProgramArgs, "args")
 		assert.Equal(t, submitJobRequest.EntryClass, "class")
 		assert.Equal(t, submitJobRequest.SavepointPath, "location//")
+		assert.Equal(t, submitJobRequest.AllowNonRestoredState, false)
+
+		return &client.SubmitJobResponse{
+			JobID: testJobID,
+		}, nil
+	}
+	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs)
+	assert.Nil(t, err)
+	assert.Equal(t, jobID, testJobID)
+}
+
+func TestStartFlinkJobAllowNonRestoredState(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	flinkApp := getFlinkTestApp()
+	flinkApp.Spec.AllowNonRestoredState = true
+
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.SubmitJobFunc = func(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
+		assert.Equal(t, submitJobRequest.AllowNonRestoredState, true)
 
 		return &client.SubmitJobResponse{
 			JobID: testJobID,
