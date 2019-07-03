@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/pkg/errors"
 
@@ -589,12 +589,12 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	return nil
 }
 
-func NewFlinkStateMachine(k8sCluster k8.ClusterInterface, mgr manager.Manager, config config.RuntimeConfig) FlinkHandlerInterface {
+func NewFlinkStateMachine(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config config.RuntimeConfig) FlinkHandlerInterface {
 
 	metrics := newStateMachineMetrics(config.MetricsScope)
 	return &FlinkStateMachine{
 		k8Cluster:       k8sCluster,
-		flinkController: flink.NewController(k8sCluster, mgr, config),
+		flinkController: flink.NewController(k8sCluster, eventRecorder, config),
 		clock:           clock.RealClock{},
 		metrics:         metrics,
 	}

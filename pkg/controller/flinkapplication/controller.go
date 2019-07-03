@@ -117,7 +117,8 @@ func (r *ReconcileFlinkApplication) Reconcile(request reconcile.Request) (reconc
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, mgr manager.Manager, cfg config.RuntimeConfig) error {
 	k8sCluster := k8.NewK8Cluster(mgr)
-	flinkStateMachine := NewFlinkStateMachine(k8sCluster, mgr, cfg)
+	eventRecorder := mgr.GetEventRecorderFor(config.AppName)
+	flinkStateMachine := NewFlinkStateMachine(k8sCluster, eventRecorder, cfg)
 
 	metrics := newReconcilerMetrics(cfg.MetricsScope)
 	reconciler := ReconcileFlinkApplication{
