@@ -85,11 +85,8 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 		return false
 	}
 
-	if application.Status.LastSeenError == nil {
-		return false
-	}
 	// Check if the error is retryable
-	if s.retryHandler.IsErrorRetryable(application.Status.LastSeenError) {
+	if application.Status.LastSeenError != nil && s.retryHandler.IsErrorRetryable(application.Status.LastSeenError) {
 		if s.retryHandler.IsRetryRemaining(application.Status.LastSeenError, application.Status.RetryCount) {
 			s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application in phase %v retrying with error %v", application.Status.Phase, application.Status.LastSeenError))
 			return false
@@ -100,14 +97,14 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 	}
 
 	// For a class of errors that should fail fast, e.g. submitjob failures, always fail fast
-	if s.retryHandler.IsErrorFailFast(application.Status.LastSeenError) {
+	if application.Status.LastSeenError != nil && s.retryHandler.IsErrorFailFast(application.Status.LastSeenError) {
 		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress in the %v phase with error %v", application.Status.Phase, application.Status.LastSeenError))
 		application.Status.LastSeenError = nil
 		return true
 	}
 
-	// All other errors, use a time based wait to determine whether to rollback or not.
-	if application.Status.LastSeenError != nil && application.Status.LastUpdatedAt != nil {
+	// As a default, use a time based wait to determine whether to rollback or not.
+	if application.Status.LastUpdatedAt != nil {
 		if elapsedTime, ok := s.retryHandler.WaitOnError(s.clock, application.Status.LastUpdatedAt.Time); !ok {
 			s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress for %v in the %v phase",
 				elapsedTime, application.Status.Phase))
@@ -166,8 +163,13 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 		case v1alpha1.FlinkApplicationDeleting:
 			appErr = s.handleApplicationDeleting(ctx, application)
 		}
+
 		if appErr != nil {
-			s.getAndUpdateError(ctx, application, appErr)
+			// Only update LastSeenError and thereby invoke error handling logic for
+			// non-Running phases
+			if !v1alpha1.IsRunningPhase(application.Status.Phase) {
+				s.getAndUpdateError(ctx, application, appErr)
+			}
 			return appErr
 		}
 	}
@@ -631,7 +633,7 @@ func (s *FlinkStateMachine) getAndUpdateError(ctx context.Context, application *
 	if flinkAppError, ok := err.(*client.FlinkApplicationError); ok {
 		application.Status.LastSeenError = flinkAppError
 	} else {
-		err = client.GetError(err, "UnKnownMethod", client.GlobalFailure, false, false, 0)
+		err = client.GetError(err, "UnknownMethod", client.GlobalFailure)
 		application.Status.LastSeenError = err.(*client.FlinkApplicationError)
 	}
 

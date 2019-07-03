@@ -45,6 +45,11 @@ type FlinkApplicationError struct {
 	LastErrorUpdateTime *metav1.Time `json:"startedAt,omitempty"`
 }
 
+func NewFlinkApplicationError(appError string, method FlinkMethod, errorCode string, isRetryable bool, isFailFast bool, maxRetries int32) *FlinkApplicationError {
+	now := metav1.Now()
+	return &FlinkApplicationError{AppError: appError, Method: method, ErrorCode: errorCode, IsRetryable: isRetryable, IsFailFast: isFailFast, MaxRetries: maxRetries, LastErrorUpdateTime: &now}
+}
+
 func (f *FlinkApplicationError) Error() string {
 	return f.AppError
 }
@@ -66,24 +71,27 @@ func (f *FlinkApplicationError) DeepCopy() *FlinkApplicationError {
 	return out
 }
 
-func GetError(err error, method FlinkMethod, errorCode string, isRetryable bool, isFailFast bool, maxRetries int32, message ...string) error {
-	var f = new(FlinkApplicationError)
-	if err == nil {
-		err = errors.New(fmt.Sprintf("%v call failed with status %v and message %v", method, errorCode, message))
-	} else {
-		err = errors.Wrapf(err, "%v call failed with status %v and message %v", method, errorCode, message)
-	}
-
-	f.ErrorCode = errorCode
-	f.AppError = err.Error()
-	f.Method = method
-	f.IsFailFast = isFailFast
-	f.IsRetryable = isRetryable
-	f.MaxRetries = maxRetries
-
-	return f
+func GetError(err error, method FlinkMethod, errorCode string, message ...string) error {
+	appError := getErrorValue(err, method, errorCode, message)
+	return NewFlinkApplicationError(appError.Error(), method, errorCode, false, false, noRetries)
 }
 
+func GetRetryableError(err error, method FlinkMethod, errorCode string, maxRetries int32, message ...string) error {
+	appError := getErrorValue(err, method, errorCode, message)
+	return NewFlinkApplicationError(appError.Error(), method, errorCode, true, false, maxRetries)
+}
+
+func GetFailfastError(err error, method FlinkMethod, errorCode string, message ...string) error {
+	appError := getErrorValue(err, method, errorCode, message)
+	return NewFlinkApplicationError(appError.Error(), method, errorCode, false, true, noRetries)
+}
+
+func getErrorValue(err error, method FlinkMethod, errorCode string, message []string) error {
+	if err == nil {
+		return errors.New(fmt.Sprintf("%v call failed with status %v and message %v", method, errorCode, message))
+	}
+	return errors.Wrapf(err, "%v call failed with status %v and message %v", method, errorCode, message)
+}
 func min(a, b int) int {
 	if a < b {
 		return a
