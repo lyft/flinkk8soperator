@@ -245,10 +245,11 @@ func (f *Controller) StartFlinkJob(ctx context.Context, application *v1alpha1.Fl
 		getURLFromApp(application, hash),
 		jarName,
 		client.SubmitJobRequest{
-			Parallelism:   parallelism,
-			SavepointPath: application.Spec.SavepointInfo.SavepointLocation,
-			EntryClass:    entryClass,
-			ProgramArgs:   programArgs,
+			Parallelism:           parallelism,
+			SavepointPath:         application.Spec.SavepointInfo.SavepointLocation,
+			EntryClass:            entryClass,
+			ProgramArgs:           programArgs,
+			AllowNonRestoredState: application.Spec.AllowNonRestoredState,
 		})
 	if err != nil {
 		return "", err
