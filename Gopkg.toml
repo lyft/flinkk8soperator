@@ -39,4 +39,4 @@ required = [
 
 [[constraint]]
   name = "github.com/lyft/flytestdlib"
-  revision = "4e4da2f1ca1745127a79d299ef9048e86bd4e44c"
+  version = "0.2.10"
