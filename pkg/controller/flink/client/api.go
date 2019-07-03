@@ -222,7 +222,7 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID
 	if response != nil && !response.IsSuccess() {
 		c.metrics.submitJobFailureCounter.Inc(ctx)
 		logger.Warnf(ctx, fmt.Sprintf("Job submission failed with response %v", response))
-		if response.StatusCode() > 400 {
+		if response.StatusCode() > 499 {
 			return nil, GetRetryableError(err, SubmitJob, response.Status(), defaultRetries, string(response.Body()))
 		}
 
