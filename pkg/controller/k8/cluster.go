@@ -51,16 +51,16 @@ func NewK8Cluster(mgr manager.Manager, cfg config.RuntimeConfig) ClusterInterfac
 func newK8ClusterMetrics(scope promutils.Scope) *k8ClusterMetrics {
 	k8ClusterScope := scope.NewSubScope("k8_cluster")
 	return &k8ClusterMetrics{
-		scope:         k8ClusterScope,
-		createSuccess: labeled.NewCounter("create_success", "K8 object created successfully", k8ClusterScope),
-		createFailure: labeled.NewCounter("create_failure", "K8 object creation failed", k8ClusterScope),
-		updateSuccess: labeled.NewCounter("update_success", "K8 object updated successfully", k8ClusterScope),
-		updateFailure: labeled.NewCounter("update_failure", "K8 object update failed", k8ClusterScope),
-		deleteSuccess: labeled.NewCounter("delete_success", "K8 object deleted successfully", k8ClusterScope),
-		deleteFailure: labeled.NewCounter("delete_failure", "K8 object deletion failed", k8ClusterScope),
-		getDeploymentCacheHit: labeled.NewCounter("get_deployment_cache_hit", "Deployment fetched from cache", k8ClusterScope),
+		scope:                  k8ClusterScope,
+		createSuccess:          labeled.NewCounter("create_success", "K8 object created successfully", k8ClusterScope),
+		createFailure:          labeled.NewCounter("create_failure", "K8 object creation failed", k8ClusterScope),
+		updateSuccess:          labeled.NewCounter("update_success", "K8 object updated successfully", k8ClusterScope),
+		updateFailure:          labeled.NewCounter("update_failure", "K8 object update failed", k8ClusterScope),
+		deleteSuccess:          labeled.NewCounter("delete_success", "K8 object deleted successfully", k8ClusterScope),
+		deleteFailure:          labeled.NewCounter("delete_failure", "K8 object deletion failed", k8ClusterScope),
+		getDeploymentCacheHit:  labeled.NewCounter("get_deployment_cache_hit", "Deployment fetched from cache", k8ClusterScope),
 		getDeploymentCacheMiss: labeled.NewCounter("get_deployment_cache_miss", "Deployment not present in the cache", k8ClusterScope),
-		getDeploymentFailure: labeled.NewCounter("get_deployment_failure", "Get Deployment failed", k8ClusterScope),
+		getDeploymentFailure:   labeled.NewCounter("get_deployment_failure", "Get Deployment failed", k8ClusterScope),
 	}
 }
 
