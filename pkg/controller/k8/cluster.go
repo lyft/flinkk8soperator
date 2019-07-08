@@ -58,6 +58,9 @@ func newK8ClusterMetrics(scope promutils.Scope) *k8ClusterMetrics {
 		updateFailure: labeled.NewCounter("update_failure", "K8 object update failed", k8ClusterScope),
 		deleteSuccess: labeled.NewCounter("delete_success", "K8 object deleted successfully", k8ClusterScope),
 		deleteFailure: labeled.NewCounter("delete_failure", "K8 object deletion failed", k8ClusterScope),
+		getDeploymentCacheHit: labeled.NewCounter("get_deployment_cache_hit", "Deployment fetched from cache", k8ClusterScope),
+		getDeploymentCacheMiss: labeled.NewCounter("get_deployment_cache_miss", "Deployment not present in the cache", k8ClusterScope),
+		getDeploymentFailure: labeled.NewCounter("get_deployment_failure", "Get Deployment failed", k8ClusterScope),
 	}
 }
 
@@ -68,13 +71,16 @@ type Cluster struct {
 }
 
 type k8ClusterMetrics struct {
-	scope         promutils.Scope
-	createSuccess labeled.Counter
-	createFailure labeled.Counter
-	updateSuccess labeled.Counter
-	updateFailure labeled.Counter
-	deleteSuccess labeled.Counter
-	deleteFailure labeled.Counter
+	scope                  promutils.Scope
+	createSuccess          labeled.Counter
+	createFailure          labeled.Counter
+	updateSuccess          labeled.Counter
+	updateFailure          labeled.Counter
+	deleteSuccess          labeled.Counter
+	deleteFailure          labeled.Counter
+	getDeploymentCacheHit  labeled.Counter
+	getDeploymentCacheMiss labeled.Counter
+	getDeploymentFailure   labeled.Counter
 }
 
 func (k *Cluster) GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error) {
@@ -118,15 +124,20 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 	err := k.cache.List(ctx, deploymentList, listOptionsFunc)
 	if err != nil {
 		if IsK8sObjectDoesNotExist(err) {
+			k.metrics.getDeploymentCacheMiss.Inc(ctx)
 			err := k.client.List(ctx, deploymentList, listOptionsFunc)
 			if err != nil {
+				k.metrics.getDeploymentFailure.Inc(ctx)
 				logger.Warnf(ctx, "Failed to list deployments %v", err)
 				return nil, err
 			}
 		}
 		logger.Warnf(ctx, "Failed to list deployments from cache %v", err)
 		return nil, err
+	} else {
+		k.metrics.getDeploymentCacheHit.Inc(ctx)
 	}
+
 	return deploymentList, nil
 }
 
