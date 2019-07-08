@@ -4,9 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"k8s.io/klog"
 	"os"
 	"strings"
+
+	"k8s.io/klog"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
