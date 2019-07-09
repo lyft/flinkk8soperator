@@ -71,6 +71,7 @@ func getFlinkTestApp() v1alpha1.FlinkApplication {
 func TestFlinkIsClusterReady(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	labelMapVal := map[string]string{
+		"flink-app":      testAppName,
 		"flink-app-hash": testAppHash,
 	}
 	flinkApp := getFlinkTestApp()
@@ -583,6 +584,7 @@ func TestClusterStatusUpdated(t *testing.T) {
 	flinkApp := getFlinkTestApp()
 
 	labelMapVal := map[string]string{
+		"flink-app":      testAppName,
 		"flink-app-hash": testAppHash,
 	}
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
@@ -594,9 +596,12 @@ func TestClusterStatusUpdated(t *testing.T) {
 		tmDeployment.Status.AvailableReplicas = *tmDeployment.Spec.Replicas
 		tmDeployment.Status.Replicas = *tmDeployment.Spec.Replicas
 
+		jmDeployment := FetchJobMangerDeploymentCreateObj(&flinkApp, testAppHash)
+
 		return &v1.DeploymentList{
 			Items: []v1.Deployment{
 				*tmDeployment,
+				*jmDeployment,
 			},
 		}, nil
 	}
@@ -691,9 +696,12 @@ func TestHealthyTaskmanagers(t *testing.T) {
 		tmDeployment.Status.AvailableReplicas = 1
 		tmDeployment.Status.Replicas = 1
 
+		jmDeployment := FetchJobMangerDeploymentCreateObj(&flinkApp, testAppHash)
+
 		return &v1.DeploymentList{
 			Items: []v1.Deployment{
 				*tmDeployment,
+				*jmDeployment,
 			},
 		}, nil
 	}
