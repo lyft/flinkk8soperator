@@ -14,8 +14,8 @@ import (
 const (
 	GlobalFailure      = "FAILED"
 	JSONUnmarshalError = "JSONUNMARSHALERROR"
-	defaultRetries     = 20
-	noRetries          = 0
+	DefaultRetries     = 20
+	NoRetries          = 0
 )
 
 type FlinkMethod string
@@ -71,19 +71,14 @@ func (f *FlinkApplicationError) DeepCopy() *FlinkApplicationError {
 	return out
 }
 
-func GetError(err error, method FlinkMethod, errorCode string, message ...string) error {
-	appError := getErrorValue(err, method, errorCode, message)
-	return NewFlinkApplicationError(appError.Error(), method, errorCode, false, false, noRetries)
-}
-
 func GetRetryableError(err error, method FlinkMethod, errorCode string, maxRetries int32, message ...string) error {
 	appError := getErrorValue(err, method, errorCode, message)
 	return NewFlinkApplicationError(appError.Error(), method, errorCode, true, false, maxRetries)
 }
 
-func GetFailfastError(err error, method FlinkMethod, errorCode string, message ...string) error {
+func GetNonRetryableError(err error, method FlinkMethod, errorCode string, message ...string) error {
 	appError := getErrorValue(err, method, errorCode, message)
-	return NewFlinkApplicationError(appError.Error(), method, errorCode, false, true, noRetries)
+	return NewFlinkApplicationError(appError.Error(), method, errorCode, false, true, NoRetries)
 }
 
 func getErrorValue(err error, method FlinkMethod, errorCode string, message []string) error {
@@ -102,7 +97,6 @@ func min(a, b int) int {
 type RetryHandlerInterface interface {
 	IsErrorRetryable(err error) bool
 	IsRetryRemaining(err error, retryCount int32) bool
-	IsErrorFailFast(err error) bool
 	WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool)
 	GetRetryDelay(retryCount int32) time.Duration
 	IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool
@@ -135,18 +129,6 @@ func (r RetryHandler) IsRetryRemaining(err error, retryCount int32) bool {
 	flinkAppError, ok := err.(*FlinkApplicationError)
 	if ok && flinkAppError != nil {
 		return retryCount <= flinkAppError.MaxRetries
-	}
-
-	return false
-}
-
-func (r RetryHandler) IsErrorFailFast(err error) bool {
-	if err == nil {
-		return false
-	}
-	flinkAppError, ok := err.(*FlinkApplicationError)
-	if ok && flinkAppError != nil {
-		return flinkAppError.IsFailFast
 	}
 
 	return false

@@ -606,8 +606,7 @@ func TestIsApplicationStuck(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 	retryableErr := client.GetRetryableError(errors.New("blah"), "GetClusterOverview", "FAILED", 3)
-	failFastError := client.GetFailfastError(errors.New("blah"), "SubmitJob", "400BadRequest")
-	otherError := client.GetError(errors.New("blah"), "NeitherRetryableNorFailfast", "500")
+	failFastError := client.GetNonRetryableError(errors.New("blah"), "SubmitJob", "400BadRequest")
 
 	app := &v1alpha1.FlinkApplication{
 		Status: v1alpha1.FlinkApplicationStatus{
@@ -651,31 +650,6 @@ func TestIsApplicationStuck(t *testing.T) {
 	// Fail fast error
 	app.Status.RetryCount = 0
 	app.Status.LastSeenError = failFastError.(*client.FlinkApplicationError)
-	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.Nil(t, app.Status.LastSeenError)
-	assert.Equal(t, int32(0), app.Status.RetryCount)
-
-	// Other error - wait based on time
-	lastUpdated := metav1.NewTime(time.Now())
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
-	app = &v1alpha1.FlinkApplication{
-		Status: v1alpha1.FlinkApplicationStatus{
-			Phase:         v1alpha1.FlinkApplicationClusterStarting,
-			LastUpdatedAt: &lastUpdated,
-			DeployHash:    "prevhash",
-		},
-	}
-	app.Status.RetryCount = 0
-	app.Status.LastSeenError = otherError.(*client.FlinkApplicationError)
-	lastUpdated = metav1.NewTime(time.Now().Add(time.Duration(-1) * time.Minute))
-	app.Status.LastUpdatedAt = &lastUpdated
-	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
-	assert.Nil(t, app.Status.LastSeenError)
-	assert.Equal(t, int32(0), app.Status.RetryCount)
-
-	// No error but time has elapsed
-	lastUpdated = metav1.NewTime(time.Now().Add(time.Duration(-1) * time.Minute))
-	app.Status.LastUpdatedAt = &lastUpdated
 	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
 	assert.Nil(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
@@ -1071,7 +1045,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error) {
 		return true, nil
 	}
-	failFastError := client.GetFailfastError(errors.New("blah"), "SubmitJob", "400BadRequest")
+	failFastError := client.GetNonRetryableError(errors.New("blah"), "SubmitJob", "400BadRequest")
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
 		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
 		return "", failFastError
@@ -1124,104 +1098,6 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	assert.Nil(t, app.Status.LastSeenError)
 }
 
-func TestRollbackWithOtherError(t *testing.T) {
-	lastUpdated := metav1.NewTime(time.Now().Add(time.Duration(-1) * time.Minute))
-	app := v1alpha1.FlinkApplication{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-app",
-			Namespace: "flink",
-		},
-		Spec: v1alpha1.FlinkApplicationSpec{
-			JarName:     "job.jar",
-			Parallelism: 5,
-			EntryClass:  "com.my.Class",
-			ProgramArgs: "--test",
-		},
-		Status: v1alpha1.FlinkApplicationStatus{
-			Phase:         v1alpha1.FlinkApplicationSubmittingJob,
-			DeployHash:    "old-hash-retry-err",
-			LastUpdatedAt: &lastUpdated,
-		},
-	}
-
-	stateMachineForTest := getTestStateMachine()
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
-	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-
-	getCount := 0
-	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
-		var res []client.FlinkJob
-		if getCount == 1 {
-			res = []client.FlinkJob{
-				{
-					JobID:  "jid1",
-					Status: client.Running,
-				}}
-		}
-		getCount++
-		return res, nil
-	}
-
-	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error) {
-		return true, nil
-	}
-	otherError := client.GetError(errors.New("blah"), "NeitherRetryableNorFailfast", "500")
-	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
-		return "", otherError
-	}
-
-	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	appHash := flink.HashForApplication(&app)
-	getServiceCount := 0
-	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string) (*v1.Service, error) {
-		hash := "old-hash-retry-err"
-		if getServiceCount > 0 {
-			hash = appHash
-		}
-
-		getServiceCount++
-		return &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-app",
-				Namespace: "flink",
-			},
-			Spec: v1.ServiceSpec{
-				Selector: map[string]string{
-					"flink-app-hash": hash,
-				},
-			},
-		}, nil
-	}
-	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
-	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
-		ferr, ok := err.(*client.FlinkApplicationError)
-		assert.True(t, ok)
-		return ferr.IsRetryable
-	}
-	mockRetryHandler.IsErrorFailFastFunc = func(err error) bool {
-		ferr, ok := err.(*client.FlinkApplicationError)
-		assert.True(t, ok)
-		return ferr.IsFailFast
-	}
-	retries := 0
-	var err error
-	for ; app.Status.Phase == v1alpha1.FlinkApplicationSubmittingJob; retries++ {
-		err = stateMachineForTest.Handle(context.Background(), &app)
-		// once in rollingback phase, errors no longer exist
-		if app.Status.Phase == v1alpha1.FlinkApplicationSubmittingJob {
-			assert.NotNil(t, err)
-			assert.Equal(t, int32(0), app.Status.RetryCount)
-			assert.NotEmpty(t, app.Status.LastSeenError)
-		}
-
-	}
-	assert.Equal(t, 1, retries)
-	assert.Equal(t, v1alpha1.FlinkApplicationRollingBackJob, app.Status.Phase)
-	assert.Equal(t, int32(0), app.Status.RetryCount)
-	assert.Empty(t, app.Status.LastSeenError)
-}
-
 func TestErrorHandlingInRunningPhase(t *testing.T) {
 	app := v1alpha1.FlinkApplication{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1244,7 +1120,7 @@ func TestErrorHandlingInRunningPhase(t *testing.T) {
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 
 	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
-		return nil, client.GetError(errors.New("running phase error"), "TestError", "400")
+		return nil, client.GetNonRetryableError(errors.New("running phase error"), "TestError", "400")
 	}
 
 	err := stateMachineForTest.Handle(context.Background(), &app)

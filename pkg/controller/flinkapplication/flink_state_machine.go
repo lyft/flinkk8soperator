@@ -96,8 +96,8 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 		return true
 	}
 
-	// For a class of errors that should fail fast, e.g. submitjob failures, always fail fast
-	if application.Status.LastSeenError != nil && s.retryHandler.IsErrorFailFast(application.Status.LastSeenError) {
+	// For non-retryable errors, always fail fast
+	if application.Status.LastSeenError != nil {
 		s.flinkController.LogEvent(ctx, application, "", corev1.EventTypeWarning, fmt.Sprintf("Application failed to progress in the %v phase with error %v", application.Status.Phase, application.Status.LastSeenError))
 		application.Status.LastSeenError = nil
 		return true
@@ -633,7 +633,7 @@ func (s *FlinkStateMachine) getAndUpdateError(ctx context.Context, application *
 	if flinkAppError, ok := err.(*client.FlinkApplicationError); ok {
 		application.Status.LastSeenError = flinkAppError
 	} else {
-		err = client.GetError(err, "UnknownMethod", client.GlobalFailure)
+		err = client.GetRetryableError(err, "UnknownMethod", client.GlobalFailure, client.DefaultRetries)
 		application.Status.LastSeenError = err.(*client.FlinkApplicationError)
 	}
 

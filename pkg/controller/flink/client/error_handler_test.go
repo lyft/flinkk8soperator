@@ -17,38 +17,31 @@ func getTestRetryer() RetryHandler {
 
 func TestGetError(t *testing.T) {
 	testErr := errors.New("Service unavailable")
-	ferr := GetError(testErr, "GetTest", "500")
+	ferr := GetNonRetryableError(testErr, "GetTest", "500")
 	assert.Equal(t, "GetTest call failed with status 500 and message []: Service unavailable", ferr.Error())
 
 	//nil error
-	ferrNil := GetError(nil, "GetTest", "500")
+	ferrNil := GetNonRetryableError(nil, "GetTest", "500")
 	assert.Equal(t, "GetTest call failed with status 500 and message []", ferrNil.Error())
 
 	testWrappedErr := errors.Wrap(testErr, "Wrapped errors")
-	ferrWrapped := GetError(testWrappedErr, "GetTestWrapped", "400")
+	ferrWrapped := GetNonRetryableError(testWrappedErr, "GetTestWrapped", "400")
 	assert.Equal(t, "GetTestWrapped call failed with status 400 and message []: Wrapped errors: Service unavailable", ferrWrapped.Error())
 
 	testMessageErr := errors.New("Test Error")
-	ferrMessage := GetError(testMessageErr, "GetTest", "500", "message1", "message2")
+	ferrMessage := GetNonRetryableError(testMessageErr, "GetTest", "500", "message1", "message2")
 	assert.Equal(t, "GetTest call failed with status 500 and message [message1 message2]: Test Error", ferrMessage.Error())
 }
 
 func TestErrors(t *testing.T) {
 	retryableError := errors.New("GetClusterOverview500")
-	ferr := GetRetryableError(retryableError, "GetTest", "500", defaultRetries)
+	ferr := GetRetryableError(retryableError, "GetTest", "500", DefaultRetries)
 	retryer := getTestRetryer()
 	assert.True(t, retryer.IsErrorRetryable(ferr))
-	assert.False(t, retryer.IsErrorFailFast(ferr))
 
 	failFastError := errors.New("SubmitJob400BadRequest")
-	ferr = GetFailfastError(failFastError, "GetTest", "500")
+	ferr = GetNonRetryableError(failFastError, "GetTest", "500")
 	assert.False(t, retryer.IsErrorRetryable(ferr))
-	assert.True(t, retryer.IsErrorFailFast(ferr))
-
-	otherError := errors.New("CancelJob")
-	otherError = GetError(otherError, "TestOther", "400")
-	assert.False(t, retryer.IsErrorRetryable(otherError))
-	assert.False(t, retryer.IsErrorFailFast(otherError))
 }
 
 func TestRetryHandler_GetRetryDelay(t *testing.T) {
@@ -59,7 +52,7 @@ func TestRetryHandler_GetRetryDelay(t *testing.T) {
 
 func TestRetryHandler_IsRetryRemaining(t *testing.T) {
 	retryableError := errors.New("GetClusterOverview500")
-	ferr := GetRetryableError(retryableError, "GetTest", "500", defaultRetries)
+	ferr := GetRetryableError(retryableError, "GetTest", "500", DefaultRetries)
 	retryer := getTestRetryer()
 	assert.True(t, retryer.IsRetryRemaining(ferr, 2))
 	assert.False(t, retryer.IsRetryRemaining(ferr, 22))
