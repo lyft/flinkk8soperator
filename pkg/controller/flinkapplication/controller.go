@@ -39,17 +39,19 @@ type ReconcileFlinkApplication struct {
 }
 
 type reconcilerMetrics struct {
-	scope     promutils.Scope
-	cacheHit  labeled.Counter
-	cacheMiss labeled.Counter
+	scope          promutils.Scope
+	cacheHit       labeled.Counter
+	cacheMiss      labeled.Counter
+	reconcileError labeled.Counter
 }
 
 func newReconcilerMetrics(scope promutils.Scope) *reconcilerMetrics {
 	reconcilerScope := scope.NewSubScope("reconciler")
 	return &reconcilerMetrics{
-		scope:     reconcilerScope,
-		cacheHit:  labeled.NewCounter("cache_hit", "Flink application resource fetched from cache", reconcilerScope),
-		cacheMiss: labeled.NewCounter("cache_miss", "Flink application resource missing from cache", reconcilerScope),
+		scope:          reconcilerScope,
+		cacheHit:       labeled.NewCounter("cache_hit", "Flink application resource fetched from cache", reconcilerScope),
+		cacheMiss:      labeled.NewCounter("cache_miss", "Flink application resource missing from cache", reconcilerScope),
+		reconcileError: labeled.NewCounter("reconcile_error", "Reconcile for application failed", reconcilerScope),
 	}
 }
 
@@ -108,6 +110,7 @@ func (r *ReconcileFlinkApplication) Reconcile(request reconcile.Request) (reconc
 	ctx = contextutils.WithPhase(ctx, string(instance.Status.Phase))
 	err = r.flinkStateMachine.Handle(ctx, instance)
 	if err != nil {
+		r.metrics.reconcileError.Inc(ctx)
 		logger.Warnf(ctx, "Failed to reconcile resource %v: %v", request.NamespacedName, err)
 	}
 	return r.getReconcileResultForError(err), err
@@ -116,7 +119,7 @@ func (r *ReconcileFlinkApplication) Reconcile(request reconcile.Request) (reconc
 // Add creates a new FlinkApplication Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(ctx context.Context, mgr manager.Manager, cfg config.RuntimeConfig) error {
-	k8sCluster := k8.NewK8Cluster(mgr)
+	k8sCluster := k8.NewK8Cluster(mgr, cfg)
 	eventRecorder := mgr.GetEventRecorderFor(config.AppName)
 	flinkStateMachine := NewFlinkStateMachine(k8sCluster, eventRecorder, cfg)
 
