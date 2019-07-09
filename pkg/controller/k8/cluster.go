@@ -122,23 +122,22 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 	}
 	listOptionsFunc := client.UseListOptions(options)
 	err := k.cache.List(ctx, deploymentList, listOptionsFunc)
-	if err != nil {
-		if IsK8sObjectDoesNotExist(err) {
-			k.metrics.getDeploymentCacheMiss.Inc(ctx)
-			err := k.client.List(ctx, deploymentList, listOptionsFunc)
-			if err != nil {
-				k.metrics.getDeploymentFailure.Inc(ctx)
-				logger.Warnf(ctx, "Failed to list deployments %v", err)
-				return nil, err
-			}
-		}
-		logger.Warnf(ctx, "Failed to list deployments from cache %v", err)
-		return nil, err
-	} else {
+	if err == nil {
 		k.metrics.getDeploymentCacheHit.Inc(ctx)
+		return deploymentList, nil
 	}
-
-	return deploymentList, nil
+	if IsK8sObjectDoesNotExist(err) {
+		k.metrics.getDeploymentCacheMiss.Inc(ctx)
+		err := k.client.List(ctx, deploymentList, listOptionsFunc)
+		if err != nil {
+			k.metrics.getDeploymentFailure.Inc(ctx)
+			logger.Warnf(ctx, "Failed to list deployments %v", err)
+			return nil, err
+		}
+		return deploymentList, nil
+	}
+	logger.Warnf(ctx, "Failed to list deployments from cache %v", err)
+	return nil, err
 }
 
 func (k *Cluster) GetServicesWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.ServiceList, error) {
