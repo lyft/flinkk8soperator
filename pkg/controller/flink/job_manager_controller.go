@@ -351,16 +351,3 @@ func JobManagerDeploymentMatches(deployment *v1.Deployment, application *v1alpha
 	deploymentFromApp := FetchJobMangerDeploymentCreateObj(application, HashForApplication(application))
 	return DeploymentsEqual(deploymentFromApp, deployment)
 }
-
-func getJobManagerCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
-	jobManagerDeployment := getJobManagerDeployment(deployments, application)
-	if jobManagerDeployment == nil {
-		return 0
-	}
-	return *jobManagerDeployment.Spec.Replicas
-}
-
-func getJobManagerDeployment(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) *v1.Deployment {
-	jmDeploymentName := getJobManagerName(application, HashForApplication(application))
-	return k8.GetDeploymentWithName(deployments, jmDeploymentName)
-}

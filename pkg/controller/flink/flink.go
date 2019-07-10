@@ -154,17 +154,6 @@ func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
 	return nil
 }
 
-// returns the deployments for the application
-func (f *Controller) getDeploymentsForApplication(ctx context.Context, application *v1alpha1.FlinkApplication) (*v1.DeploymentList, error) {
-	labelMap := GetAppHashSelector(application)
-	depList, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, labelMap)
-	if err != nil {
-		logger.Warnf(ctx, "Failed to get deployments for label map %v", labelMap)
-		return nil, err
-	}
-	return depList, nil
-}
-
 // returns true iff the deployment exactly matches the flink application
 func (f *Controller) deploymentMatches(ctx context.Context, deployment *v1.Deployment, application *v1alpha1.FlinkApplication) bool {
 	if DeploymentIsTaskmanager(deployment) {
@@ -268,29 +257,20 @@ func (f *Controller) GetSavepointStatus(ctx context.Context, application *v1alph
 }
 
 func (f *Controller) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	deploymentList, err := f.getDeploymentsForApplication(ctx, application)
-	if err != nil {
+	deployments, err := f.GetCurrentDeploymentsForApp(ctx, application)
+	if deployments == nil || err != nil {
 		return false, err
-	}
-	if deploymentList == nil || len(deploymentList.Items) == 0 {
-		logger.Infof(ctx, "No deployments present for application")
-		return false, nil
 	}
 
 	// TODO: Find if any events can be populated, that are useful to users
-	for _, deployment := range deploymentList.Items {
-		// For Jobmanager we only need on replica to be available
-		if deployment.Labels[FlinkDeploymentType] == FlinkDeploymentTypeJobmanager {
-			if deployment.Status.AvailableReplicas == 0 {
-				return false, nil
-			}
-		} else {
-			if deployment.Spec.Replicas != nil &&
-				deployment.Status.AvailableReplicas < *deployment.Spec.Replicas {
-				return false, nil
-			}
-		}
+	if deployments.Jobmanager.Status.AvailableReplicas == 0 {
+		return false, nil
 	}
+
+	if deployments.Taskmanager.Status.AvailableReplicas < *deployments.Taskmanager.Spec.Replicas {
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -452,16 +432,12 @@ func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, applicat
 	oldClusterStatus := application.Status.ClusterStatus
 	application.Status.ClusterStatus.Health = v1alpha1.Red
 
-	deploymentList, err := f.getDeploymentsForApplication(ctx, application)
-	if err != nil || deploymentList == nil {
+	deployment, err := f.GetCurrentDeploymentsForApp(ctx, application)
+	if deployment == nil || err != nil {
 		return false, err
 	}
-	tmDeployment := getTaskManagerDeployment(deploymentList.Items, application)
-	if tmDeployment == nil {
-		logger.Error(ctx, "Unable to find task manager deployment")
-		return false, nil
-	}
-	application.Status.ClusterStatus.NumberOfTaskManagers = tmDeployment.Status.AvailableReplicas
+
+	application.Status.ClusterStatus.NumberOfTaskManagers = deployment.Taskmanager.Status.AvailableReplicas
 	// Get Cluster overview
 	response, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
 	if err != nil {
@@ -481,7 +457,7 @@ func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, applicat
 	// Determine Health of the cluster.
 	// Healthy TaskManagers == Number of taskmanagers --> Green
 	// Else --> Yellow
-	if application.Status.ClusterStatus.HealthyTaskManagers == tmDeployment.Status.Replicas {
+	if application.Status.ClusterStatus.HealthyTaskManagers == deployment.Taskmanager.Status.Replicas {
 		application.Status.ClusterStatus.Health = v1alpha1.Green
 	} else {
 		application.Status.ClusterStatus.Health = v1alpha1.Yellow

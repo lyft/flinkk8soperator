@@ -49,28 +49,6 @@ func TestGetTaskManagerPodName(t *testing.T) {
 	assert.Equal(t, "app-name-"+testAppHash+"-tm-pod", getTaskManagerPodName(&app, testAppHash))
 }
 
-func TestGetTaskManagerDeployment(t *testing.T) {
-	app := getFlinkTestApp()
-	deployment := v1.Deployment{}
-	deployment.Name = getTaskManagerName(&app, testAppHash)
-	deployments := []v1.Deployment{
-		deployment,
-	}
-	assert.Equal(t, deployment, *getTaskManagerDeployment(deployments, &app))
-}
-
-func TestGetTaskManagerReplicaCount(t *testing.T) {
-	app := getFlinkTestApp()
-	deployment := v1.Deployment{}
-	deployment.Name = getTaskManagerName(&app, testAppHash)
-	replicaCount := int32(2)
-	deployment.Spec.Replicas = &replicaCount
-	deployments := []v1.Deployment{
-		deployment,
-	}
-	assert.Equal(t, int32(2), getTaskManagerCount(deployments, &app))
-}
-
 func TestTaskManagerCreateSuccess(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
