@@ -8,6 +8,9 @@ operator:
   metricsPrefix: "flinkk8soperator"
   resyncPeriod: 10s
   proxyPort: 8001
+  baseBackoffDuration: 100ms
+  maxBackoffDuration: 30s
+  maxErrDuration: 1m
 logger:
   show-source: true
   level: 5
