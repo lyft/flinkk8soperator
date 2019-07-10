@@ -5,6 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
+
+	"k8s.io/klog"
+
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/lyft/flytestdlib/config/viper"
 	"github.com/lyft/flytestdlib/version"
@@ -68,6 +73,7 @@ func Run(config *controllerConfig.Config) error {
 func init() {
 	// See https://gist.github.com/nak3/78a32817a8a3950ae48f239a44cd3663
 	// allows `$ flinkoperator --logtostderr` to work
+	klog.InitFlags(nil)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	err := flag.CommandLine.Parse([]string{})
 	if err != nil {
@@ -145,11 +151,21 @@ func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
 		return nil, err
 	}
 
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:  controllerCfg.LimitNamespace,
-		SyncPeriod: &controllerCfg.ResyncPeriod.Duration,
-	})
+	limitNameSpace := strings.TrimSpace(controllerCfg.LimitNamespace)
+	var mgr manager.Manager
+
+	if limitNameSpace == "" {
+		mgr, err = manager.New(cfg, manager.Options{
+			SyncPeriod: &controllerCfg.ResyncPeriod.Duration,
+		})
+	} else {
+		namespaceList := strings.Split(limitNameSpace, ",")
+		mgr, err = manager.New(cfg, manager.Options{
+			NewCache:   cache.MultiNamespacedCacheBuilder(namespaceList),
+			SyncPeriod: &controllerCfg.ResyncPeriod.Duration,
+		})
+	}
+
 	if err != nil {
 		return nil, err
 	}

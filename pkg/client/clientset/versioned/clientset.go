@@ -12,8 +12,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	FlinkV1alpha1() flinkv1alpha1.FlinkV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Flink() flinkv1alpha1.FlinkV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -25,12 +23,6 @@ type Clientset struct {
 
 // FlinkV1alpha1 retrieves the FlinkV1alpha1Client
 func (c *Clientset) FlinkV1alpha1() flinkv1alpha1.FlinkV1alpha1Interface {
-	return c.flinkV1alpha1
-}
-
-// Deprecated: Flink retrieves the default version of FlinkClient.
-// Please explicitly pick a version.
-func (c *Clientset) Flink() flinkv1alpha1.FlinkV1alpha1Interface {
 	return c.flinkV1alpha1
 }
 

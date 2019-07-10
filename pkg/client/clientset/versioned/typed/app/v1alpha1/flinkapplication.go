@@ -3,6 +3,8 @@
 package v1alpha1
 
 import (
+	"time"
+
 	v1alpha1 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	scheme "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,11 +61,16 @@ func (c *flinkApplications) Get(name string, options v1.GetOptions) (result *v1a
 
 // List takes label and field selectors, and returns the list of FlinkApplications that match those selectors.
 func (c *flinkApplications) List(opts v1.ListOptions) (result *v1alpha1.FlinkApplicationList, err error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	result = &v1alpha1.FlinkApplicationList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("flinkapplications").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Do().
 		Into(result)
 	return
@@ -71,11 +78,16 @@ func (c *flinkApplications) List(opts v1.ListOptions) (result *v1alpha1.FlinkApp
 
 // Watch returns a watch.Interface that watches the requested flinkApplications.
 func (c *flinkApplications) Watch(opts v1.ListOptions) (watch.Interface, error) {
+	var timeout time.Duration
+	if opts.TimeoutSeconds != nil {
+		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
+	}
 	opts.Watch = true
 	return c.client.Get().
 		Namespace(c.ns).
 		Resource("flinkapplications").
 		VersionedParams(&opts, scheme.ParameterCodec).
+		Timeout(timeout).
 		Watch()
 }
 
@@ -117,10 +129,15 @@ func (c *flinkApplications) Delete(name string, options *v1.DeleteOptions) error
 
 // DeleteCollection deletes a collection of objects.
 func (c *flinkApplications) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+	var timeout time.Duration
+	if listOptions.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	}
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("flinkapplications").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
+		Timeout(timeout).
 		Body(options).
 		Do().
 		Error()

@@ -70,6 +70,9 @@ Below is the list of fields in the custom resource and their description
 
   * **ProgramArgs** `type:string`
     External configuration parameters to be passed as arguments to the job like input and output sources, etc
+    
+  * **AllowNonRestoredState** `type:boolean`
+    Skips savepoint operator state that cannot be mapped to the new program version  
 
   * **SavepointInfo** `type:SavepointInfo`
     Optional Savepoint info that can be passed in to indicate that the Flink job must resume from the corresponding savepoint.

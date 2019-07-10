@@ -73,7 +73,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 	app.Annotations = annotations
-	hash := "922eff1b"
+	hash := "334c7c5d"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,

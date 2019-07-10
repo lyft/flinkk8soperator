@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 
@@ -95,7 +93,7 @@ type ControllerInterface interface {
 	CompareAndUpdateJobStatus(ctx context.Context, app *v1alpha1.FlinkApplication, hash string) (bool, error)
 }
 
-func NewController(k8sCluster k8.ClusterInterface, mgr manager.Manager, config controllerConfig.RuntimeConfig) ControllerInterface {
+func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
 	metrics := newControllerMetrics(config.MetricsScope)
 	return &Controller{
 		k8Cluster:     k8sCluster,
@@ -103,7 +101,7 @@ func NewController(k8sCluster k8.ClusterInterface, mgr manager.Manager, config c
 		taskManager:   NewTaskManagerController(k8sCluster, config),
 		flinkClient:   client.NewFlinkJobManagerClient(config),
 		metrics:       metrics,
-		eventRecorder: mgr.GetRecorder(controllerConfig.AppName),
+		eventRecorder: eventRecorder,
 	}
 }
 
