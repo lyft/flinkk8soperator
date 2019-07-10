@@ -6,6 +6,7 @@ import (
 
 //go:generate pflags Config
 
+const AppName = "flinkK8sOperator"
 const configSectionKey = "operator"
 
 var ConfigSection = config.MustRegisterSection(configSectionKey, &Config{})

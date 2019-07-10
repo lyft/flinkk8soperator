@@ -37,10 +37,11 @@ type CancelJobRequest struct {
 }
 
 type SubmitJobRequest struct {
-	SavepointPath string `json:"savepointPath"`
-	Parallelism   int32  `json:"parallelism"`
-	ProgramArgs   string `json:"programArgs"`
-	EntryClass    string `json:"entryClass"`
+	SavepointPath         string `json:"savepointPath"`
+	Parallelism           int32  `json:"parallelism"`
+	ProgramArgs           string `json:"programArgs"`
+	EntryClass            string `json:"entryClass"`
+	AllowNonRestoredState bool   `json:"allowNonRestoredState"`
 }
 
 type SavepointResponse struct {

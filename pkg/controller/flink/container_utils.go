@@ -155,16 +155,6 @@ func HashForApplication(app *v1alpha1.FlinkApplication) string {
 	return fmt.Sprintf("%08x", hasher.Sum32())
 }
 
-func GetAppHashSelector(app *v1alpha1.FlinkApplication) map[string]string {
-	return GetAppHashSelectorWithHash(HashForApplication(app))
-}
-
-func GetAppHashSelectorWithHash(hash string) map[string]string {
-	return map[string]string{
-		FlinkAppHash: hash,
-	}
-}
-
 func InjectHashesIntoConfig(deployment *appsv1.Deployment, app *v1alpha1.FlinkApplication, hash string) {
 	var newContainers []v1.Container
 	for _, container := range deployment.Spec.Template.Spec.Containers {

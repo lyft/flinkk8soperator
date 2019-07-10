@@ -40,28 +40,6 @@ func TestGetJobManagerPodName(t *testing.T) {
 	assert.Equal(t, "app-name-"+testAppHash+"-jm-pod", getJobManagerPodName(&app, testAppHash))
 }
 
-func TestGetJobManagerDeployment(t *testing.T) {
-	app := getFlinkTestApp()
-	deployment := v1.Deployment{}
-	deployment.Name = getJobManagerName(&app, testAppHash)
-	deployments := []v1.Deployment{
-		deployment,
-	}
-	assert.Equal(t, deployment, *getJobManagerDeployment(deployments, &app))
-}
-
-func TestGetJobManagerReplicaCount(t *testing.T) {
-	app := getFlinkTestApp()
-	deployment := v1.Deployment{}
-	deployment.Name = getJobManagerName(&app, HashForApplication(&app))
-	replicaCount := int32(2)
-	deployment.Spec.Replicas = &replicaCount
-	deployments := []v1.Deployment{
-		deployment,
-	}
-	assert.Equal(t, int32(2), getJobManagerCount(deployments, &app))
-}
-
 func TestJobManagerCreateSuccess(t *testing.T) {
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
@@ -73,7 +51,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 	app.Annotations = annotations
-	hash := "922eff1b"
+	hash := "334c7c5d"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,

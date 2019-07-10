@@ -90,19 +90,6 @@ func (t *TaskManagerController) CreateIfNotExist(ctx context.Context, applicatio
 	return false, nil
 }
 
-func getTaskManagerDeployment(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) *v1.Deployment {
-	tmDeploymentName := getTaskManagerName(application, HashForApplication(application))
-	return k8.GetDeploymentWithName(deployments, tmDeploymentName)
-}
-
-func getTaskManagerCount(deployments []v1.Deployment, application *v1alpha1.FlinkApplication) int32 {
-	taskManagerDeployment := getTaskManagerDeployment(deployments, application)
-	if taskManagerDeployment == nil {
-		return 0
-	}
-	return *taskManagerDeployment.Spec.Replicas
-}
-
 func GetTaskManagerPorts(app *v1alpha1.FlinkApplication) []coreV1.ContainerPort {
 	return []coreV1.ContainerPort{
 		{

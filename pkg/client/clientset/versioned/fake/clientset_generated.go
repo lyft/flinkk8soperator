@@ -59,8 +59,3 @@ var _ clientset.Interface = &Clientset{}
 func (c *Clientset) FlinkV1alpha1() flinkv1alpha1.FlinkV1alpha1Interface {
 	return &fakeflinkv1alpha1.FakeFlinkV1alpha1{Fake: &c.Fake}
 }
-
-// Flink retrieves the FlinkV1alpha1Client
-func (c *Clientset) Flink() flinkv1alpha1.FlinkV1alpha1Interface {
-	return &fakeflinkv1alpha1.FakeFlinkV1alpha1{Fake: &c.Fake}
-}

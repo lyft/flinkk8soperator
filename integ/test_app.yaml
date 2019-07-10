@@ -35,7 +35,7 @@ spec:
         path: /tmp/checkpoints
         type: Directory
   flinkVersion: "1.8"
-  deployType: Dual
+  deploymentMode: Dual
   jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
   parallelism: 3
   entryClass: "com.lyft.OperatorTestApp"

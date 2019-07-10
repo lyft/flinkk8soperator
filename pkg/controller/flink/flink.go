@@ -2,16 +2,16 @@ package flink
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 
-	"github.com/lyft/flinkk8soperator/pkg/controller/config"
+	controllerConfig "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flytestdlib/logger"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
@@ -82,7 +82,7 @@ type ControllerInterface interface {
 	FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (string, error)
 
 	// Logs an event to the FlinkApplication resource and to the operator log
-	LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, fieldPath string, eventType string, message string)
+	LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, message string)
 
 	// Compares and updates new cluster status with current cluster status
 	// Returns true if there is a change in ClusterStatus
@@ -93,14 +93,15 @@ type ControllerInterface interface {
 	CompareAndUpdateJobStatus(ctx context.Context, app *v1alpha1.FlinkApplication, hash string) (bool, error)
 }
 
-func NewController(k8sCluster k8.ClusterInterface, config config.RuntimeConfig) ControllerInterface {
+func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
 	metrics := newControllerMetrics(config.MetricsScope)
 	return &Controller{
-		k8Cluster:   k8sCluster,
-		jobManager:  NewJobManagerController(k8sCluster, config),
-		taskManager: NewTaskManagerController(k8sCluster, config),
-		flinkClient: client.NewFlinkJobManagerClient(config),
-		metrics:     metrics,
+		k8Cluster:     k8sCluster,
+		jobManager:    NewJobManagerController(k8sCluster, config),
+		taskManager:   NewTaskManagerController(k8sCluster, config),
+		flinkClient:   client.NewFlinkJobManagerClient(config),
+		metrics:       metrics,
+		eventRecorder: eventRecorder,
 	}
 }
 
@@ -122,16 +123,17 @@ type controllerMetrics struct {
 }
 
 type Controller struct {
-	k8Cluster   k8.ClusterInterface
-	jobManager  JobManagerControllerInterface
-	taskManager TaskManagerControllerInterface
-	flinkClient client.FlinkAPIInterface
-	metrics     *controllerMetrics
+	k8Cluster     k8.ClusterInterface
+	jobManager    JobManagerControllerInterface
+	taskManager   TaskManagerControllerInterface
+	flinkClient   client.FlinkAPIInterface
+	metrics       *controllerMetrics
+	eventRecorder record.EventRecorder
 }
 
 func getURLFromApp(application *v1alpha1.FlinkApplication, hash string) string {
 	service := VersionedJobManagerServiceName(application, hash)
-	cfg := config.GetConfig()
+	cfg := controllerConfig.GetConfig()
 	if cfg.UseProxy {
 		return fmt.Sprintf(proxyURL, cfg.ProxyPort.Port, application.Namespace, service)
 	}
@@ -204,7 +206,7 @@ func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.Fl
 	newlyCreatedJm, err := f.jobManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Job manager cluster creation did not succeed %v", err)
-		f.LogEvent(ctx, application, "", corev1.EventTypeWarning,
+		f.LogEvent(ctx, application, corev1.EventTypeWarning,
 			fmt.Sprintf("Failed to create job managers: %v", err))
 
 		return err
@@ -212,13 +214,13 @@ func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.Fl
 	newlyCreatedTm, err := f.taskManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Task manager cluster creation did not succeed %v", err)
-		f.LogEvent(ctx, application, "", corev1.EventTypeWarning,
+		f.LogEvent(ctx, application, corev1.EventTypeWarning,
 			fmt.Sprintf("Failed to create task managers: %v", err))
 		return err
 	}
 
 	if newlyCreatedJm || newlyCreatedTm {
-		f.LogEvent(ctx, application, "", corev1.EventTypeNormal, "Flink cluster created")
+		f.LogEvent(ctx, application, corev1.EventTypeNormal, "Flink cluster created")
 	}
 	return nil
 }
@@ -230,10 +232,11 @@ func (f *Controller) StartFlinkJob(ctx context.Context, application *v1alpha1.Fl
 		getURLFromApp(application, hash),
 		jarName,
 		client.SubmitJobRequest{
-			Parallelism:   parallelism,
-			SavepointPath: application.Spec.SavepointInfo.SavepointLocation,
-			EntryClass:    entryClass,
-			ProgramArgs:   programArgs,
+			Parallelism:           parallelism,
+			SavepointPath:         application.Spec.SavepointInfo.SavepointLocation,
+			EntryClass:            entryClass,
+			ProgramArgs:           programArgs,
+			AllowNonRestoredState: application.Spec.AllowNonRestoredState,
 		})
 	if err != nil {
 		return "", err
@@ -254,32 +257,20 @@ func (f *Controller) GetSavepointStatus(ctx context.Context, application *v1alph
 }
 
 func (f *Controller) IsClusterReady(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	labelMap := GetAppHashSelector(application)
-
-	deploymentList, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, labelMap)
-	if err != nil {
-		logger.Warnf(ctx, "Failed to get deployments for label map %v", labelMap)
+	deployments, err := f.GetCurrentDeploymentsForApp(ctx, application)
+	if deployments == nil || err != nil {
 		return false, err
-	}
-	if deploymentList == nil || len(deploymentList.Items) == 0 {
-		logger.Infof(ctx, "No deployments present for label map %v", labelMap)
-		return false, nil
 	}
 
 	// TODO: Find if any events can be populated, that are useful to users
-	for _, deployment := range deploymentList.Items {
-		// For Jobmanager we only need on replica to be available
-		if deployment.Labels[FlinkDeploymentType] == FlinkDeploymentTypeJobmanager {
-			if deployment.Status.AvailableReplicas == 0 {
-				return false, nil
-			}
-		} else {
-			if deployment.Spec.Replicas != nil &&
-				deployment.Status.AvailableReplicas < *deployment.Spec.Replicas {
-				return false, nil
-			}
-		}
+	if deployments.Jobmanager.Status.AvailableReplicas == 0 {
+		return false, nil
 	}
+
+	if deployments.Taskmanager.Status.AvailableReplicas < *deployments.Taskmanager.Spec.Replicas {
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -397,7 +388,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1alpha1
 	}
 
 	for k := range deletedHashes {
-		f.LogEvent(ctx, app, "", corev1.EventTypeNormal, fmt.Sprintf("Deleted old cluster with hash %s", k))
+		f.LogEvent(ctx, app, corev1.EventTypeNormal, fmt.Sprintf("Deleted old cluster with hash %s", k))
 	}
 
 	return nil
@@ -420,7 +411,7 @@ func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application
 	return checkpoint.ExternalPath, nil
 }
 
-func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, fieldPath string, eventType string, message string) {
+func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, message string) {
 	reason := "Create"
 	if app.Status.DeployHash != "" {
 		// this is not the first deploy
@@ -430,48 +421,43 @@ func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplicatio
 		reason = "Delete"
 	}
 
-	event := k8.CreateEvent(app, fieldPath, eventType, reason, message)
+	f.eventRecorder.Event(app, eventType, reason, message)
 	logger.Infof(ctx, "Logged %s event: %s: %s", eventType, reason, message)
-
-	// TODO: switch to using EventRecorder once we switch to controller runtime
-	if err := f.k8Cluster.CreateK8Object(ctx, &event); err != nil {
-		b, _ := json.Marshal(event)
-		logger.Errorf(ctx, "Failed to log event %v: %v", string(b), err)
-	}
 }
 
 // Gets and updates the cluster status
 func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error) {
+	// Error retrieving cluster / taskmanagers overview (after startup/readiness) --> Red
+	// If there is an error this loop will return with Health set to Red
 	oldClusterStatus := application.Status.ClusterStatus
-	clusterErrors := ""
+	application.Status.ClusterStatus.Health = v1alpha1.Red
+
+	deployment, err := f.GetCurrentDeploymentsForApp(ctx, application)
+	if deployment == nil || err != nil {
+		return false, err
+	}
+
+	application.Status.ClusterStatus.NumberOfTaskManagers = deployment.Taskmanager.Status.AvailableReplicas
 	// Get Cluster overview
 	response, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
-
 	if err != nil {
-		clusterErrors = err.Error()
-	} else {
-		// Update cluster overview
-		application.Status.ClusterStatus.NumberOfTaskManagers = response.TaskManagerCount
-		application.Status.ClusterStatus.AvailableTaskSlots = response.SlotsAvailable
-		application.Status.ClusterStatus.NumberOfTaskSlots = response.NumberOfTaskSlots
+		return false, err
 	}
+	// Update cluster overview
+	application.Status.ClusterStatus.AvailableTaskSlots = response.SlotsAvailable
+	application.Status.ClusterStatus.NumberOfTaskSlots = response.NumberOfTaskSlots
 
 	// Get Healthy Taskmanagers
 	tmResponse, tmErr := f.flinkClient.GetTaskManagers(ctx, getURLFromApp(application, hash))
 	if tmErr != nil {
-		clusterErrors += tmErr.Error()
-	} else {
-		application.Status.ClusterStatus.HealthyTaskManagers = getHealthyTaskManagerCount(tmResponse)
+		return false, tmErr
 	}
+	application.Status.ClusterStatus.HealthyTaskManagers = getHealthyTaskManagerCount(tmResponse)
+
 	// Determine Health of the cluster.
-	// Error retrieving cluster / taskmanagers overview (after startup/readiness) --> Red
 	// Healthy TaskManagers == Number of taskmanagers --> Green
 	// Else --> Yellow
-	if clusterErrors != "" && (application.Status.Phase != v1alpha1.FlinkApplicationClusterStarting &&
-		application.Status.Phase != v1alpha1.FlinkApplicationSubmittingJob) {
-		application.Status.ClusterStatus.Health = v1alpha1.Red
-		return false, errors.New(clusterErrors)
-	} else if application.Status.ClusterStatus.HealthyTaskManagers == application.Status.ClusterStatus.NumberOfTaskManagers {
+	if application.Status.ClusterStatus.HealthyTaskManagers == deployment.Taskmanager.Status.Replicas {
 		application.Status.ClusterStatus.Health = v1alpha1.Green
 	} else {
 		application.Status.ClusterStatus.Health = v1alpha1.Yellow
