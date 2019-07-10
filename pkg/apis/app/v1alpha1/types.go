@@ -3,6 +3,8 @@ package v1alpha1
 import (
 	"fmt"
 
+	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
+
 	apiv1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -152,14 +154,16 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase            FlinkApplicationPhase `json:"phase"`
-	StartedAt        *metav1.Time          `json:"startedAt,omitempty"`
-	LastUpdatedAt    *metav1.Time          `json:"lastUpdatedAt,omitempty"`
-	Reason           string                `json:"reason,omitempty"`
-	ClusterStatus    FlinkClusterStatus    `json:"clusterStatus,omitempty"`
-	JobStatus        FlinkJobStatus        `json:"jobStatus"`
-	FailedDeployHash string                `json:"failedUpdateHash,omitEmpty"`
-	DeployHash       string                `json:"deployHash"`
+	Phase            FlinkApplicationPhase         `json:"phase"`
+	StartedAt        *metav1.Time                  `json:"startedAt,omitempty"`
+	LastUpdatedAt    *metav1.Time                  `json:"lastUpdatedAt,omitempty"`
+	Reason           string                        `json:"reason,omitempty"`
+	ClusterStatus    FlinkClusterStatus            `json:"clusterStatus,omitempty"`
+	JobStatus        FlinkJobStatus                `json:"jobStatus"`
+	FailedDeployHash string                        `json:"failedUpdateHash,omitEmpty"`
+	DeployHash       string                        `json:"deployHash"`
+	RetryCount       int32                         `json:"retryCount,omitEmpty"`
+	LastSeenError    *client.FlinkApplicationError `json:"lastSeenError,omitEmpty"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {

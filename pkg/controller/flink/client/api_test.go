@@ -79,7 +79,7 @@ func TestGetJobs500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.GetJobs(ctx, testURL)
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "GetJobs request failed with status 500")
+	assert.EqualError(t, err, "GetJobs call failed with status 500 and message []")
 }
 
 func TestGetJobsError(t *testing.T) {
@@ -92,7 +92,7 @@ func TestGetJobsError(t *testing.T) {
 	resp, err := client.GetJobs(ctx, testURL)
 	assert.Nil(t, resp)
 	assert.NotNil(t, err)
-	assert.True(t, strings.HasPrefix(err.Error(), "Get jobs API request failed"))
+	assert.True(t, strings.HasPrefix(err.Error(), "GetJobs call failed with status FAILED"))
 }
 
 func TestGetJobsFlinkJobUnmarshal(t *testing.T) {
@@ -150,7 +150,7 @@ func TestGetCluster500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.GetClusterOverview(ctx, testURL)
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "Get cluster overview failed with status 500")
+	assert.EqualError(t, err, "GetClusterOverview call failed with status 500 and message []")
 }
 
 func TestGetCluster503Response(t *testing.T) {
@@ -163,7 +163,7 @@ func TestGetCluster503Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.GetClusterOverview(ctx, testURL)
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "Get cluster overview failed with status 503")
+	assert.EqualError(t, err, "GetClusterOverview call failed with status 503 and message []")
 }
 
 func TestGetClusterOverviewError(t *testing.T) {
@@ -176,7 +176,7 @@ func TestGetClusterOverviewError(t *testing.T) {
 	resp, err := client.GetClusterOverview(ctx, testURL)
 	assert.Nil(t, resp)
 	assert.NotNil(t, err)
-	assert.True(t, strings.HasPrefix(err.Error(), "GetClusterOverview API request failed"))
+	assert.True(t, strings.HasPrefix(err.Error(), "GetClusterOverview call failed with status FAILED"))
 }
 
 func TestGetJobConfigHappyCase(t *testing.T) {
@@ -218,7 +218,7 @@ func TestGetJobConfig500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.GetJobConfig(ctx, testURL, "1")
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "Get Jobconfig failed with status 500")
+	assert.EqualError(t, err, "GetJobConfig call failed with status 500 and message []")
 }
 
 func TestGetJobConfigError(t *testing.T) {
@@ -231,7 +231,7 @@ func TestGetJobConfigError(t *testing.T) {
 	resp, err := client.GetJobConfig(ctx, testURL, "1")
 	assert.Nil(t, resp)
 	assert.NotNil(t, err)
-	assert.True(t, strings.HasPrefix(err.Error(), "GetJobConfig API request failed"))
+	assert.True(t, strings.HasPrefix(err.Error(), "GetJobConfig call failed with status FAILED"))
 }
 
 func TestCheckSavepointHappyCase(t *testing.T) {
@@ -275,7 +275,7 @@ func TestCheckSavepoint500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.CheckSavepointStatus(ctx, testURL, "1", "2")
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "Check savepoint status failed with status 500")
+	assert.EqualError(t, err, "CheckSavepointStatus call failed with status 500 and message []")
 }
 
 func TestCheckSavepointError(t *testing.T) {
@@ -288,7 +288,7 @@ func TestCheckSavepointError(t *testing.T) {
 	resp, err := client.CheckSavepointStatus(ctx, testURL, "1", "2")
 	assert.Nil(t, resp)
 	assert.NotNil(t, err)
-	assert.True(t, strings.HasPrefix(err.Error(), "Check savepoint status API request failed"))
+	assert.True(t, strings.HasPrefix(err.Error(), "CheckSavepointStatus call failed with status FAILED"))
 }
 
 func TestSubmitJobHappyCase(t *testing.T) {
@@ -336,7 +336,7 @@ func TestSubmitJob500Response(t *testing.T) {
 		Parallelism: 10,
 	})
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "Job submission failed with status 500\ncould not submit")
+	assert.EqualError(t, err, "SubmitJob call failed with status 500 and message [could not submit]")
 }
 
 func TestSubmitJobError(t *testing.T) {
@@ -351,7 +351,7 @@ func TestSubmitJobError(t *testing.T) {
 	})
 	assert.Nil(t, resp)
 	assert.NotNil(t, err)
-	assert.True(t, strings.HasPrefix(err.Error(), "Submit job API request failed"))
+	assert.True(t, strings.HasPrefix(err.Error(), "SubmitJob call failed with status FAILED"))
 }
 
 func TestCancelJobHappyCase(t *testing.T) {
@@ -393,7 +393,7 @@ func TestCancelJob500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1")
 	assert.Empty(t, resp)
-	assert.EqualError(t, err, "Cancel job failed with status 500")
+	assert.EqualError(t, err, "CancelJobWithSavepoint call failed with status 500 and message []")
 }
 
 func TestCancelJobError(t *testing.T) {
@@ -406,7 +406,7 @@ func TestCancelJobError(t *testing.T) {
 	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1")
 	assert.Empty(t, resp)
 	assert.NotNil(t, err)
-	assert.True(t, strings.HasPrefix(err.Error(), "Cancel job API request failed"))
+	assert.True(t, strings.HasPrefix(err.Error(), "CancelJobWithSavepoint call failed with status FAILED"))
 }
 
 func TestHttpGetNon200Response(t *testing.T) {
@@ -426,7 +426,7 @@ func TestHttpGetNon200Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	_, err := client.GetJobs(ctx, testURL)
 	assert.NotNil(t, err)
-	assert.EqualError(t, err, "GetJobs request failed with status 500")
+	assert.EqualError(t, err, "GetJobs call failed with status 500 and message []")
 }
 
 func TestClientInvalidMethod(t *testing.T) {

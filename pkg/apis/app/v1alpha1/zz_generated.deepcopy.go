@@ -177,6 +177,10 @@ func (in *FlinkApplicationStatus) DeepCopyInto(out *FlinkApplicationStatus) {
 	}
 	out.ClusterStatus = in.ClusterStatus
 	in.JobStatus.DeepCopyInto(&out.JobStatus)
+	if in.LastSeenError != nil {
+		in, out := &in.LastSeenError, &out.LastSeenError
+		*out = (*in).DeepCopy()
+	}
 	return
 }
 

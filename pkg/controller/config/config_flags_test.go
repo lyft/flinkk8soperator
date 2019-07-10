@@ -297,10 +297,54 @@ func TestConfig_SetFlags(t *testing.T) {
 			}
 		})
 	})
-	t.Run("Test_statemachineStalenessDuration", func(t *testing.T) {
+	t.Run("Test_baseBackoffDuration", func(t *testing.T) {
 		t.Run("DefaultValue", func(t *testing.T) {
 			// Test that default value is set properly
-			if vString, err := cmdFlags.GetString("statemachineStalenessDuration"); err == nil {
+			if vString, err := cmdFlags.GetString("baseBackoffDuration"); err == nil {
+				assert.Equal(t, string("100ms"), vString)
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+
+		t.Run("Override", func(t *testing.T) {
+			testValue := "100ms"
+
+			cmdFlags.Set("baseBackoffDuration", testValue)
+			if vString, err := cmdFlags.GetString("baseBackoffDuration"); err == nil {
+				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.BaseBackoffDuration)
+
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+	})
+	t.Run("Test_maxBackoffDuration", func(t *testing.T) {
+		t.Run("DefaultValue", func(t *testing.T) {
+			// Test that default value is set properly
+			if vString, err := cmdFlags.GetString("maxBackoffDuration"); err == nil {
+				assert.Equal(t, string("30s"), vString)
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+
+		t.Run("Override", func(t *testing.T) {
+			testValue := "30s"
+
+			cmdFlags.Set("maxBackoffDuration", testValue)
+			if vString, err := cmdFlags.GetString("maxBackoffDuration"); err == nil {
+				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.MaxBackoffDuration)
+
+			} else {
+				assert.FailNow(t, err.Error())
+			}
+		})
+	})
+	t.Run("Test_maxErrDuration", func(t *testing.T) {
+		t.Run("DefaultValue", func(t *testing.T) {
+			// Test that default value is set properly
+			if vString, err := cmdFlags.GetString("maxErrDuration"); err == nil {
 				assert.Equal(t, string("5m"), vString)
 			} else {
 				assert.FailNow(t, err.Error())
@@ -310,9 +354,9 @@ func TestConfig_SetFlags(t *testing.T) {
 		t.Run("Override", func(t *testing.T) {
 			testValue := "5m"
 
-			cmdFlags.Set("statemachineStalenessDuration", testValue)
-			if vString, err := cmdFlags.GetString("statemachineStalenessDuration"); err == nil {
-				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.StatemachineStalenessDuration)
+			cmdFlags.Set("maxErrDuration", testValue)
+			if vString, err := cmdFlags.GetString("maxErrDuration"); err == nil {
+				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.MaxErrDuration)
 
 			} else {
 				assert.FailNow(t, err.Error())

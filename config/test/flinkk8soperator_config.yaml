@@ -4,7 +4,6 @@
 operator:
   ingressUrlFormat: "{{$jobCluster}}.lyft.xyz"
   containerNameFormat: "%s-unknown"
-  statemachineStalenessDuration: 10m
 logger:
   show-source: true
   level: 4

@@ -76,12 +76,12 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 
 	if runDirect {
 		config := controllerConfig.Config{
-			LimitNamespace:                namespace,
-			UseProxy:                      true,
-			ResyncPeriod:                  flyteConfig.Duration{Duration: 3 * time.Second},
-			StatemachineStalenessDuration: flyteConfig.Duration{Duration: 30 * time.Second},
-			MetricsPrefix:                 "flinkk8soperator",
-			ProxyPort:                     flyteConfig.Port{Port: 8001},
+			LimitNamespace: namespace,
+			UseProxy:       true,
+			ResyncPeriod:   flyteConfig.Duration{Duration: 3 * time.Second},
+			MaxErrDuration: flyteConfig.Duration{Duration: 30 * time.Second},
+			MetricsPrefix:  "flinkk8soperator",
+			ProxyPort:      flyteConfig.Port{Port: 8001},
 		}
 
 		log.Info("Running operator directly")
