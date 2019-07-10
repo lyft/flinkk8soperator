@@ -207,7 +207,8 @@ func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.Fl
 	if err != nil {
 		logger.Errorf(ctx, "Job manager cluster creation did not succeed %v", err)
 		f.LogEvent(ctx, application, corev1.EventTypeWarning,
-			fmt.Sprintf("Failed to create job managers: %v", err))
+			fmt.Sprintf("Failed to create job managers for deploy %s: %v",
+				HashForApplication(application), err))
 
 		return err
 	}
@@ -215,12 +216,14 @@ func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.Fl
 	if err != nil {
 		logger.Errorf(ctx, "Task manager cluster creation did not succeed %v", err)
 		f.LogEvent(ctx, application, corev1.EventTypeWarning,
-			fmt.Sprintf("Failed to create task managers: %v", err))
+			fmt.Sprintf("Failed to create task managers for deploy %s: %v",
+				HashForApplication(application), err))
 		return err
 	}
 
 	if newlyCreatedJm || newlyCreatedTm {
-		f.LogEvent(ctx, application, corev1.EventTypeNormal, "Flink cluster created")
+		f.LogEvent(ctx, application, corev1.EventTypeNormal,
+			fmt.Sprintf("Creating Flink cluster for deploy %s", HashForApplication(application)))
 	}
 	return nil
 }
