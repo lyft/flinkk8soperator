@@ -247,6 +247,10 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 
 	ports := getJobManagerPorts(application)
 	operatorEnv := GetFlinkContainerEnv(application)
+	operatorEnv = append(operatorEnv, coreV1.EnvVar{
+		Name: FlinkDeploymentTypeEnv,
+		Value: FlinkDeploymentTypeJobmanager,
+	})
 	operatorEnv = append(operatorEnv, jmConfig.Environment.Env...)
 
 	return &coreV1.Container{

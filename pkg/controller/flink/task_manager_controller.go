@@ -120,7 +120,12 @@ func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV
 	}
 
 	operatorEnv := GetFlinkContainerEnv(application)
+	operatorEnv = append(operatorEnv, coreV1.EnvVar{
+		Name: FlinkDeploymentTypeEnv,
+		Value: FlinkDeploymentTypeTaskmanager,
+	})
 
+	// TODO: To be removed, and use "HOST_IP" instead
 	operatorEnv = append(operatorEnv, coreV1.EnvVar{
 		Name: TaskManagerHostnameEnvVar,
 		ValueFrom: &coreV1.EnvVarSource{
