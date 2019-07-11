@@ -15,7 +15,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const NewImage = "lyft/operator-test-app:6c45caca225489895cb1353dae25069b5d43746f.2"
+const NewImage = "lyft/operator-test-app:ddbf570fe838205040c226807b0285a326a7d4c3.2"
 
 func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1alpha1.FlinkApplication), failurePhase v1alpha1.FlinkApplicationPhase) *v1alpha1.FlinkApplication {
 	app, err := s.Util.GetFlinkApplication(name)
