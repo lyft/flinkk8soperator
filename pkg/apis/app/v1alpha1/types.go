@@ -53,6 +53,7 @@ type FlinkApplicationSpec struct {
 	RestartNonce          string                       `json:"restartNonce"`
 	DeleteMode            DeleteMode                   `json:"deleteMode,omitempty"`
 	AllowNonRestoredState bool                         `json:"allowNonRestoredState,omitempty"`
+	CancelDeploy          bool                         `json:"cancelDeploy"`
 }
 
 type FlinkConfig map[string]interface{}

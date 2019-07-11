@@ -1130,3 +1130,30 @@ func TestErrorHandlingInRunningPhase(t *testing.T) {
 	assert.Nil(t, app.Status.LastSeenError)
 
 }
+
+func TestCancelDeploy(t *testing.T) {
+	app := v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1alpha1.FlinkApplicationSpec{
+			JarName:      "job.jar",
+			Parallelism:  5,
+			EntryClass:   "com.my.Class",
+			ProgramArgs:  "--test",
+			CancelDeploy: true,
+		},
+		Status: v1alpha1.FlinkApplicationStatus{
+			Phase:      v1alpha1.FlinkApplicationClusterStarting,
+			DeployHash: "old-hash-retry-err",
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	// cancelled deploy while cluster is starting
+	assert.Equal(t, v1alpha1.FlinkApplicationDeployFailed, app.Status.Phase)
+	assert.True(t, app.Spec.CancelDeploy)
+}
