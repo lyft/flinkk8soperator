@@ -13,22 +13,12 @@ drop_privs_cmd() {
     fi
 }
 
-envsubst < /usr/local/flink-conf.yaml > $FLINK_HOME/conf/flink-conf.yaml
-
-if [ "$FLINK_DEPLOYMENT_TYPE" = "jobmanager" ]; then
-    echo "jobmanager.rpc.address: $HOST_NAME" >> "$FLINK_HOME/conf/flink-conf.yaml"
-fi
-
-# As the taskmanager pods are accessible only by (cluster) ip address,
-# we must manually configure this based on the podIp kubernetes
-if [ "$FLINK_DEPLOYMENT_TYPE" = "taskmanager" ]; then
-    echo "taskmanager.host: $HOST_IP" >> "$FLINK_HOME/conf/flink-conf.yaml"
-fi
-
 # Add in extra configs set by the operator
 if [ -n "$OPERATOR_FLINK_CONFIG" ]; then
     echo "$OPERATOR_FLINK_CONFIG" >> "$FLINK_HOME/conf/flink-conf.yaml"
 fi
+
+envsubst < /usr/local/flink-conf.yaml > $FLINK_HOME/conf/flink-conf.yaml
 
 COMMAND=$@
 

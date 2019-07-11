@@ -6,7 +6,7 @@ metadata:
   labels:
     environment: development
 spec:
-  image: lyft/operator-test-app:6c45caca225489895cb1353dae25069b5d43746f.1
+  image: lyft/operator-test-app:5bb866f79bb8cd41633f46307040065ed21531be.1
   imagePullSecrets:
     - name: dockerhub
   flinkConfig:

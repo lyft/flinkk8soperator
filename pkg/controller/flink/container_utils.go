@@ -25,7 +25,7 @@ const (
 	AwsMetadataServiceNumAttempts    = "20"
 	OperatorFlinkConfig              = "OPERATOR_FLINK_CONFIG"
 	hostName                         = "HOST_NAME"
-	hostIp                           = "HOST_IP"
+	hostIP                           = "HOST_IP"
 	FlinkDeploymentTypeEnv           = "FLINK_DEPLOYMENT_TYPE"
 	FlinkDeploymentType              = "flink-deployment-type"
 	FlinkDeploymentTypeJobmanager    = "jobmanager"
@@ -99,7 +99,7 @@ func getFlinkEnv(app *v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 			},
 		},
 		{
-			Name: hostIp,
+			Name: hostIP,
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
 					FieldPath: "status.podIP",
@@ -174,15 +174,19 @@ func HashForApplication(app *v1alpha1.FlinkApplication) string {
 	return fmt.Sprintf("%08x", hasher.Sum32())
 }
 
-func InjectHashesIntoConfig(deployment *appsv1.Deployment, app *v1alpha1.FlinkApplication, hash string, deploymentType string) {
+func InjectOperatorCustomizedConfig(deployment *appsv1.Deployment, app *v1alpha1.FlinkApplication, hash string, deploymentType string) {
 	var newContainers []v1.Container
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		var newEnv []v1.EnvVar
 		for _, env := range container.Env {
 			if env.Name == OperatorFlinkConfig {
 				env.Value = fmt.Sprintf("%s\nhigh-availability.cluster-id: %s-%s\n", env.Value, app.Name, hash)
+				if deploymentType == FlinkDeploymentTypeJobmanager {
+					env.Value = fmt.Sprintf("%sjobmanager.rpc.address: $HOST_NAME\n", env.Value)
+				}
 				if deploymentType == FlinkDeploymentTypeTaskmanager {
 					env.Value = fmt.Sprintf("%sjobmanager.rpc.address: %s\n", env.Value, VersionedJobManagerServiceName(app, hash))
+					env.Value = fmt.Sprintf("%staskmanager.host: $HOST_IP\n", env.Value)
 				}
 			}
 			newEnv = append(newEnv, env)
