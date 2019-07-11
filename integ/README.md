@@ -23,8 +23,8 @@ By default the tests create, use, and clean up the namespace
 These tests use a sample Flink job [operator-test-app](/integ/operator-test-app/). The
 tests currently use two images built from here:
 
-* `lyft/operator-test-app:5bb866f79bb8cd41633f46307040065ed21531be.1`
-* `lyft/operator-test-app:5bb866f79bb8cd41633f46307040065ed21531be.2`
+* `lyft/operator-test-app:ddbf570fe838205040c226807b0285a326a7d4c3.1`
+* `lyft/operator-test-app:ddbf570fe838205040c226807b0285a326a7d4c3.2`
 
 Those images are available on our private Dockerhub registry, and you
 will either need to pull them locally or give Kubernetes access to the
