@@ -119,7 +119,7 @@ func (m *FlinkController) FindExternalizedCheckpoint(ctx context.Context, applic
 	return "", nil
 }
 
-func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, message string) {
+func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, reason string, message string) {
 	m.Events = append(m.Events, corev1.Event{
 		InvolvedObject: corev1.ObjectReference{
 			Kind:      app.Kind,
@@ -127,7 +127,7 @@ func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkAppli
 			Namespace: app.Namespace,
 		},
 		Type:    eventType,
-		Reason:  "Test",
+		Reason:  reason,
 		Message: message,
 	})
 }
