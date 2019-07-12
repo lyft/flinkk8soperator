@@ -1049,7 +1049,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	}
 	failFastError := client.GetNonRetryableError(errors.New("blah"), "SubmitJob", "400BadRequest")
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
 		return "", failFastError
 	}
 
