@@ -51,7 +51,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 	app.Annotations = annotations
-	hash := "0b1b39e8"
+	hash := "390e4c6d"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -82,7 +82,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 				"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
 				"taskmanager.numberOfTaskSlots: 16\n\n"+
 				"high-availability.cluster-id: app-name-"+hash+"\n"+
-				"jobmanager.rpc.address: $HOST_NAME\n",
+				"jobmanager.rpc.address: app-name-"+hash+"\n",
 				common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
 					"OPERATOR_FLINK_CONFIG").Value)
 		case 2:

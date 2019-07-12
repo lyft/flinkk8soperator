@@ -181,11 +181,12 @@ func InjectOperatorCustomizedConfig(deployment *appsv1.Deployment, app *v1alpha1
 		for _, env := range container.Env {
 			if env.Name == OperatorFlinkConfig {
 				env.Value = fmt.Sprintf("%s\nhigh-availability.cluster-id: %s-%s\n", env.Value, app.Name, hash)
-				if deploymentType == FlinkDeploymentTypeJobmanager {
-					env.Value = fmt.Sprintf("%sjobmanager.rpc.address: $HOST_NAME\n", env.Value)
+				if getJobmanagerReplicas(app) == 1 {
+					env.Value = fmt.Sprintf("%sjobmanager.rpc.address: %s\n", env.Value, VersionedJobManagerServiceName(app, hash))
+				} else if deploymentType == FlinkDeploymentTypeJobmanager {
+					env.Value = fmt.Sprintf("%sjobmanager.rpc.address: $HOST_IP\n", env.Value)
 				}
 				if deploymentType == FlinkDeploymentTypeTaskmanager {
-					env.Value = fmt.Sprintf("%sjobmanager.rpc.address: %s\n", env.Value, VersionedJobManagerServiceName(app, hash))
 					env.Value = fmt.Sprintf("%staskmanager.host: $HOST_IP\n", env.Value)
 				}
 			}

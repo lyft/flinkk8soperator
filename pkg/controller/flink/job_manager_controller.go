@@ -24,7 +24,7 @@ const (
 	JobManagerPodNameFormat             = "%s-%s-jm-pod"
 	JobManagerContainerName             = "jobmanager"
 	JobManagerArg                       = "jobmanager"
-	JobManagerReadinessPath             = "/config"
+	JobManagerReadinessPath             = "/overview"
 	JobManagerReadinessInitialDelaySec  = 10
 	JobManagerReadinessTimeoutSec       = 1
 	JobManagerReadinessSuccessThreshold = 1

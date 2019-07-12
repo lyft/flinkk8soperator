@@ -29,7 +29,7 @@ import (
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
 
 // Note: if you find yourself changing this to fix a test, that should be treated as a breaking API change
-const testAppHash = "0de896bc"
+const testAppHash = "de844839"
 const testAppName = "app-name"
 const testNamespace = "ns"
 const testJobID = "j1"
