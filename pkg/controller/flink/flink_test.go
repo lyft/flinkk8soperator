@@ -444,7 +444,7 @@ func TestStartFlinkJob(t *testing.T) {
 		}, nil
 	}
 	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
-		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs)
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs, flinkApp.Spec.AllowNonRestoredState)
 	assert.Nil(t, err)
 	assert.Equal(t, jobID, testJobID)
 }
@@ -463,7 +463,7 @@ func TestStartFlinkJobAllowNonRestoredState(t *testing.T) {
 		}, nil
 	}
 	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
-		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs)
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs, flinkApp.Spec.AllowNonRestoredState)
 	assert.Nil(t, err)
 	assert.Equal(t, jobID, testJobID)
 }
@@ -478,7 +478,7 @@ func TestStartFlinkJobEmptyJobID(t *testing.T) {
 		return &client.SubmitJobResponse{}, nil
 	}
 	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
-		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs)
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs, flinkApp.Spec.AllowNonRestoredState)
 	assert.EqualError(t, err, "unable to submit job: invalid job id")
 	assert.Empty(t, jobID)
 }
@@ -492,7 +492,7 @@ func TestStartFlinkJobErr(t *testing.T) {
 		return nil, errors.New("submit error")
 	}
 	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
-		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs)
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs, flinkApp.Spec.AllowNonRestoredState)
 	assert.EqualError(t, err, "submit error")
 	assert.Empty(t, jobID)
 }
