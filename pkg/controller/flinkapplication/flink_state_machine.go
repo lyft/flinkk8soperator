@@ -81,7 +81,6 @@ func (s *FlinkStateMachine) updateApplicationPhase(ctx context.Context, applicat
 
 func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1alpha1.FlinkApplication) bool {
 	if application.Spec.CancelDeploy {
-		//application.Spec.CancelDeploy = false
 		return true
 	}
 	if application.Status.DeployHash == "" {
