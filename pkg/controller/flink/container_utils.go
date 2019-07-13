@@ -24,8 +24,8 @@ const (
 	AwsMetadataServiceTimeout        = "5"
 	AwsMetadataServiceNumAttempts    = "20"
 	OperatorFlinkConfig              = "OPERATOR_FLINK_CONFIG"
-	hostName                         = "HOST_NAME"
-	hostIP                           = "HOST_IP"
+	HostName                         = "HOST_NAME"
+	HostIP                           = "HOST_IP"
 	FlinkDeploymentTypeEnv           = "FLINK_DEPLOYMENT_TYPE"
 	FlinkDeploymentType              = "flink-deployment-type"
 	FlinkDeploymentTypeJobmanager    = "jobmanager"
@@ -91,7 +91,7 @@ func getFlinkEnv(app *v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 			Value: flinkConfig,
 		},
 		{
-			Name: hostName,
+			Name: HostName,
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
 					FieldPath: "metadata.name",
@@ -99,7 +99,7 @@ func getFlinkEnv(app *v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 			},
 		},
 		{
-			Name: hostIP,
+			Name: HostIP,
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
 					FieldPath: "status.podIP",
