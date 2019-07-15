@@ -146,5 +146,5 @@ func (r RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
 }
 func (r RetryHandler) IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
 	elapsedTime := clock.Since(lastUpdatedTime)
-	return elapsedTime <= r.GetRetryDelay(retryCount)
+	return elapsedTime >= r.GetRetryDelay(retryCount)
 }

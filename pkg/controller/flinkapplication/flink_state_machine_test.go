@@ -71,7 +71,6 @@ func TestHandleStartingClusterStarting(t *testing.T) {
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
-		assert.False(t, true)
 		return nil
 	}
 	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{
@@ -974,17 +973,14 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	}
 
 	mockRetryHandler.IsTimeToRetryFunc = func(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
-		elapsedTime := clock.Since(lastUpdatedTime)
-		retryDelay := mockRetryHandler.GetRetryDelay(retryCount)
-		return elapsedTime <= retryDelay
+		return true
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	olderTime := metav1.NewTime(time.Now())
+
+	updateErrCount := 0
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
-		if app.Status.LastSeenError != nil {
-			app.Status.LastSeenError.LastErrorUpdateTime = &olderTime
-		}
+		updateErrCount++
 		return nil
 	}
 
@@ -1002,7 +998,7 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	}
 
 	assert.Equal(t, 5, retries)
-
+	assert.Equal(t, 5, updateErrCount)
 	// Retries should have been exhausted and errors and retry counts reset
 	assert.Equal(t, v1alpha1.FlinkApplicationDeployFailed, app.Status.Phase)
 	assert.Equal(t, int32(0), app.Status.RetryCount)

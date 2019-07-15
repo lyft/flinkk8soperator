@@ -142,8 +142,8 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 	if !v1alpha1.IsRunningPhase(application.Status.Phase) {
 		logger.Infof(ctx, "Handling state %s for application", application.Status.Phase)
 	}
+	var appErr error
 	if s.IsTimeToHandlePhase(application) {
-		var appErr error
 		switch application.Status.Phase {
 		case v1alpha1.FlinkApplicationNew, v1alpha1.FlinkApplicationUpdating:
 			// Currently just transitions to the next state
@@ -162,16 +162,13 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 			appErr = s.handleApplicationDeleting(ctx, application)
 		}
 
-		if appErr != nil {
+		if !v1alpha1.IsRunningPhase(application.Status.Phase) {
 			// Only update LastSeenError and thereby invoke error handling logic for
 			// non-Running phases
-			if !v1alpha1.IsRunningPhase(application.Status.Phase) {
-				s.getAndUpdateError(ctx, application, appErr)
-			}
-			return appErr
+			s.compareAndUpdateError(ctx, application, appErr)
 		}
 	}
-	return nil
+	return appErr
 }
 
 func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1alpha1.FlinkApplication) bool {
@@ -648,7 +645,13 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	return nil
 }
 
-func (s *FlinkStateMachine) getAndUpdateError(ctx context.Context, application *v1alpha1.FlinkApplication, err error) {
+func (s *FlinkStateMachine) compareAndUpdateError(ctx context.Context, application *v1alpha1.FlinkApplication, err error) {
+	oldErr := application.Status.LastSeenError
+
+	if err == nil && oldErr == nil {
+		return
+	}
+
 	if flinkAppError, ok := err.(*client.FlinkApplicationError); ok {
 		application.Status.LastSeenError = flinkAppError
 	} else {
