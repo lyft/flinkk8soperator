@@ -653,19 +653,21 @@ func (s *FlinkStateMachine) compareAndUpdateError(ctx context.Context, applicati
 		return
 	}
 
-	if flinkAppError, ok := err.(*client.FlinkApplicationError); ok {
-		application.Status.LastSeenError = flinkAppError
-	} else {
-		err = client.GetRetryableError(err, "UnknownMethod", client.GlobalFailure, client.DefaultRetries)
-		application.Status.LastSeenError = err.(*client.FlinkApplicationError)
-	}
+	if err != nil {
+		if flinkAppError, ok := err.(*client.FlinkApplicationError); ok {
+			application.Status.LastSeenError = flinkAppError
+		} else {
+			err = client.GetRetryableError(err, "UnknownMethod", client.GlobalFailure, client.DefaultRetries)
+			application.Status.LastSeenError = err.(*client.FlinkApplicationError)
+		}
 
-	now := v1.NewTime(s.clock.Now())
-	application.Status.LastSeenError.LastErrorUpdateTime = &now
+		now := v1.NewTime(s.clock.Now())
+		application.Status.LastSeenError.LastErrorUpdateTime = &now
 
-	updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
-	if updateErr != nil {
-		logger.Errorf(ctx, "Updating last seen error failed with %v", updateErr)
+		updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
+		if updateErr != nil {
+			logger.Errorf(ctx, "Updating last seen error failed with %v", updateErr)
+		}
 	}
 }
 
