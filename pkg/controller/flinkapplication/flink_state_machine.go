@@ -653,7 +653,9 @@ func (s *FlinkStateMachine) compareAndUpdateError(ctx context.Context, applicati
 		return
 	}
 
-	if err != nil {
+	if err == nil {
+		application.Status.LastSeenError = nil
+	} else {
 		if flinkAppError, ok := err.(*client.FlinkApplicationError); ok {
 			application.Status.LastSeenError = flinkAppError
 		} else {
@@ -663,11 +665,11 @@ func (s *FlinkStateMachine) compareAndUpdateError(ctx context.Context, applicati
 
 		now := v1.NewTime(s.clock.Now())
 		application.Status.LastSeenError.LastErrorUpdateTime = &now
+	}
 
-		updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
-		if updateErr != nil {
-			logger.Errorf(ctx, "Updating last seen error failed with %v", updateErr)
-		}
+	updateErr := s.k8Cluster.UpdateK8Object(ctx, application)
+	if updateErr != nil {
+		logger.Errorf(ctx, "Updating last seen error failed with %v", updateErr)
 	}
 }
 
