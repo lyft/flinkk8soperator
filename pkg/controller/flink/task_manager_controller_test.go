@@ -84,8 +84,56 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 			"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
 			"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
 			"taskmanager.numberOfTaskSlots: 16\n\n"+
-			"high-availability.cluster-id: app-name-"+hash+"\n"+
 			"jobmanager.rpc.address: app-name-"+hash+"\n"+
+			"taskmanager.host: $HOST_IP\n",
+			common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
+				"OPERATOR_FLINK_CONFIG").Value)
+
+		return nil
+	}
+	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.True(t, newlyCreated)
+}
+
+func TestTaskManagerHACreateSuccess(t *testing.T) {
+	testController := getTMControllerForTest()
+	app := getFlinkTestApp()
+	app.Spec.JarName = "test.jar"
+	app.Spec.EntryClass = "com.test.MainClass"
+	app.Spec.ProgramArgs = "--test"
+	annotations := map[string]string{
+		"key":                  "annotation",
+		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
+	}
+
+	hash := "fda698ef"
+	app.Spec.FlinkConfig = map[string]interface{}{
+		"high-availability": "zookeeper",
+	}
+	app.Annotations = annotations
+	expectedLabels := map[string]string{
+		"flink-app":             "app-name",
+		"flink-app-hash":        hash,
+		"flink-deployment-type": "taskmanager",
+	}
+	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		deployment := object.(*v1.Deployment)
+		assert.Equal(t, getTaskManagerName(&app, hash), deployment.Name)
+		assert.Equal(t, app.Namespace, deployment.Namespace)
+		assert.Equal(t, getTaskManagerPodName(&app, hash), deployment.Spec.Template.Name)
+		assert.Equal(t, annotations, deployment.Annotations)
+		assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
+		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
+		assert.Equal(t, expectedLabels, deployment.Labels)
+
+		assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1536\n"+
+			"jobmanager.rpc.port: 6123\n"+
+			"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
+			"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
+			"taskmanager.numberOfTaskSlots: 16\n\n"+
+			"high-availability.cluster-id: app-name-"+hash+"\n"+
 			"taskmanager.host: $HOST_IP\n",
 			common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
 				"OPERATOR_FLINK_CONFIG").Value)

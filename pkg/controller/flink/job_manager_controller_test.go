@@ -20,6 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+var testJarName = "test.jar"
+var testEntryClass = "com.test.MainClass"
+var testProgramArgs = "--test"
+
 func getJMControllerForTest() JobManagerController {
 	testScope := mockScope.NewTestScope()
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
@@ -43,12 +47,12 @@ func TestGetJobManagerPodName(t *testing.T) {
 func TestJobManagerCreateSuccess(t *testing.T) {
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
-	app.Spec.JarName = "test.jar"
-	app.Spec.EntryClass = "com.test.MainClass"
-	app.Spec.ProgramArgs = "--test"
+	app.Spec.JarName = testJarName
+	app.Spec.EntryClass = testEntryClass
+	app.Spec.ProgramArgs = testProgramArgs
 	annotations := map[string]string{
 		"key":                  "annotation",
-		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
+		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
 	app.Annotations = annotations
 	hash := "390e4c6d"
@@ -81,8 +85,82 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 				"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
 				"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
 				"taskmanager.numberOfTaskSlots: 16\n\n"+
-				"high-availability.cluster-id: app-name-"+hash+"\n"+
 				"jobmanager.rpc.address: app-name-"+hash+"\n",
+				common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
+					"OPERATOR_FLINK_CONFIG").Value)
+		case 2:
+			service := object.(*coreV1.Service)
+			assert.Equal(t, app.Name, service.Name)
+			assert.Equal(t, app.Namespace, service.Namespace)
+			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+		case 3:
+			service := object.(*coreV1.Service)
+			assert.Equal(t, app.Name+"-"+hash, service.Name)
+			assert.Equal(t, "app-name", service.OwnerReferences[0].Name)
+			assert.Equal(t, app.Namespace, service.Namespace)
+			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+		case 4:
+			labels := map[string]string{
+				"flink-app": "app-name",
+			}
+			ingress := object.(*v1beta1.Ingress)
+			assert.Equal(t, app.Name, ingress.Name)
+			assert.Equal(t, app.Namespace, ingress.Namespace)
+			assert.Equal(t, labels, ingress.Labels)
+		}
+		return nil
+	}
+	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.True(t, newlyCreated)
+}
+
+func TestJobManagerHACreateSuccess(t *testing.T) {
+	testController := getJMControllerForTest()
+	app := getFlinkTestApp()
+	app.Spec.JarName = testJarName
+	app.Spec.EntryClass = testEntryClass
+	app.Spec.ProgramArgs = testProgramArgs
+	annotations := map[string]string{
+		"key":                  "annotation",
+		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
+	}
+	app.Annotations = annotations
+	app.Spec.FlinkConfig = map[string]interface{}{
+		"high-availability": "zookeeper",
+	}
+	hash := "fda698ef"
+	expectedLabels := map[string]string{
+		"flink-app":             "app-name",
+		"flink-app-hash":        hash,
+		"flink-deployment-type": "jobmanager",
+	}
+	ctr := 0
+	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		ctr++
+		switch ctr {
+		case 1:
+			deployment := object.(*v1.Deployment)
+			assert.Equal(t, getJobManagerName(&app, hash), deployment.Name)
+			assert.Equal(t, app.Namespace, deployment.Namespace)
+			assert.Equal(t, getJobManagerPodName(&app, hash), deployment.Spec.Template.Name)
+			assert.Equal(t, annotations, deployment.Annotations)
+			assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
+			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
+			assert.Equal(t, expectedLabels, deployment.Labels)
+			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
+			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
+			assert.Equal(t, "flink.k8s.io/v1alpha1", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
+
+			assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1536\n"+
+				"jobmanager.rpc.port: 6123\n"+
+				"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
+				"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
+				"taskmanager.numberOfTaskSlots: 16\n\n"+
+				"high-availability.cluster-id: app-name-"+hash+"\n"+
+				"jobmanager.rpc.address: $HOST_IP\n",
 				common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
 					"OPERATOR_FLINK_CONFIG").Value)
 		case 2:
