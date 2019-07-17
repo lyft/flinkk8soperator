@@ -9,7 +9,7 @@ ENV PATH=$FLINK_HOME/bin:$HADOOP_HOME/bin:$MAVEN_HOME/bin:$PATH
 COPY . /code
 
 # Configure Flink version
-ENV FLINK_VERSION=1.8.0 \
+ENV FLINK_VERSION=1.8.1 \
     HADOOP_SCALA_VARIANT=scala_2.12
 
 # Install dependencies

@@ -1,6 +1,8 @@
 package flink
 
 import (
+	"strings"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"gopkg.in/yaml.v2"
 )
@@ -14,6 +16,7 @@ const (
 	UIDefaultPort                 = 8081
 	MetricsQueryDefaultPort       = 50101
 	OffHeapMemoryDefaultFraction  = 0.5
+	HighAvailabilityKey           = "high-availability"
 )
 
 func firstNonNil(x *int32, y int32) int32 {
@@ -117,4 +120,14 @@ func renderFlinkConfig(app *v1alpha1.FlinkApplication) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func isHAEnabled(flinkConfig v1alpha1.FlinkConfig) bool {
+	if val, ok := flinkConfig[HighAvailabilityKey]; ok {
+		value := val.(string)
+		if strings.ToLower(strings.TrimSpace(value)) != "none" {
+			return true
+		}
+	}
+	return false
 }
