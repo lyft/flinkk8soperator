@@ -151,7 +151,7 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 	if !application.ObjectMeta.DeletionTimestamp.IsZero() && application.Status.Phase != v1alpha1.FlinkApplicationDeleting {
 		s.updateApplicationPhase(application, v1alpha1.FlinkApplicationDeleting)
 		// Always perform a single application update per callback
-		return true, nil
+		return applicationChanged, nil
 	}
 
 	if !v1alpha1.IsRunningPhase(application.Status.Phase) {
