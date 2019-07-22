@@ -101,7 +101,7 @@ func (in *FlinkConfig) DeepCopy() *FlinkConfig {
 
 type JobManagerConfig struct {
 	Resources             *apiv1.ResourceRequirements `json:"resources,omitempty"`
-	Environment           EnvironmentConfig           `json:"envConfig"`
+	EnvConfig             EnvironmentConfig           `json:"envConfig"`
 	Replicas              *int32                      `json:"replicas,omitempty"`
 	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
 	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
@@ -109,7 +109,7 @@ type JobManagerConfig struct {
 
 type TaskManagerConfig struct {
 	Resources             *apiv1.ResourceRequirements `json:"resources,omitempty"`
-	Environment           EnvironmentConfig           `json:"envConfig"`
+	EnvConfig             EnvironmentConfig           `json:"envConfig"`
 	TaskSlots             *int32                      `json:"taskSlots,omitempty"`
 	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
 	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
@@ -161,7 +161,7 @@ type FlinkApplicationStatus struct {
 	Reason           string                        `json:"reason,omitempty"`
 	ClusterStatus    FlinkClusterStatus            `json:"clusterStatus,omitempty"`
 	JobStatus        FlinkJobStatus                `json:"jobStatus"`
-	FailedDeployHash string                        `json:"failedUpdateHash,omitEmpty"`
+	FailedDeployHash string                        `json:"failedDeployHash,omitEmpty"`
 	DeployHash       string                        `json:"deployHash"`
 	RetryCount       int32                         `json:"retryCount,omitEmpty"`
 	LastSeenError    *client.FlinkApplicationError `json:"lastSeenError,omitEmpty"`

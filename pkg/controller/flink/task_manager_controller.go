@@ -125,7 +125,7 @@ func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV
 		Value: FlinkDeploymentTypeTaskmanager,
 	})
 
-	operatorEnv = append(operatorEnv, tmConfig.Environment.Env...)
+	operatorEnv = append(operatorEnv, tmConfig.EnvConfig.Env...)
 
 	return &coreV1.Container{
 		Name:            getFlinkContainerName(TaskManagerContainerName),
@@ -135,7 +135,7 @@ func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV
 		Args:            []string{TaskManagerArg},
 		Ports:           ports,
 		Env:             operatorEnv,
-		EnvFrom:         tmConfig.Environment.EnvFrom,
+		EnvFrom:         tmConfig.EnvConfig.EnvFrom,
 		VolumeMounts:    application.Spec.VolumeMounts,
 	}
 }
