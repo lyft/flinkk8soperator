@@ -75,9 +75,6 @@ func newStateMachineMetrics(scope promutils.Scope) *stateMachineMetrics {
 
 func (s *FlinkStateMachine) updateApplicationPhase(application *v1alpha1.FlinkApplication, phase v1alpha1.FlinkApplicationPhase) {
 	application.Status.Phase = phase
-	now := v1.NewTime(s.clock.Now())
-	application.Status.LastUpdatedAt = &now
-
 }
 
 func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1alpha1.FlinkApplication) bool {
@@ -129,6 +126,8 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.Fl
 
 	// Update k8s object
 	if updateApplication {
+		now := v1.NewTime(s.clock.Now())
+		application.Status.LastUpdatedAt = &now
 		updateAppErr := s.k8Cluster.UpdateK8Object(ctx, application)
 		if updateAppErr != nil {
 			s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
@@ -150,9 +149,9 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 	appPhase := application.Status.Phase
 
 	if !application.ObjectMeta.DeletionTimestamp.IsZero() && application.Status.Phase != v1alpha1.FlinkApplicationDeleting {
-		// Always perform a single application update per callback
 		s.updateApplicationPhase(application, v1alpha1.FlinkApplicationDeleting)
-		updateApplication = true
+		// Always perform a single application update per callback
+		return true, nil
 	}
 
 	if !v1alpha1.IsRunningPhase(application.Status.Phase) {
