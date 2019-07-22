@@ -64,5 +64,6 @@ func TestRetryHandler_IsTimeToRetry(t *testing.T) {
 	olderTime := currTime.Add(-5 * time.Second)
 	fakeClock := clock.NewFakeClock(currTime.Time)
 	fakeClock.SetTime(time.Now())
-	assert.True(t, retryer.IsTimeToRetry(fakeClock, olderTime, 10))
+	// Set retry count to 0 to keep retry delay small
+	assert.True(t, retryer.IsTimeToRetry(fakeClock, olderTime, 0))
 }
