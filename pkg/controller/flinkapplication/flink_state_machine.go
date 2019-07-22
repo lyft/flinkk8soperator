@@ -216,7 +216,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
-		return !applicationChanged, err
+		return applicationUnchanged, err
 	}
 
 	s.updateApplicationPhase(application, v1alpha1.FlinkApplicationClusterStarting)
@@ -248,10 +248,10 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	// Wait for all to be running
 	ready, err := s.flinkController.IsClusterReady(ctx, application)
 	if err != nil {
-		return !applicationChanged, err
+		return applicationUnchanged, err
 	}
 	if !ready {
-		return !applicationChanged, nil
+		return applicationUnchanged, nil
 	}
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
@@ -280,7 +280,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 		triggerID, err := s.flinkController.CancelWithSavepoint(ctx, application, application.Status.DeployHash)
 		if err != nil {
-			return !applicationChanged, err
+			return applicationUnchanged, err
 		}
 
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CancellingJob",
@@ -333,7 +333,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		return applicationChanged, nil
 	}
 
-	return !applicationChanged, nil
+	return applicationUnchanged, nil
 }
 
 func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1alpha1.FlinkApplication, hash string,
