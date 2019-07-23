@@ -75,9 +75,6 @@ func newStateMachineMetrics(scope promutils.Scope) *stateMachineMetrics {
 
 func (s *FlinkStateMachine) updateApplicationPhase(application *v1alpha1.FlinkApplication, phase v1alpha1.FlinkApplicationPhase) {
 	application.Status.Phase = phase
-	now := v1.NewTime(s.clock.Now())
-	application.Status.LastUpdatedAt = &now
-
 }
 
 func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1alpha1.FlinkApplication) bool {
@@ -129,6 +126,8 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.Fl
 
 	// Update k8s object
 	if updateApplication {
+		now := v1.NewTime(s.clock.Now())
+		application.Status.LastUpdatedAt = &now
 		updateAppErr := s.k8Cluster.UpdateK8Object(ctx, application)
 		if updateAppErr != nil {
 			s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
@@ -149,17 +148,16 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 	updateLastSeenError := false
 	appPhase := application.Status.Phase
 
-	if !application.ObjectMeta.DeletionTimestamp.IsZero() && application.Status.Phase != v1alpha1.FlinkApplicationDeleting {
-		// Always perform a single application update per callback
+	if !application.ObjectMeta.DeletionTimestamp.IsZero() && appPhase != v1alpha1.FlinkApplicationDeleting {
 		s.updateApplicationPhase(application, v1alpha1.FlinkApplicationDeleting)
-		updateApplication = true
-	}
-
-	if !v1alpha1.IsRunningPhase(application.Status.Phase) {
-		logger.Infof(ctx, "Handling state %s for application", application.Status.Phase)
+		// Always perform a single application update per callback
+		return applicationChanged, nil
 	}
 
 	if s.IsTimeToHandlePhase(application) {
+		if !v1alpha1.IsRunningPhase(application.Status.Phase) {
+			logger.Infof(ctx, "Handling state for application")
+		}
 		switch application.Status.Phase {
 		case v1alpha1.FlinkApplicationNew, v1alpha1.FlinkApplicationUpdating:
 			// Currently just transitions to the next state
@@ -183,6 +181,8 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 			// non-Running phases
 			updateLastSeenError = s.compareAndUpdateError(application, appErr)
 		}
+	} else {
+		logger.Infof(ctx, "Handle state skipped for application, lastSeenError %v", application.Status.LastSeenError)
 	}
 	return updateApplication || updateLastSeenError, appErr
 }
@@ -293,7 +293,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	// check the savepoints in progress
 	savepointStatusResponse, err := s.flinkController.GetSavepointStatus(ctx, application, application.Status.DeployHash)
 	if err != nil {
-		return applicationChanged, err
+		return applicationUnchanged, err
 	}
 
 	var restorePath string

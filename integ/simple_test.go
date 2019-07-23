@@ -231,10 +231,10 @@ func (s *IntegSuite) TestRecovery(c *C) {
 		Value: "1",
 	}
 
-	config.Spec.JobManagerConfig.Environment.Env =
-		append(config.Spec.JobManagerConfig.Environment.Env, envVar)
-	config.Spec.TaskManagerConfig.Environment.Env =
-		append(config.Spec.TaskManagerConfig.Environment.Env, envVar)
+	config.Spec.JobManagerConfig.EnvConfig.Env =
+		append(config.Spec.JobManagerConfig.EnvConfig.Env, envVar)
+	config.Spec.TaskManagerConfig.EnvConfig.Env =
+		append(config.Spec.TaskManagerConfig.EnvConfig.Env, envVar)
 
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))

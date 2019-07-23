@@ -251,7 +251,7 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 		Name:  FlinkDeploymentTypeEnv,
 		Value: FlinkDeploymentTypeJobmanager,
 	})
-	operatorEnv = append(operatorEnv, jmConfig.Environment.Env...)
+	operatorEnv = append(operatorEnv, jmConfig.EnvConfig.Env...)
 
 	return &coreV1.Container{
 		Name:            getFlinkContainerName(JobManagerContainerName),
@@ -261,7 +261,7 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 		Args:            []string{JobManagerArg},
 		Ports:           ports,
 		Env:             operatorEnv,
-		EnvFrom:         jmConfig.Environment.EnvFrom,
+		EnvFrom:         jmConfig.EnvConfig.EnvFrom,
 		VolumeMounts:    application.Spec.VolumeMounts,
 		ReadinessProbe: &coreV1.Probe{
 			Handler: coreV1.Handler{
