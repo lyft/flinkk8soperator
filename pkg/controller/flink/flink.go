@@ -55,7 +55,7 @@ type ControllerInterface interface {
 
 	// Starts the Job in the Flink Cluster
 	StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string) (string, error)
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error)
 
 	// Savepoint creation is asynchronous.
 	// Polls the status of the Savepoint, using the triggerID
@@ -82,7 +82,7 @@ type ControllerInterface interface {
 	FindExternalizedCheckpoint(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (string, error)
 
 	// Logs an event to the FlinkApplication resource and to the operator log
-	LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, message string)
+	LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, reason string, message string)
 
 	// Compares and updates new cluster status with current cluster status
 	// Returns true if there is a change in ClusterStatus
@@ -206,27 +206,30 @@ func (f *Controller) CreateCluster(ctx context.Context, application *v1alpha1.Fl
 	newlyCreatedJm, err := f.jobManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Job manager cluster creation did not succeed %v", err)
-		f.LogEvent(ctx, application, corev1.EventTypeWarning,
-			fmt.Sprintf("Failed to create job managers: %v", err))
+		f.LogEvent(ctx, application, corev1.EventTypeWarning, "CreateClusterFailed",
+			fmt.Sprintf("Failed to create job managers for deploy %s: %v",
+				HashForApplication(application), err))
 
 		return err
 	}
 	newlyCreatedTm, err := f.taskManager.CreateIfNotExist(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Task manager cluster creation did not succeed %v", err)
-		f.LogEvent(ctx, application, corev1.EventTypeWarning,
-			fmt.Sprintf("Failed to create task managers: %v", err))
+		f.LogEvent(ctx, application, corev1.EventTypeWarning, "CreateClusterFailed",
+			fmt.Sprintf("Failed to create task managers for deploy %s: %v",
+				HashForApplication(application), err))
 		return err
 	}
 
 	if newlyCreatedJm || newlyCreatedTm {
-		f.LogEvent(ctx, application, corev1.EventTypeNormal, "Flink cluster created")
+		f.LogEvent(ctx, application, corev1.EventTypeNormal, "CreatingCluster",
+			fmt.Sprintf("Creating Flink cluster for deploy %s", HashForApplication(application)))
 	}
 	return nil
 }
 
 func (f *Controller) StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-	jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
+	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
 	response, err := f.flinkClient.SubmitJob(
 		ctx,
 		getURLFromApp(application, hash),
@@ -236,7 +239,7 @@ func (f *Controller) StartFlinkJob(ctx context.Context, application *v1alpha1.Fl
 			SavepointPath:         application.Spec.SavepointInfo.SavepointLocation,
 			EntryClass:            entryClass,
 			ProgramArgs:           programArgs,
-			AllowNonRestoredState: application.Spec.AllowNonRestoredState,
+			AllowNonRestoredState: allowNonRestoredState,
 		})
 	if err != nil {
 		return "", err
@@ -388,7 +391,8 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1alpha1
 	}
 
 	for k := range deletedHashes {
-		f.LogEvent(ctx, app, corev1.EventTypeNormal, fmt.Sprintf("Deleted old cluster with hash %s", k))
+		f.LogEvent(ctx, app, corev1.EventTypeNormal, "ToreDownCluster",
+			fmt.Sprintf("Deleted old cluster with hash %s", k))
 	}
 
 	return nil
@@ -411,16 +415,7 @@ func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application
 	return checkpoint.ExternalPath, nil
 }
 
-func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, message string) {
-	reason := "Create"
-	if app.Status.DeployHash != "" {
-		// this is not the first deploy
-		reason = "Update"
-	}
-	if app.DeletionTimestamp != nil {
-		reason = "Delete"
-	}
-
+func (f *Controller) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, reason string, message string) {
 	f.eventRecorder.Event(app, eventType, reason, message)
 	logger.Infof(ctx, "Logged %s event: %s: %s", eventType, reason, message)
 }

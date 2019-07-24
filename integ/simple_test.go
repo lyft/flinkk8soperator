@@ -17,7 +17,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const NewImage = "lyft/operator-test-app:6c45caca225489895cb1353dae25069b5d43746f.2"
+const NewImage = "lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2"
 
 func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1alpha1.FlinkApplication), failurePhase v1alpha1.FlinkApplicationPhase) *v1alpha1.FlinkApplication {
 	app, err := s.Util.GetFlinkApplication(name)
@@ -287,10 +287,10 @@ func (s *IntegSuite) TestRecovery(c *C) {
 		Value: "1",
 	}
 
-	config.Spec.JobManagerConfig.Environment.Env =
-		append(config.Spec.JobManagerConfig.Environment.Env, envVar)
-	config.Spec.TaskManagerConfig.Environment.Env =
-		append(config.Spec.TaskManagerConfig.Environment.Env, envVar)
+	config.Spec.JobManagerConfig.EnvConfig.Env =
+		append(config.Spec.JobManagerConfig.EnvConfig.Env, envVar)
+	config.Spec.TaskManagerConfig.EnvConfig.Env =
+		append(config.Spec.TaskManagerConfig.EnvConfig.Env, envVar)
 
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))

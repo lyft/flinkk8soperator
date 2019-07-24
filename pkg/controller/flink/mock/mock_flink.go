@@ -14,7 +14,7 @@ type DeleteOldResourcesForApp func(ctx context.Context, application *v1alpha1.Fl
 type CancelWithSavepointFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (string, error)
 type ForceCancelFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) error
 type StartFlinkJobFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-	jarName string, parallelism int32, entryClass string, programArgs string) (string, error)
+	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error)
 type GetSavepointStatusFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (*client.SavepointResponse, error)
 type IsClusterReadyFunc func(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error)
 type IsServiceReadyFunc func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error)
@@ -77,9 +77,9 @@ func (m *FlinkController) ForceCancel(ctx context.Context, application *v1alpha1
 }
 
 func (m *FlinkController) StartFlinkJob(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-	jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
+	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
 	if m.StartFlinkJobFunc != nil {
-		return m.StartFlinkJobFunc(ctx, application, hash, jarName, parallelism, entryClass, programArgs)
+		return m.StartFlinkJobFunc(ctx, application, hash, jarName, parallelism, entryClass, programArgs, allowNonRestoredState)
 	}
 	return "", nil
 }
@@ -119,7 +119,7 @@ func (m *FlinkController) FindExternalizedCheckpoint(ctx context.Context, applic
 	return "", nil
 }
 
-func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, message string) {
+func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkApplication, eventType string, reason string, message string) {
 	m.Events = append(m.Events, corev1.Event{
 		InvolvedObject: corev1.ObjectReference{
 			Kind:      app.Kind,
@@ -127,7 +127,7 @@ func (m *FlinkController) LogEvent(ctx context.Context, app *v1alpha1.FlinkAppli
 			Namespace: app.Namespace,
 		},
 		Type:    eventType,
-		Reason:  "Test",
+		Reason:  reason,
 		Message: message,
 	})
 }

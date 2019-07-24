@@ -24,7 +24,7 @@ Below is the list of fields in the custom resource and their description
       Resources for the task manager. This includes cpu, memory, storage, and ephemeral-storage. If empty the operator will
       use a default value for cpu and memory.
 
-    * **Environment** `type:EnvironmentConfig`
+    * **EnvConfig** `type:EnvironmentConfig`
       Configuration for setting environment variables in the task manager.
 
     * **TaskSlots** `type:int32 required=true`
@@ -44,7 +44,7 @@ Below is the list of fields in the custom resource and their description
       Resources for the job manager. This includes cpu, memory, storage, and ephemeral-storage. If empty the operator will
       use a default value for cpu and memory.
 
-    * **Environment** `type:EnvironmentConfig`
+    * **EnvConfig** `type:EnvironmentConfig`
       Configuration for setting environment variables in the job manager.
 
     * **Replicas** `type:int32 required=true`

@@ -24,7 +24,7 @@ const (
 	JobManagerPodNameFormat             = "%s-%s-jm-pod"
 	JobManagerContainerName             = "jobmanager"
 	JobManagerArg                       = "jobmanager"
-	JobManagerReadinessPath             = "/config"
+	JobManagerReadinessPath             = "/overview"
 	JobManagerReadinessInitialDelaySec  = 10
 	JobManagerReadinessTimeoutSec       = 1
 	JobManagerReadinessSuccessThreshold = 1
@@ -247,7 +247,11 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 
 	ports := getJobManagerPorts(application)
 	operatorEnv := GetFlinkContainerEnv(application)
-	operatorEnv = append(operatorEnv, jmConfig.Environment.Env...)
+	operatorEnv = append(operatorEnv, coreV1.EnvVar{
+		Name:  FlinkDeploymentTypeEnv,
+		Value: FlinkDeploymentTypeJobmanager,
+	})
+	operatorEnv = append(operatorEnv, jmConfig.EnvConfig.Env...)
 
 	return &coreV1.Container{
 		Name:            getFlinkContainerName(JobManagerContainerName),
@@ -257,7 +261,7 @@ func FetchJobManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV1
 		Args:            []string{JobManagerArg},
 		Ports:           ports,
 		Env:             operatorEnv,
-		EnvFrom:         jmConfig.Environment.EnvFrom,
+		EnvFrom:         jmConfig.EnvConfig.EnvFrom,
 		VolumeMounts:    application.Spec.VolumeMounts,
 		ReadinessProbe: &coreV1.Probe{
 			Handler: coreV1.Handler{
@@ -342,7 +346,7 @@ func FetchJobMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication, hash stri
 	template.Spec.Selector.MatchLabels[FlinkAppHash] = hash
 	template.Spec.Template.Name = getJobManagerPodName(app, hash)
 
-	InjectHashesIntoConfig(template, app, hash)
+	InjectOperatorCustomizedConfig(template, app, hash, FlinkDeploymentTypeJobmanager)
 
 	return template
 }

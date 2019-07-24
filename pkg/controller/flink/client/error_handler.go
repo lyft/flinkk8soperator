@@ -42,7 +42,7 @@ type FlinkApplicationError struct {
 	IsRetryable         bool         `json:"isRetryable,omitempty"`
 	IsFailFast          bool         `json:"isFailFast,omitempty"`
 	MaxRetries          int32        `json:"maxRetries,omitempty"`
-	LastErrorUpdateTime *metav1.Time `json:"startedAt,omitempty"`
+	LastErrorUpdateTime *metav1.Time `json:"lastErrorUpdateTime,omitempty"`
 }
 
 func NewFlinkApplicationError(appError string, method FlinkMethod, errorCode string, isRetryable bool, isFailFast bool, maxRetries int32) *FlinkApplicationError {
@@ -146,5 +146,5 @@ func (r RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
 }
 func (r RetryHandler) IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
 	elapsedTime := clock.Since(lastUpdatedTime)
-	return elapsedTime <= r.GetRetryDelay(retryCount)
+	return elapsedTime >= r.GetRetryDelay(retryCount)
 }

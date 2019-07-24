@@ -250,7 +250,7 @@ func (in *JobManagerConfig) DeepCopyInto(out *JobManagerConfig) {
 		*out = new(v1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
 	}
-	in.Environment.DeepCopyInto(&out.Environment)
+	in.EnvConfig.DeepCopyInto(&out.EnvConfig)
 	if in.Replicas != nil {
 		in, out := &in.Replicas, &out.Replicas
 		*out = new(int32)
@@ -305,7 +305,7 @@ func (in *TaskManagerConfig) DeepCopyInto(out *TaskManagerConfig) {
 		*out = new(v1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
 	}
-	in.Environment.DeepCopyInto(&out.Environment)
+	in.EnvConfig.DeepCopyInto(&out.EnvConfig)
 	if in.TaskSlots != nil {
 		in, out := &in.TaskSlots, &out.TaskSlots
 		*out = new(int32)

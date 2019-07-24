@@ -120,17 +120,12 @@ func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV
 	}
 
 	operatorEnv := GetFlinkContainerEnv(application)
-
 	operatorEnv = append(operatorEnv, coreV1.EnvVar{
-		Name: TaskManagerHostnameEnvVar,
-		ValueFrom: &coreV1.EnvVarSource{
-			FieldRef: &coreV1.ObjectFieldSelector{
-				FieldPath: "status.podIP",
-			},
-		},
+		Name:  FlinkDeploymentTypeEnv,
+		Value: FlinkDeploymentTypeTaskmanager,
 	})
 
-	operatorEnv = append(operatorEnv, tmConfig.Environment.Env...)
+	operatorEnv = append(operatorEnv, tmConfig.EnvConfig.Env...)
 
 	return &coreV1.Container{
 		Name:            getFlinkContainerName(TaskManagerContainerName),
@@ -140,7 +135,7 @@ func FetchTaskManagerContainerObj(application *v1alpha1.FlinkApplication) *coreV
 		Args:            []string{TaskManagerArg},
 		Ports:           ports,
 		Env:             operatorEnv,
-		EnvFrom:         tmConfig.Environment.EnvFrom,
+		EnvFrom:         tmConfig.EnvConfig.EnvFrom,
 		VolumeMounts:    application.Spec.VolumeMounts,
 	}
 }
@@ -228,7 +223,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1alpha1.FlinkApplication, hash str
 	template.Spec.Selector.MatchLabels[FlinkAppHash] = hash
 	template.Spec.Template.Name = getTaskManagerPodName(app, hash)
 
-	InjectHashesIntoConfig(template, app, hash)
+	InjectOperatorCustomizedConfig(template, app, hash, FlinkDeploymentTypeTaskmanager)
 
 	return template
 }

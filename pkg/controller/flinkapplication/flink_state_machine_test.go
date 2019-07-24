@@ -71,7 +71,6 @@ func TestHandleStartingClusterStarting(t *testing.T) {
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
-		assert.False(t, true)
 		return nil
 	}
 	err := stateMachineForTest.Handle(context.Background(), &v1alpha1.FlinkApplication{
@@ -324,13 +323,14 @@ func TestSubmittingToRunning(t *testing.T) {
 
 	startCount := 0
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
 
 		assert.Equal(t, appHash, hash)
 		assert.Equal(t, app.Spec.JarName, jarName)
 		assert.Equal(t, app.Spec.Parallelism, parallelism)
 		assert.Equal(t, app.Spec.EntryClass, entryClass)
 		assert.Equal(t, app.Spec.ProgramArgs, programArgs)
+		assert.Equal(t, app.Spec.AllowNonRestoredState, allowNonRestoredState)
 
 		startCount++
 		return jobID, nil
@@ -407,7 +407,7 @@ func TestHandleApplicationNotReady(t *testing.T) {
 		return nil, nil
 	}
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
 		assert.False(t, true)
 		return "", nil
 	}
@@ -522,7 +522,7 @@ func TestRollingBack(t *testing.T) {
 
 	startCalled := false
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
 
 		startCalled = true
 		assert.Equal(t, "old-hash", hash)
@@ -530,6 +530,7 @@ func TestRollingBack(t *testing.T) {
 		assert.Equal(t, app.Status.JobStatus.Parallelism, parallelism)
 		assert.Equal(t, app.Status.JobStatus.EntryClass, entryClass)
 		assert.Equal(t, app.Status.JobStatus.ProgramArgs, programArgs)
+		assert.Equal(t, app.Status.JobStatus.AllowNonRestoredState, allowNonRestoredState)
 		return jobID, nil
 	}
 
@@ -972,17 +973,14 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	}
 
 	mockRetryHandler.IsTimeToRetryFunc = func(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
-		elapsedTime := clock.Since(lastUpdatedTime)
-		retryDelay := mockRetryHandler.GetRetryDelay(retryCount)
-		return elapsedTime <= retryDelay
+		return true
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	olderTime := metav1.NewTime(time.Now())
+
+	updateErrCount := 0
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
-		if app.Status.LastSeenError != nil {
-			app.Status.LastSeenError.LastErrorUpdateTime = &olderTime
-		}
+		updateErrCount++
 		return nil
 	}
 
@@ -1000,7 +998,7 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	}
 
 	assert.Equal(t, 5, retries)
-
+	assert.Equal(t, 5, updateErrCount)
 	// Retries should have been exhausted and errors and retry counts reset
 	assert.Equal(t, v1alpha1.FlinkApplicationDeployFailed, app.Status.Phase)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
@@ -1047,7 +1045,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	}
 	failFastError := client.GetNonRetryableError(errors.New("blah"), "SubmitJob", "400BadRequest")
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
 		return "", failFastError
 	}
 
