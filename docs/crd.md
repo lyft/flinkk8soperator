@@ -22,42 +22,42 @@ Below is the list of fields in the custom resource and their description
   * **taskManagerConfig** `type:TaskManagerConfig required=true`
     Configuration for the Flink task manager
 
-    * **Resources** `type:ResourceRequirements`
+    * **resources** `type:ResourceRequirements`
       Resources for the task manager. This includes cpu, memory, storage, and ephemeral-storage. If empty the operator will
       use a default value for cpu and memory.
 
-    * **EnvConfig** `type:EnvironmentConfig`
+    * **envConfig** `type:EnvironmentConfig`
       Configuration for setting environment variables in the task manager.
 
-    * **TaskSlots** `type:int32 required=true`
+    * **taskSlots** `type:int32 required=true`
       Number of task slots per task manager
 
-    * **OffHeapMemoryFraction** `type:float64`
+    * **offHeapMemoryFraction** `type:float64`
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
       remaining memory is allocated for heap.
 
-    * **NodeSelector** `type:map[string]string`
+    * **nodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the task manager
 
   * **jobManagerConfig** `type:JobManagerConfig`
     Configuration for the Flink job manager
 
-    * **Resources** `type:ResourceRequirements`
+    * **resources** `type:ResourceRequirements`
       Resources for the job manager. This includes cpu, memory, storage, and ephemeral-storage. If empty the operator will
       use a default value for cpu and memory.
 
-    * **EnvConfig** `type:EnvironmentConfig`
+    * **envConfig** `type:EnvironmentConfig`
       Configuration for setting environment variables in the job manager.
 
-    * **Replicas** `type:int32 required=true`
+    * **replicas** `type:int32 required=true`
       Number of job managers for the flink cluster. If multiple job managers are provided, the user has to ensure that
       correct environment variables are set for High availability mode.
 
-    * **OffHeapMemoryFraction** `type:float64`
+    * **offHeapMemoryFraction** `type:float64`
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
       remaining memory is allocated for heap.
 
-    * **NodeSelector** `type:map[string]string`
+    * **nodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the job manager
 
   * **jarName** `type:string required=true`
