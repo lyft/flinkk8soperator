@@ -3,6 +3,8 @@ The [flinkapplication](https://github.com/lyft/flinkk8soperator/blob/master/depl
 
 [FlinkApplication Custom Resource Example](https://github.com/lyft/flinkk8soperator/blob/master/examples/wordcount/flink-operator-custom-resource.yaml)
 
+The type information is available here [FlinkApplication Type](https://github.com/lyft/flinkk8soperator/blob/master/pkg/apis/app/v1alpha1/types.go#L25)
+
 Below is the list of fields in the custom resource and their description
 
 * **spec** `type:FlinkApplicationSpec required=True`
