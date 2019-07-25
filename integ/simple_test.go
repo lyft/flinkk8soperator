@@ -172,7 +172,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 		}, "")
 	}
 
-	// Test cancelling a deploy
+	// Test force rollback of an active deploy
 
 	{
 		newApp, err := s.Util.GetFlinkApplication(config.Name)
@@ -195,12 +195,13 @@ func (s *IntegSuite) TestSimple(c *C) {
 
 		// User realizes error and  cancels the deploy
 		log.Infof("Cancelling deploy...")
-		newApp.Spec.CancelDeploy = true
+		newApp.Spec.ForceRollback = true
 		_, _ = s.Util.FlinkApps().Update(newApp)
 
 		// we should end up in the DeployFailed phase
 		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationDeployFailed, ""), IsNil)
-		c.Assert(newApp.Spec.CancelDeploy, Equals, true)
+		c.Assert(newApp.Spec.ForceRollback, Equals, true)
+		c.Assert(newApp.Status.RollbackHash, Equals, newApp.Status.DeployHash)
 		log.Info("User cancelled deploy. Job is in deploy failed, waiting for tasks to start")
 
 		// but the job should still be running
@@ -208,7 +209,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 
 		log.Info("Attempting to roll forward with fix")
 
-		// Fixed resources
+		// Fixing update
 		var TaskManagerFixedResources = corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("0.2"),
@@ -222,7 +223,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 		// and we should be able to roll forward by resubmitting with a fixed config
 		updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
 			app.Spec.TaskManagerConfig.Resources = &TaskManagerFixedResources
-			app.Spec.CancelDeploy = false
+			app.Spec.ForceRollback = false
 		}, "")
 	}
 

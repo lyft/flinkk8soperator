@@ -53,7 +53,7 @@ type FlinkApplicationSpec struct {
 	RestartNonce          string                       `json:"restartNonce"`
 	DeleteMode            DeleteMode                   `json:"deleteMode,omitempty"`
 	AllowNonRestoredState bool                         `json:"allowNonRestoredState,omitempty"`
-	CancelDeploy          bool                         `json:"cancelDeploy"`
+	ForceRollback         bool                         `json:"forceRollback"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -163,6 +163,7 @@ type FlinkApplicationStatus struct {
 	ClusterStatus    FlinkClusterStatus            `json:"clusterStatus,omitempty"`
 	JobStatus        FlinkJobStatus                `json:"jobStatus"`
 	FailedDeployHash string                        `json:"failedDeployHash,omitEmpty"`
+	RollbackHash     string                        `json:"rollbackHash,omitEmpty"`
 	DeployHash       string                        `json:"deployHash"`
 	RetryCount       int32                         `json:"retryCount,omitEmpty"`
 	LastSeenError    *client.FlinkApplicationError `json:"lastSeenError,omitEmpty"`

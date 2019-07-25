@@ -1129,18 +1129,18 @@ func TestErrorHandlingInRunningPhase(t *testing.T) {
 
 }
 
-func TestCancelDeploy(t *testing.T) {
+func TestForceRollback(t *testing.T) {
 	app := v1alpha1.FlinkApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-app",
 			Namespace: "flink",
 		},
 		Spec: v1alpha1.FlinkApplicationSpec{
-			JarName:      "job.jar",
-			Parallelism:  5,
-			EntryClass:   "com.my.Class",
-			ProgramArgs:  "--test",
-			CancelDeploy: true,
+			JarName:       "job.jar",
+			Parallelism:   5,
+			EntryClass:    "com.my.Class",
+			ProgramArgs:   "--test",
+			ForceRollback: true,
 		},
 		Status: v1alpha1.FlinkApplicationStatus{
 			Phase:      v1alpha1.FlinkApplicationClusterStarting,
@@ -1153,5 +1153,5 @@ func TestCancelDeploy(t *testing.T) {
 	assert.Nil(t, err)
 	// cancelled deploy while cluster is starting
 	assert.Equal(t, v1alpha1.FlinkApplicationDeployFailed, app.Status.Phase)
-	assert.True(t, app.Spec.CancelDeploy)
+	assert.True(t, app.Spec.ForceRollback)
 }
