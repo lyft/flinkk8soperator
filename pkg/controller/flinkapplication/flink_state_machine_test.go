@@ -1151,7 +1151,7 @@ func TestForceRollback(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
-	// cancelled deploy while cluster is starting
+	// rolled deploy while cluster is starting
 	assert.Equal(t, v1alpha1.FlinkApplicationDeployFailed, app.Status.Phase)
 	assert.True(t, app.Spec.ForceRollback)
 }
