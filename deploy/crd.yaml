@@ -87,7 +87,7 @@ spec:
                   type: integer
                   minimum: 1
                 offHeapMemoryFraction:
-                  type: float
+                  type: number
                 nodeSelector:
                   type: object
                   properties:
@@ -212,7 +212,7 @@ spec:
                   type: integer
                   minimum: 1
                 offHeapMemoryFraction:
-                  type: float
+                  type: number
                 nodeSelector:
                   type: object
                   properties:
