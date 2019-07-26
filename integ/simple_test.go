@@ -205,7 +205,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 
 		// but the job should still be running
 		c.Assert(newApp.Status.JobStatus.State, Equals, v1alpha1.Running)
-
+		c.Assert(newApp.Status.RollbackHash, Equals, newApp.Status.DeployHash)
 		log.Info("Attempting to roll forward with fix")
 
 		// Fixing update
