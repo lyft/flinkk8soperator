@@ -78,7 +78,7 @@ func (s *FlinkStateMachine) updateApplicationPhase(application *v1alpha1.FlinkAp
 }
 
 func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1alpha1.FlinkApplication) bool {
-	if application.Spec.ForceRollback {
+	if application.Spec.ForceRollback && application.Status.Phase != v1alpha1.FlinkApplicationRollingBackJob {
 		return true
 	}
 	if application.Status.DeployHash == "" {
