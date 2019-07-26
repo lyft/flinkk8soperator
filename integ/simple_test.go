@@ -201,7 +201,6 @@ func (s *IntegSuite) TestSimple(c *C) {
 		// we should end up in the DeployFailed phase
 		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationDeployFailed, ""), IsNil)
 		c.Assert(newApp.Spec.ForceRollback, Equals, true)
-		c.Assert(newApp.Status.RollbackHash, Equals, newApp.Status.DeployHash)
 		log.Info("User cancelled deploy. Job is in deploy failed, waiting for tasks to start")
 
 		// but the job should still be running
