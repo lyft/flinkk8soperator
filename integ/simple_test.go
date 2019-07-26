@@ -176,6 +176,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 
 	{
 		newApp, err := s.Util.GetFlinkApplication(config.Name)
+		currHash := newApp.Status.DeployHash
 		c.Assert(err, IsNil)
 		// User sets large (bad) value for cluster update
 		var TaskManagerDefaultResources = corev1.ResourceRequirements{
@@ -205,7 +206,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 
 		// but the job should still be running
 		c.Assert(newApp.Status.JobStatus.State, Equals, v1alpha1.Running)
-		c.Assert(newApp.Status.RollbackHash, Equals, newApp.Status.DeployHash)
+		c.Assert(newApp.Status.RollbackHash, Equals, currHash)
 		log.Info("Attempting to roll forward with fix")
 
 		// Fixing update
