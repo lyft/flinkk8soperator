@@ -1128,3 +1128,71 @@ func TestErrorHandlingInRunningPhase(t *testing.T) {
 	assert.Nil(t, app.Status.LastSeenError)
 
 }
+
+func TestForceRollback(t *testing.T) {
+	oldHash := "old-hash-force-rollback"
+	app := v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1alpha1.FlinkApplicationSpec{
+			JarName:       "job.jar",
+			Parallelism:   5,
+			EntryClass:    "com.my.Class",
+			ProgramArgs:   "--test",
+			ForceRollback: true,
+		},
+		Status: v1alpha1.FlinkApplicationStatus{
+			Phase:      v1alpha1.FlinkApplicationSubmittingJob,
+			DeployHash: oldHash,
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
+
+	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
+	mockRetryHandler.WaitOnErrorFunc = func(clock clock.Clock, lastUpdatedTime time.Time) (duration time.Duration, b bool) {
+		return time.Millisecond, true
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+
+	getServiceCount := 0
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string) (*v1.Service, error) {
+		hash := oldHash
+		if getServiceCount > 0 {
+			hash = oldHash
+		}
+
+		getServiceCount++
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-app",
+				Namespace: "flink",
+			},
+			Spec: v1.ServiceSpec{
+				Selector: map[string]string{
+					"flink-app-hash": hash,
+				},
+			},
+		}, nil
+	}
+
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1alpha1.FlinkApplication, hash string) (bool, error) {
+		return true, nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	// rolled deploy while cluster is starting
+	assert.Equal(t, v1alpha1.FlinkApplicationRollingBackJob, app.Status.Phase)
+	assert.True(t, app.Spec.ForceRollback)
+
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	// Check if rollback hash is set
+	assert.Nil(t, err)
+	assert.Equal(t, oldHash, app.Status.RollbackHash)
+}

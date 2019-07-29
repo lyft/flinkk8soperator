@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"os"
 	"time"
 
@@ -167,6 +169,59 @@ func (s *IntegSuite) TestSimple(c *C) {
 		updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
 			app.Spec.JarName = config.Spec.JarName
 			app.Spec.RestartNonce = "rollback2"
+		}, "")
+	}
+
+	// Test force rollback of an active deploy
+
+	{
+		newApp, err := s.Util.GetFlinkApplication(config.Name)
+		c.Assert(err, IsNil)
+		// User sets large (bad) value for cluster update
+		var TaskManagerDefaultResources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("2"),
+				corev1.ResourceMemory: resource.MustParse("5Gi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("2"),
+				corev1.ResourceMemory: resource.MustParse("5Gi"),
+			},
+		}
+		newApp.Spec.TaskManagerConfig.Resources = &TaskManagerDefaultResources
+
+		_, _ = s.Util.FlinkApps().Update(newApp)
+		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationClusterStarting, ""), IsNil)
+
+		// User realizes error and  cancels the deploy
+		log.Infof("Cancelling deploy...")
+		newApp.Spec.ForceRollback = true
+		_, _ = s.Util.FlinkApps().Update(newApp)
+
+		// we should end up in the DeployFailed phase
+		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationDeployFailed, ""), IsNil)
+		c.Assert(newApp.Spec.ForceRollback, Equals, true)
+		log.Info("User cancelled deploy. Job is in deploy failed, waiting for tasks to start")
+
+		// but the job should still be running
+		c.Assert(newApp.Status.JobStatus.State, Equals, v1alpha1.Running)
+		log.Info("Attempting to roll forward with fix")
+
+		// Fixing update
+		var TaskManagerFixedResources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("0.2"),
+				corev1.ResourceMemory: resource.MustParse("200Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("0.2"),
+				corev1.ResourceMemory: resource.MustParse("200Mi"),
+			},
+		}
+		// and we should be able to roll forward by resubmitting with a fixed config
+		updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
+			app.Spec.TaskManagerConfig.Resources = &TaskManagerFixedResources
+			app.Spec.ForceRollback = false
 		}, "")
 	}
 

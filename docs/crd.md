@@ -107,3 +107,8 @@ Below is the list of fields in the custom resource and their description
 
   * **volumeMounts** `type:[]v1.VolumeMount`
     Describes a mounting of a Volume within a container.
+    
+  * **ForceRollback** `type:bool`
+    Can be set to true to force rollback a deploy/update. The rollback is **not** performed when the application is in a **RUNNING** phase.
+    If an application is successfully rolled back, it is moved to a *DeployFailed* phase. Un-setting or setting `ForceRollback` to `False` will allow updates to progress normally.
+    

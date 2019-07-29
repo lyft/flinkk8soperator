@@ -78,6 +78,9 @@ func (s *FlinkStateMachine) updateApplicationPhase(application *v1alpha1.FlinkAp
 }
 
 func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1alpha1.FlinkApplication) bool {
+	if application.Spec.ForceRollback && application.Status.Phase != v1alpha1.FlinkApplicationRollingBackJob {
+		return true
+	}
 	if application.Status.DeployHash == "" {
 		// TODO: we may want some more sophisticated way of handling this case
 		// there's no previous deploy for this application, so nothing to roll back to
@@ -228,7 +231,8 @@ func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1alpha1.Flin
 	s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RolledBackDeploy",
 		fmt.Sprintf("Successfull rolled back deploy %s", hash))
 	app.Status.FailedDeployHash = hash
-
+	// set rollbackHash to deployHash
+	app.Status.RollbackHash = app.Status.DeployHash
 	// Reset error and retry count
 	app.Status.LastSeenError = nil
 	app.Status.RetryCount = 0
@@ -484,6 +488,8 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs,
 		app.Status.JobStatus.AllowNonRestoredState)
 
+	// set rollbackHash
+	app.Status.RollbackHash = app.Status.DeployHash
 	if err != nil {
 		return applicationUnchanged, err
 	}
