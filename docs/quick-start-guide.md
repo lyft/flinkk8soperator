@@ -60,7 +60,7 @@ $ kubectl logs {pod-name} -n flink-operator
 ## Running the example
 
 You can find sample application to run with the flink operator [here](/examples/wordcount/). 
-Make sure to edit the value of `sha` with the latest value of tags found [here](https://cloud.docker.com/u/lyft/repository/registry-1.docker.io/lyft/wordcount-operator-example/tags)
+Make sure to edit the value of `sha` with the most recently pushed tag found [here](https://cloud.docker.com/u/lyft/repository/registry-1.docker.io/lyft/wordcount-operator-example/tags)
 ```yaml
   image: docker.io/lyft/wordcount-operator-example:{sha}
 ```
