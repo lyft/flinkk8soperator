@@ -59,7 +59,13 @@ $ kubectl logs {pod-name} -n flink-operator
 
 ## Running the example
 
-You can find sample application to run with the flink operator [here](/examples/). To run a flink application, run the following command:
+You can find sample application to run with the flink operator [here](/examples/wordcount/). 
+Make sure to edit the value of `sha` with the most recently pushed tag found [here](https://cloud.docker.com/u/lyft/repository/registry-1.docker.io/lyft/wordcount-operator-example/tags)
+```yaml
+  image: docker.io/lyft/wordcount-operator-example:{sha}
+```
+
+To run a flink application, run the following command:
 
 ```bash
 $ kubectl create -f examples/wordcount/flink-operator-custom-resource.yaml
@@ -83,17 +89,18 @@ apiVersion: flink.k8s.io/v1alpha1
 kind: FlinkApplication
 metadata:
   clusterName: ""
-  creationTimestamp: "2019-05-03T01:29:27Z"
+  creationTimestamp: 2019-07-30T07:35:42Z
+  finalizers:
+  - job.finalizers.flink.k8s.io
   generation: 1
   labels:
     environment: development
   name: wordcount-operator-example
   namespace: flink-operator
-  resourceVersion: "51383673"
+  resourceVersion: "1025774"
   selfLink: /apis/flink.k8s.io/v1alpha1/namespaces/flink-operator/flinkapplications/wordcount-operator-example
-  uid: e415a43d-6d42-11e9-bf89-0acd1b812506
+  uid: a2855178-b29c-11e9-9a3b-025000000001
 spec:
-  deploymentMode: Single
   entryClass: org.apache.flink.WordCount
   flinkConfig:
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
@@ -101,7 +108,7 @@ spec:
     state.savepoints.dir: file:///checkpoints/flink/savepoints
     taskmanager.heap.size: 200
   flinkVersion: "1.8"
-  image: docker.io/lyft/wordcount-operator-example:latest
+  image: docker.io/lyft/wordcount-operator-example:3b0347b2cdc1bda817e72b3099dac1c1b1363311
   jarName: wordcount-operator-example-1.0.0-SNAPSHOT.jar
   jobManagerConfig:
     envConfig: {}
@@ -127,9 +134,27 @@ status:
     healthyTaskManagers: 2
     numberOfTaskManagers: 2
     numberOfTaskSlots: 4
-  jobId: 8bda8bbe03946a690cc0f28f9a6f307f
-  lastUpdatedAt: "2019-05-03T01:30:28Z"
+  deployHash: d9f8a6a8
+  failedDeployHash: ""
+  jobStatus:
+    completedCheckpointCount: 0
+    entryClass: org.apache.flink.WordCount
+    failedCheckpointCount: 0
+    health: Green
+    jarName: wordcount-operator-example-1.0.0-SNAPSHOT.jar
+    jobID: acd232a002dd5204669d1041736b8fa0
+    jobRestartCount: 0
+    lastCheckpointTime: null
+    lastFailingTime: null
+    parallelism: 3
+    restorePath: ""
+    restoreTime: null
+    startTime: 2019-07-30T07:35:59Z
+    state: FINISHED
+  lastSeenError: null
+  lastUpdatedAt: 2019-07-30T07:36:09Z
   phase: Running
+  retryCount: 0
 ```
 
 To check events for the `FlinkApplication` object, run the following command:
@@ -142,9 +167,8 @@ This will show the events similarly to the following:
 
 ```
 Events:
-  Type    Reason  Age   From              Message
-  ----    ------  ----  ----              -------
-  Normal  Update  35s   flinkk8soperator  Flink cluster created
-  Normal  Update  5s    flinkk8soperator  Flink cluster is ready
-  Normal  Update  4s    flinkk8soperator  Flink job submitted to cluster
+  Type    Reason           Age   From              Message
+  ----    ------           ----  ----              -------
+  Normal  CreatingCluster  4m    flinkK8sOperator  Creating Flink cluster for deploy d9f8a6a8
+  Normal  JobSubmitted     3m    flinkK8sOperator  Flink job submitted to cluster with id acd232a002dd5204669d1041736b8fa0
 ```
