@@ -141,8 +141,9 @@ func (r RetryHandler) WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) 
 }
 func (r RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
 	timeInMillis := int(r.baseBackOffDuration.Nanoseconds() / int64(time.Millisecond))
+	maxBackoffMillis := int(r.maxBackOffMillisDuration.Nanoseconds() / int64(time.Millisecond))
 	delay := 1 << uint(retryCount) * (rand.Intn(timeInMillis) + timeInMillis)
-	return time.Duration(min(delay, int(r.maxBackOffMillisDuration))) * time.Millisecond
+	return time.Duration(min(delay, maxBackoffMillis)) * time.Millisecond
 }
 func (r RetryHandler) IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
 	elapsedTime := clock.Since(lastUpdatedTime)
