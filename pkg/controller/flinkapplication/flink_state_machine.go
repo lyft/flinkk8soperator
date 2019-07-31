@@ -195,9 +195,13 @@ func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1alpha1.FlinkAppli
 	if application.Status.LastSeenError == nil || !s.retryHandler.IsErrorRetryable(application.Status.LastSeenError) {
 		return true
 	}
-
+	// If for some reason, the error update time is nil, set it so that retries can proceed
+	if lastSeenError.LastErrorUpdateTime == nil {
+		now := v1.NewTime(s.clock.Now())
+		application.Status.LastSeenError.LastErrorUpdateTime = &now
+	}
 	retryCount := application.Status.RetryCount
-	if s.retryHandler.IsRetryRemaining(lastSeenError, retryCount) && lastSeenError.LastErrorUpdateTime != nil {
+	if s.retryHandler.IsRetryRemaining(lastSeenError, retryCount) {
 		if s.retryHandler.IsTimeToRetry(s.clock, lastSeenError.LastErrorUpdateTime.Time, retryCount) {
 			application.Status.RetryCount++
 			return true

@@ -1196,3 +1196,38 @@ func TestForceRollback(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, oldHash, app.Status.RollbackHash)
 }
+
+func TestLastSeenErrTimeIsNil(t *testing.T) {
+	oldHash := "old-hash-force-nil"
+	retryableErr := client.GetRetryableError(errors.New("blah"), "GetClusterOverview", "FAILED", 3)
+	app := v1alpha1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1alpha1.FlinkApplicationSpec{
+			JarName:       "job.jar",
+			Parallelism:   5,
+			EntryClass:    "com.my.Class",
+			ProgramArgs:   "--test",
+			ForceRollback: true,
+		},
+		Status: v1alpha1.FlinkApplicationStatus{
+			Phase:         v1alpha1.FlinkApplicationClusterStarting,
+			DeployHash:    oldHash,
+			LastSeenError: retryableErr.(*client.FlinkApplicationError),
+		},
+	}
+	app.Status.LastSeenError.LastErrorUpdateTime = nil
+
+	stateMachineForTest := getTestStateMachine()
+
+	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
+	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
+		return true
+	}
+	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.NotNil(t, app.Status.LastSeenError.LastErrorUpdateTime)
+}
