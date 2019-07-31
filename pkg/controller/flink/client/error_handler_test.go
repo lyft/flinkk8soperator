@@ -46,8 +46,9 @@ func TestErrors(t *testing.T) {
 
 func TestRetryHandler_GetRetryDelay(t *testing.T) {
 	retryHandler := getTestRetryer()
-	assert.True(t, retryHandler.GetRetryDelay(0) <= 50*time.Millisecond)
+	assert.True(t, retryHandler.GetRetryDelay(20) <= 50*time.Millisecond)
 	assert.True(t, retryHandler.GetRetryDelay(1) <= 50*time.Millisecond)
+	assert.True(t, retryHandler.GetRetryDelay(200) <= 50*time.Millisecond)
 }
 
 func TestRetryHandler_IsRetryRemaining(t *testing.T) {
