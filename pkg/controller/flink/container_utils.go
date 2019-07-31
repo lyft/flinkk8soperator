@@ -165,7 +165,7 @@ func HashForApplication(app *v1alpha1.FlinkApplication) string {
 	}
 
 	hasher := fnv.New32a()
-	_, err = printer.Fprintf(hasher, "%#v%#v", jmDeployment, tmDeployment)
+	_, err = printer.Fprintf(hasher, "%v%v", jmDeployment, tmDeployment)
 	if err != nil {
 		// the hasher cannot actually throw an error on write
 		panic(fmt.Sprintf("got error trying when writing to hash %v", err))
