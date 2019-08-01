@@ -1206,11 +1206,10 @@ func TestLastSeenErrTimeIsNil(t *testing.T) {
 			Namespace: "flink",
 		},
 		Spec: v1alpha1.FlinkApplicationSpec{
-			JarName:       "job.jar",
-			Parallelism:   5,
-			EntryClass:    "com.my.Class",
-			ProgramArgs:   "--test",
-			ForceRollback: true,
+			JarName:     "job.jar",
+			Parallelism: 5,
+			EntryClass:  "com.my.Class",
+			ProgramArgs: "--test",
 		},
 		Status: v1alpha1.FlinkApplicationStatus{
 			Phase:         v1alpha1.FlinkApplicationClusterStarting,
@@ -1226,8 +1225,12 @@ func TestLastSeenErrTimeIsNil(t *testing.T) {
 	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
 		return true
 	}
+
+	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
+		return true
+	}
 	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
-	assert.NotNil(t, app.Status.LastSeenError.LastErrorUpdateTime)
+
 }
