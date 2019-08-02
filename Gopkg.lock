@@ -21,6 +21,14 @@
   revision = "2efee857e7cfd4f3d0138cc3cbb1b4966962b93a"
 
 [[projects]]
+  branch = "master"
+  digest = "1:d700667a9f768e1c6db34b091ec28b709dd8de6a62a61cd9a3ceb39d442154a7"
+  name = "github.com/benlaurie/objecthash"
+  packages = ["go/objecthash"]
+  pruneopts = ""
+  revision = "d1e3d6079fc16f8f542183fb5b2fdc11d9f00866"
+
+[[projects]]
   digest = "1:0d3deb8a6da8ffba5635d6fb1d2144662200def6c9d82a35a6d05d6c2d4a48f9"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -934,7 +942,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/davecgh/go-spew/spew",
+    "github.com/benlaurie/objecthash/go/objecthash",
     "github.com/go-resty/resty",
     "github.com/jarcoal/httpmock",
     "github.com/kubernetes-sigs/controller-runtime/pkg/runtime/signals",
