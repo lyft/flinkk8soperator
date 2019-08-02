@@ -55,7 +55,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
 	app.Annotations = annotations
-	hash := "390e4c6d"
+	hash := "d62c9c38"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -129,7 +129,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 	app.Spec.FlinkConfig = map[string]interface{}{
 		"high-availability": "zookeeper",
 	}
-	hash := "fda698ef"
+	hash := "063e33b7"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,

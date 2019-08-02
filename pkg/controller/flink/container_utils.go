@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"hash/fnv"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/benlaurie/objecthash/go/objecthash"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
@@ -127,48 +128,65 @@ func ImagePullPolicy(app *v1alpha1.FlinkApplication) v1.PullPolicy {
 	return app.Spec.ImagePullPolicy
 }
 
+func fromHashToByteArray(input [32]byte) []byte {
+	output := make([]byte, 32)
+	for idx, val := range input {
+		output[idx] = val
+	}
+	return output
+}
+
+// Generate a deterministic hash in bytes for the pb object
+func ComputeDeploymentHash(deployment appsv1.Deployment) ([]byte, error) {
+	// json marshalling includes:
+	// - omitting empty values which supports backwards compatibility of old protobuf definitions
+	jsonObj, err := json.Marshal(deployment)
+	if err != nil {
+		return nil, err
+	}
+
+	// Deterministically hash the JSON object to a byte array. The library will sort the map keys of the JSON object
+	// so that we do not run into the issues from json marshalling.
+	hash, err := objecthash.CommonJSONHash(string(jsonObj))
+	if err != nil {
+		return nil, err
+	}
+
+	return fromHashToByteArray(hash), err
+}
+
 // Returns an 8 character hash sensitive to the application name, labels, annotations, and spec.
 // TODO: we may need to add collision-avoidance to this
 func HashForApplication(app *v1alpha1.FlinkApplication) string {
-	printer := spew.ConfigState{
-		Indent:                  " ",
-		SortKeys:                true,
-		DisableMethods:          true,
-		DisableCapacities:       true,
-		SpewKeys:                true,
-		DisablePointerAddresses: true,
-	}
-
 	// we round-trip through json to normalize the deployment objects
 	jmDeployment := jobmanagerTemplate(app)
 	jmDeployment.OwnerReferences = make([]metav1.OwnerReference, 0)
 
-	// these steps should not be able to fail, so we panic instead of returning an error
-	jm, err := json.Marshal(jmDeployment)
-	if err != nil {
-		panic("failed to marshal deployment")
-	}
-	err = json.Unmarshal(jm, &jmDeployment)
-	if err != nil {
-		panic("failed to unmarshal deployment")
-	}
-
 	tmDeployment := taskmanagerTemplate(app)
 	tmDeployment.OwnerReferences = make([]metav1.OwnerReference, 0)
-	tm, err := json.Marshal(tmDeployment)
+
+	jmHashBytes, err := ComputeDeploymentHash(*jmDeployment)
 	if err != nil {
-		panic("failed to marshal deployment")
+		// the hasher cannot actually throw an error on write
+		panic(fmt.Sprintf("got error trying when computing hash %v", err))
 	}
-	err = json.Unmarshal(tm, &tmDeployment)
+
+	tmHashBytes, err := ComputeDeploymentHash(*tmDeployment)
 	if err != nil {
-		panic("failed to unmarshal deployment")
+		// the hasher cannot actually throw an error on write
+		panic(fmt.Sprintf("got error trying when computing hash %v", err))
 	}
 
 	hasher := fnv.New32a()
-	_, err = printer.Fprintf(hasher, "%#v%#v", jmDeployment, tmDeployment)
+	_, err = hasher.Write(jmHashBytes)
 	if err != nil {
 		// the hasher cannot actually throw an error on write
-		panic(fmt.Sprintf("got error trying when writing to hash %v", err))
+		panic(fmt.Sprintf("got error trying when writing to hasher %v", err))
+	}
+	_, err = hasher.Write(tmHashBytes)
+	if err != nil {
+		// the hasher cannot actually throw an error on write
+		panic(fmt.Sprintf("got error trying when writing to hasher %v", err))
 	}
 
 	return fmt.Sprintf("%08x", hasher.Sum32())
