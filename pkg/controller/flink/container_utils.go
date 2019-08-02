@@ -137,11 +137,9 @@ func fromHashToByteArray(input [32]byte) []byte {
 }
 
 // Generate a deterministic hash in bytes for the pb object
-func ComputeHash(deployment appsv1.Deployment) ([]byte, error) {
+func ComputeDeploymentHash(deployment appsv1.Deployment) ([]byte, error) {
 	// json marshalling includes:
 	// - omitting empty values which supports backwards compatibility of old protobuf definitions
-	// We do not use protobuf marshalling because it does not guarantee stable output because of how it handles
-	// unknown fields and ordering of fields. https://github.com/protocolbuffers/protobuf/issues/2830
 	jsonObj, err := json.Marshal(deployment)
 	if err != nil {
 		return nil, err
@@ -167,13 +165,13 @@ func HashForApplication(app *v1alpha1.FlinkApplication) string {
 	tmDeployment := taskmanagerTemplate(app)
 	tmDeployment.OwnerReferences = make([]metav1.OwnerReference, 0)
 
-	jmHashBytes, err := ComputeHash(*jmDeployment)
+	jmHashBytes, err := ComputeDeploymentHash(*jmDeployment)
 	if err != nil {
 		// the hasher cannot actually throw an error on write
 		panic(fmt.Sprintf("got error trying when computing hash %v", err))
 	}
 
-	tmHashBytes, err := ComputeHash(*tmDeployment)
+	tmHashBytes, err := ComputeDeploymentHash(*tmDeployment)
 	if err != nil {
 		// the hasher cannot actually throw an error on write
 		panic(fmt.Sprintf("got error trying when computing hash %v", err))
