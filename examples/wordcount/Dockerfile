@@ -60,6 +60,9 @@ RUN set -ex; \
   tar -xf flink.tgz --strip-components=1; \
   rm flink.tgz; \
   \
+  cp ./opt/flink-s3-fs-presto-1.8.1.jar ./lib/;\
+  cp ./opt/flink-s3-fs-hadoop-1.8.1.jar ./lib/;\
+  \  
   chown -R flink:flink .;
 
 # Needed on OpenShift for the entrypoint script to work
