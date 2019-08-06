@@ -345,6 +345,7 @@ func (f *Controller) GetCurrentDeploymentsForApp(ctx context.Context, applicatio
 }
 
 func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1alpha1.FlinkApplication) error {
+	logger.Info(ctx, "Deleting old resources!")
 	curHash := getCurrentHash(app)
 
 	appLabel := k8.GetAppLabel(app.Name)
@@ -361,6 +362,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1alpha1
 			// verify that this deployment matches the jobmanager or taskmanager naming format
 			(d.Name == fmt.Sprintf(JobManagerNameFormat, app.Name, d.Labels[FlinkAppHash]) ||
 				d.Name == fmt.Sprintf(TaskManagerNameFormat, app.Name, d.Labels[FlinkAppHash])) {
+			logger.Infof(ctx, "Old deployment to delete: %s", d.Name)
 			oldObjects = append(oldObjects, d.DeepCopy())
 		}
 	}

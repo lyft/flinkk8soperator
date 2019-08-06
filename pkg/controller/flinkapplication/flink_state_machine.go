@@ -214,6 +214,7 @@ func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1alpha1.FlinkAppli
 
 // In this state we create a new cluster, either due to an entirely new FlinkApplication or due to an update.
 func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	logger.Info(ctx, "Handling new FlinkApp or updating an existing one")
 	// TODO: add up-front validation on the FlinkApplication resource
 	if s.shouldRollback(ctx, application) {
 		// we've failed to make progress; move to deploy failed
@@ -225,6 +226,12 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	if err != nil {
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
 		return applicationUnchanged, err
+	}
+
+	// If there are old resources left-over from a previous version, clean them up
+	err = s.flinkController.DeleteOldResourcesForApp(ctx, application)
+	if err != nil {
+		logger.Warn(ctx, "Failed to clean up old resources: %v", err)
 	}
 
 	s.updateApplicationPhase(application, v1alpha1.FlinkApplicationClusterStarting)
@@ -248,6 +255,7 @@ func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1alpha1.Flin
 
 // Create the underlying Kubernetes objects for the new cluster
 func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	logger.Info(ctx, "Handling cluster starting")
 	if s.shouldRollback(ctx, application) {
 		// we've failed to make progress; move to deploy failed
 		// TODO: this will need different logic in single mode
@@ -511,6 +519,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 // Check if the application is Running.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
 func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+	logger.Info(ctx, "Handling FlinkApp running")
 	jobs, err := s.flinkController.GetJobsForApplication(ctx, application, application.Status.DeployHash)
 	if err != nil {
 		// TODO: think more about this case

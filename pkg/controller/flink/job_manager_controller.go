@@ -131,7 +131,7 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 			logger.Errorf(ctx, "Versioned Jobmanager service creation failed %v", err)
 			return false, err
 		}
-		logger.Infof(ctx, "Vesioned Jobmanager service already exists")
+		logger.Infof(ctx, "Versioned Jobmanager service already exists")
 	} else {
 		newlyCreated = true
 		j.metrics.serviceCreationSuccess.Inc(ctx)
