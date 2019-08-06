@@ -85,7 +85,7 @@ $ kubectl get flinkapplication.flink.k8s.io -n flink-operator wordcount-operator
 
 The output should be something like this
 ```yaml
-apiVersion: flink.k8s.io/v1alpha1
+apiVersion: v1beta1
 kind: FlinkApplication
 metadata:
   clusterName: ""
@@ -98,7 +98,7 @@ metadata:
   name: wordcount-operator-example
   namespace: flink-operator
   resourceVersion: "1025774"
-  selfLink: /apis/flink.k8s.io/v1alpha1/namespaces/flink-operator/flinkapplications/wordcount-operator-example
+  selfLink: v1beta1
   uid: a2855178-b29c-11e9-9a3b-025000000001
 spec:
   entryClass: org.apache.flink.WordCount

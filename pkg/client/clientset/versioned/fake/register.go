@@ -3,7 +3,7 @@
 package fake
 
 import (
-	flinkv1alpha1 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	flinkv1beta1 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -15,7 +15,7 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 var parameterCodec = runtime.NewParameterCodec(scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
-	flinkv1alpha1.AddToScheme,
+	flinkv1beta1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition
