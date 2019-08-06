@@ -8,7 +8,7 @@ import (
 
 	"context"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/pkg/errors"
@@ -30,7 +30,7 @@ func getTMControllerForTest() TaskManagerController {
 }
 
 func TestComputeTaskManagerReplicas(t *testing.T) {
-	app := v1alpha1.FlinkApplication{}
+	app := v1beta1.FlinkApplication{}
 	taskSlots := int32(4)
 	app.Spec.TaskManagerConfig.TaskSlots = &taskSlots
 	app.Spec.Parallelism = 9

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/go-resty/resty"
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
-	v1alpha12 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1alpha1"
+	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
 	"github.com/prometheus/common/log"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -327,13 +327,13 @@ func (f *TestUtil) TailOperatorLogs() error {
 	return nil
 }
 
-func (f *TestUtil) ReadFlinkApplication(path string) (*v1alpha1.FlinkApplication, error) {
+func (f *TestUtil) ReadFlinkApplication(path string) (*flinkapp.FlinkApplication, error) {
 	file, err := getFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	app := v1alpha1.FlinkApplication{}
+	app := flinkapp.FlinkApplication{}
 	err = yaml.NewYAMLOrJSONDecoder(file, 2048).Decode(&app)
 	if err != nil {
 		return nil, err
@@ -344,20 +344,20 @@ func (f *TestUtil) ReadFlinkApplication(path string) (*v1alpha1.FlinkApplication
 	return &app, nil
 }
 
-func (f *TestUtil) FlinkApps() v1alpha12.FlinkApplicationInterface {
-	return f.FlinkApplicationClient.FlinkV1alpha1().FlinkApplications(f.Namespace.Name)
+func (f *TestUtil) FlinkApps() client.FlinkApplicationInterface {
+	return f.FlinkApplicationClient.FlinkV1beta1().FlinkApplications(f.Namespace.Name)
 }
 
-func (f *TestUtil) CreateFlinkApplication(application *v1alpha1.FlinkApplication) error {
+func (f *TestUtil) CreateFlinkApplication(application *flinkapp.FlinkApplication) error {
 	_, err := f.FlinkApps().Create(application)
 	return err
 }
 
-func (f *TestUtil) GetFlinkApplication(name string) (*v1alpha1.FlinkApplication, error) {
+func (f *TestUtil) GetFlinkApplication(name string) (*flinkapp.FlinkApplication, error) {
 	return f.FlinkApps().Get(name, metav1.GetOptions{})
 }
 
-func (f *TestUtil) WaitForPhase(name string, phase v1alpha1.FlinkApplicationPhase, failurePhases ...v1alpha1.FlinkApplicationPhase) error {
+func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhase, failurePhases ...flinkapp.FlinkApplicationPhase) error {
 	for {
 		app, err := f.FlinkApps().Get(name, metav1.GetOptions{})
 
@@ -379,7 +379,7 @@ func (f *TestUtil) WaitForPhase(name string, phase v1alpha1.FlinkApplicationPhas
 	}
 }
 
-func (f *TestUtil) FlinkAPIGet(app *v1alpha1.FlinkApplication, endpoint string) (interface{}, error) {
+func (f *TestUtil) FlinkAPIGet(app *flinkapp.FlinkApplication, endpoint string) (interface{}, error) {
 	url := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/"+
 		"services/%s:8081/proxy/%s",
 		f.Namespace.Name, app.Name, endpoint)

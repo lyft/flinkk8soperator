@@ -6,7 +6,7 @@ import (
 
 	"github.com/benlaurie/objecthash/go/objecthash"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
@@ -45,11 +45,11 @@ func getFlinkContainerName(containerName string) string {
 	return containerName
 }
 
-func getCommonAppLabels(app *v1alpha1.FlinkApplication) map[string]string {
+func getCommonAppLabels(app *v1beta1.FlinkApplication) map[string]string {
 	return k8.GetAppLabel(app.Name)
 }
 
-func getCommonAnnotations(app *v1alpha1.FlinkApplication) map[string]string {
+func getCommonAnnotations(app *v1beta1.FlinkApplication) map[string]string {
 	annotations := common.DuplicateMap(app.Annotations)
 	annotations[FlinkJobProperties] = fmt.Sprintf(
 		"jarName: %s\nparallelism: %d\nentryClass:%s\nprogramArgs:\"%s\"",
@@ -73,7 +73,7 @@ func GetAWSServiceEnv() []v1.EnvVar {
 	}
 }
 
-func getFlinkEnv(app *v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
+func getFlinkEnv(app *v1beta1.FlinkApplication) ([]v1.EnvVar, error) {
 	env := []v1.EnvVar{}
 	appName := app.Name
 
@@ -111,7 +111,7 @@ func getFlinkEnv(app *v1alpha1.FlinkApplication) ([]v1.EnvVar, error) {
 	return env, nil
 }
 
-func GetFlinkContainerEnv(app *v1alpha1.FlinkApplication) []v1.EnvVar {
+func GetFlinkContainerEnv(app *v1beta1.FlinkApplication) []v1.EnvVar {
 	env := []v1.EnvVar{}
 	env = append(env, GetAWSServiceEnv()...)
 	flinkEnv, err := getFlinkEnv(app)
@@ -121,7 +121,7 @@ func GetFlinkContainerEnv(app *v1alpha1.FlinkApplication) []v1.EnvVar {
 	return env
 }
 
-func ImagePullPolicy(app *v1alpha1.FlinkApplication) v1.PullPolicy {
+func ImagePullPolicy(app *v1beta1.FlinkApplication) v1.PullPolicy {
 	if app.Spec.ImagePullPolicy == "" {
 		return v1.PullIfNotPresent
 	}
@@ -157,7 +157,7 @@ func ComputeDeploymentHash(deployment appsv1.Deployment) ([]byte, error) {
 
 // Returns an 8 character hash sensitive to the application name, labels, annotations, and spec.
 // TODO: we may need to add collision-avoidance to this
-func HashForApplication(app *v1alpha1.FlinkApplication) string {
+func HashForApplication(app *v1beta1.FlinkApplication) string {
 	// we round-trip through json to normalize the deployment objects
 	jmDeployment := jobmanagerTemplate(app)
 	jmDeployment.OwnerReferences = make([]metav1.OwnerReference, 0)
@@ -192,7 +192,7 @@ func HashForApplication(app *v1alpha1.FlinkApplication) string {
 	return fmt.Sprintf("%08x", hasher.Sum32())
 }
 
-func InjectOperatorCustomizedConfig(deployment *appsv1.Deployment, app *v1alpha1.FlinkApplication, hash string, deploymentType string) {
+func InjectOperatorCustomizedConfig(deployment *appsv1.Deployment, app *v1beta1.FlinkApplication, hash string, deploymentType string) {
 	var newContainers []v1.Container
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		var newEnv []v1.EnvVar
