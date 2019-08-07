@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
@@ -19,7 +19,7 @@ import (
 
 const NewImage = "lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2"
 
-func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1alpha1.FlinkApplication), failurePhase v1alpha1.FlinkApplicationPhase) *v1alpha1.FlinkApplication {
+func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
 	app, err := s.Util.GetFlinkApplication(name)
 	c.Assert(err, IsNil)
 
@@ -29,8 +29,8 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1al
 	_, err = s.Util.FlinkApps().Update(app)
 	c.Assert(err, IsNil)
 
-	c.Assert(s.Util.WaitForPhase(name, v1alpha1.FlinkApplicationSavepointing, failurePhase), IsNil)
-	c.Assert(s.Util.WaitForPhase(name, v1alpha1.FlinkApplicationRunning, failurePhase), IsNil)
+	c.Assert(s.Util.WaitForPhase(name, v1beta1.FlinkApplicationSavepointing, failurePhase), IsNil)
+	c.Assert(s.Util.WaitForPhase(name, v1beta1.FlinkApplicationRunning, failurePhase), IsNil)
 	c.Assert(s.Util.WaitForAllTasksInState(name, "RUNNING"), IsNil)
 
 	// check that it really updated
@@ -80,7 +80,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksInState(config.Name, "RUNNING"), IsNil)
 
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
@@ -94,9 +94,9 @@ func (s *IntegSuite) TestSimple(c *C) {
 	log.Info("Application started successfully")
 
 	// test updating the app with a new image
-	newApp := updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
+	newApp := updateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
-	}, v1alpha1.FlinkApplicationDeployFailed)
+	}, v1beta1.FlinkApplicationDeployFailed)
 	// check that the pods have the new image
 	c.Assert(newApp.Spec.Image, Equals, NewImage)
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
@@ -108,9 +108,9 @@ func (s *IntegSuite) TestSimple(c *C) {
 	}
 
 	// test updating the app with a config change
-	newApp = updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
+	newApp = updateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.FlinkConfig["akka.client.timeout"] = "23 s"
-	}, v1alpha1.FlinkApplicationDeployFailed)
+	}, v1beta1.FlinkApplicationDeployFailed)
 	// validate the config has been applied
 	res, err := s.Util.FlinkAPIGet(newApp, "/jobmanager/config")
 	c.Assert(err, IsNil)
@@ -137,9 +137,9 @@ func (s *IntegSuite) TestSimple(c *C) {
 		_, err = s.Util.FlinkApps().Update(newApp)
 		c.Assert(err, IsNil)
 
-		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationSavepointing, ""), IsNil)
+		c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta1.FlinkApplicationSavepointing, ""), IsNil)
 		// we should end up in the DeployFailed phase
-		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationDeployFailed, ""), IsNil)
+		c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta1.FlinkApplicationDeployFailed, ""), IsNil)
 
 		log.Info("Job is in deploy failed, waiting for tasks to start")
 
@@ -166,7 +166,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 		log.Info("Attempting to roll forward")
 
 		// and we should be able to roll forward by resubmitting with a fixed config
-		updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
+		updateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 			app.Spec.JarName = config.Spec.JarName
 			app.Spec.RestartNonce = "rollback2"
 		}, "")
@@ -191,7 +191,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 		newApp.Spec.TaskManagerConfig.Resources = &TaskManagerDefaultResources
 
 		_, _ = s.Util.FlinkApps().Update(newApp)
-		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationClusterStarting, ""), IsNil)
+		c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta1.FlinkApplicationClusterStarting, ""), IsNil)
 
 		// User realizes error and  cancels the deploy
 		log.Infof("Cancelling deploy...")
@@ -199,12 +199,12 @@ func (s *IntegSuite) TestSimple(c *C) {
 		_, _ = s.Util.FlinkApps().Update(newApp)
 
 		// we should end up in the DeployFailed phase
-		c.Assert(s.Util.WaitForPhase(newApp.Name, v1alpha1.FlinkApplicationDeployFailed, ""), IsNil)
+		c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta1.FlinkApplicationDeployFailed, ""), IsNil)
 		c.Assert(newApp.Spec.ForceRollback, Equals, true)
 		log.Info("User cancelled deploy. Job is in deploy failed, waiting for tasks to start")
 
 		// but the job should still be running
-		c.Assert(newApp.Status.JobStatus.State, Equals, v1alpha1.Running)
+		c.Assert(newApp.Status.JobStatus.State, Equals, v1beta1.Running)
 		log.Info("Attempting to roll forward with fix")
 
 		// Fixing update
@@ -219,7 +219,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 			},
 		}
 		// and we should be able to roll forward by resubmitting with a fixed config
-		updateAndValidate(c, s, config.Name, func(app *v1alpha1.FlinkApplication) {
+		updateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 			app.Spec.TaskManagerConfig.Resources = &TaskManagerFixedResources
 			app.Spec.ForceRollback = false
 		}, "")
@@ -229,7 +229,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 	c.Assert(s.Util.FlinkApps().Delete(config.Name, &v1.DeleteOptions{}), IsNil)
 
 	// validate that a savepoint was taken and the job was cancelled
-	var app *v1alpha1.FlinkApplication
+	var app *v1beta1.FlinkApplication
 	for {
 		app, err = s.Util.GetFlinkApplication(config.Name)
 		c.Assert(err, IsNil)
@@ -297,7 +297,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	c.Log("Application Created")
 
 	// wait for it to be running
-	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksInState(config.Name, "RUNNING"), IsNil)
 
 	c.Log("Application running")
@@ -347,7 +347,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	}
 
 	c.Assert(err, IsNil)
-	c.Assert(s.Util.WaitForPhase(config.Name, v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 
 	// stop it from failing
 	c.Assert(os.Remove(s.Util.CheckpointDir+"/fail"), IsNil)

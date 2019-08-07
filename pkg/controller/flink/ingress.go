@@ -3,7 +3,7 @@ package flink
 import (
 	"regexp"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
@@ -22,7 +22,7 @@ func GetFlinkUIIngressURL(jobName string) string {
 	return ReplaceJobURL(config.GetConfig().FlinkIngressURLFormat, jobName)
 }
 
-func FetchJobManagerIngressCreateObj(app *v1alpha1.FlinkApplication) *v1beta1.Ingress {
+func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.Ingress {
 	podLabels := common.DuplicateMap(app.Labels)
 	podLabels = common.CopyMap(podLabels, k8.GetAppLabel(app.Name))
 
