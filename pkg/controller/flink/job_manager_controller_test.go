@@ -77,7 +77,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, expectedLabels, deployment.Labels)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
-			assert.Equal(t, "flink.k8s.io/v1alpha1", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
 			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1536\n"+
@@ -151,7 +151,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 			assert.Equal(t, expectedLabels, deployment.Labels)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
-			assert.Equal(t, "flink.k8s.io/v1alpha1", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
 			assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1536\n"+

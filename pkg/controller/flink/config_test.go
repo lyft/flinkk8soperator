@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/stretchr/testify/assert"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -18,28 +18,28 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 	blobPort := int32(1000)
 	offHeapMemoryFrac := 0.5
 
-	yaml, err := renderFlinkConfig(&v1alpha1.FlinkApplication{
+	yaml, err := renderFlinkConfig(&v1beta1.FlinkApplication{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-app",
 		},
-		Spec: v1alpha1.FlinkApplicationSpec{
+		Spec: v1beta1.FlinkApplicationSpec{
 			FlinkConfig: map[string]interface{}{
 				"akka.timeout":                            "5s",
 				"taskmanager.network.memory.fraction":     0.1,
 				"taskmanager.network.request-backoff.max": 5000,
 				"jobmanager.rpc.address":                  "wrong-address",
 			},
-			TaskManagerConfig: v1alpha1.TaskManagerConfig{
+			TaskManagerConfig: v1beta1.TaskManagerConfig{
 				TaskSlots:             &taskSlots,
 				OffHeapMemoryFraction: &offHeapMemoryFrac,
 			},
-			JobManagerConfig: v1alpha1.JobManagerConfig{
+			JobManagerConfig: v1beta1.JobManagerConfig{
 				OffHeapMemoryFraction: &offHeapMemoryFrac,
 			},
 			BlobPort: &blobPort,
 		},
-		Status: v1alpha1.FlinkApplicationStatus{
-			Phase: v1alpha1.FlinkApplicationNew,
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase: v1beta1.FlinkApplicationNew,
 		},
 	})
 
@@ -68,22 +68,22 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 }
 
 func TestGetTaskSlots(t *testing.T) {
-	app1 := v1alpha1.FlinkApplication{}
+	app1 := v1beta1.FlinkApplication{}
 	assert.Equal(t, int32(TaskManagerDefaultSlots), getTaskmanagerSlots(&app1))
 
-	app2 := v1alpha1.FlinkApplication{}
+	app2 := v1beta1.FlinkApplication{}
 	taskSlots := int32(4)
 	app2.Spec.TaskManagerConfig.TaskSlots = &taskSlots
 	assert.Equal(t, int32(4), getTaskmanagerSlots(&app2))
 }
 
 func TestGetJobManagerReplicas(t *testing.T) {
-	app1 := v1alpha1.FlinkApplication{}
+	app1 := v1beta1.FlinkApplication{}
 	assert.Equal(t, int32(JobManagerDefaultReplicaCount), getJobmanagerReplicas(&app1))
 }
 
 func TestGetJobManagerReplicasNonZero(t *testing.T) {
-	app1 := v1alpha1.FlinkApplication{}
+	app1 := v1beta1.FlinkApplication{}
 	replicas := int32(4)
 
 	app1.Spec.JobManagerConfig.Replicas = &replicas
@@ -91,7 +91,7 @@ func TestGetJobManagerReplicasNonZero(t *testing.T) {
 }
 
 func TestGetTaskManagerMemory(t *testing.T) {
-	app := v1alpha1.FlinkApplication{}
+	app := v1beta1.FlinkApplication{}
 	tmResources := coreV1.ResourceRequirements{
 		Requests: coreV1.ResourceList{
 			coreV1.ResourceCPU:    resource.MustParse("2"),
@@ -109,7 +109,7 @@ func TestGetTaskManagerMemory(t *testing.T) {
 }
 
 func TestGetJobManagerMemory(t *testing.T) {
-	app := v1alpha1.FlinkApplication{}
+	app := v1beta1.FlinkApplication{}
 	tmResources := coreV1.ResourceRequirements{
 		Requests: coreV1.ResourceList{
 			coreV1.ResourceCPU:    resource.MustParse("2"),
@@ -127,7 +127,7 @@ func TestGetJobManagerMemory(t *testing.T) {
 }
 
 func TestGetTaskManagerHeapMemory(t *testing.T) {
-	app := v1alpha1.FlinkApplication{}
+	app := v1beta1.FlinkApplication{}
 	tmResources := coreV1.ResourceRequirements{
 		Requests: coreV1.ResourceList{
 			coreV1.ResourceCPU:    resource.MustParse("2"),
@@ -148,7 +148,7 @@ func TestGetTaskManagerHeapMemory(t *testing.T) {
 }
 
 func TestGetJobManagerHeapMemory(t *testing.T) {
-	app := v1alpha1.FlinkApplication{}
+	app := v1beta1.FlinkApplication{}
 	jmResources := coreV1.ResourceRequirements{
 		Requests: coreV1.ResourceList{
 			coreV1.ResourceCPU:    resource.MustParse("2"),
@@ -169,7 +169,7 @@ func TestGetJobManagerHeapMemory(t *testing.T) {
 }
 
 func TestInvalidMemoryFraction(t *testing.T) {
-	app := v1alpha1.FlinkApplication{}
+	app := v1beta1.FlinkApplication{}
 	jmResources := coreV1.ResourceRequirements{
 		Requests: coreV1.ResourceList{
 			coreV1.ResourceCPU:    resource.MustParse("2"),

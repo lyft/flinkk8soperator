@@ -10,7 +10,7 @@ import (
 
 	"fmt"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1alpha1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
@@ -32,7 +32,7 @@ const (
 // The core state machine that manages Flink clusters and jobs. See docs/state_machine.md for a description of the
 // states and transitions.
 type FlinkHandlerInterface interface {
-	Handle(ctx context.Context, application *v1alpha1.FlinkApplication) error
+	Handle(ctx context.Context, application *v1beta1.FlinkApplication) error
 }
 
 type FlinkStateMachine struct {
@@ -45,18 +45,18 @@ type FlinkStateMachine struct {
 
 type stateMachineMetrics struct {
 	scope                             promutils.Scope
-	stateMachineHandlePhaseMap        map[v1alpha1.FlinkApplicationPhase]labeled.StopWatch
-	stateMachineHandleSuccessPhaseMap map[v1alpha1.FlinkApplicationPhase]labeled.StopWatch
-	errorCounterPhaseMap              map[v1alpha1.FlinkApplicationPhase]labeled.Counter
+	stateMachineHandlePhaseMap        map[v1beta1.FlinkApplicationPhase]labeled.StopWatch
+	stateMachineHandleSuccessPhaseMap map[v1beta1.FlinkApplicationPhase]labeled.StopWatch
+	errorCounterPhaseMap              map[v1beta1.FlinkApplicationPhase]labeled.Counter
 }
 
 func newStateMachineMetrics(scope promutils.Scope) *stateMachineMetrics {
 	stateMachineScope := scope.NewSubScope("state_machine")
-	stateMachineHandlePhaseMap := map[v1alpha1.FlinkApplicationPhase]labeled.StopWatch{}
-	stateMachineHandleSuccessPhaseMap := map[v1alpha1.FlinkApplicationPhase]labeled.StopWatch{}
-	errorCounterPhaseMap := map[v1alpha1.FlinkApplicationPhase]labeled.Counter{}
+	stateMachineHandlePhaseMap := map[v1beta1.FlinkApplicationPhase]labeled.StopWatch{}
+	stateMachineHandleSuccessPhaseMap := map[v1beta1.FlinkApplicationPhase]labeled.StopWatch{}
+	errorCounterPhaseMap := map[v1beta1.FlinkApplicationPhase]labeled.Counter{}
 
-	for _, phase := range v1alpha1.FlinkApplicationPhases {
+	for _, phase := range v1beta1.FlinkApplicationPhases {
 		phaseName := phase.VerboseString()
 		stateMachineHandleSuccessPhaseMap[phase] = labeled.NewStopWatch(phaseName+"_"+"handle_time_success",
 			fmt.Sprintf("Total time to handle the %s application state on success", phaseName), time.Millisecond, stateMachineScope)
@@ -73,12 +73,12 @@ func newStateMachineMetrics(scope promutils.Scope) *stateMachineMetrics {
 	}
 }
 
-func (s *FlinkStateMachine) updateApplicationPhase(application *v1alpha1.FlinkApplication, phase v1alpha1.FlinkApplicationPhase) {
+func (s *FlinkStateMachine) updateApplicationPhase(application *v1beta1.FlinkApplication, phase v1beta1.FlinkApplicationPhase) {
 	application.Status.Phase = phase
 }
 
-func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1alpha1.FlinkApplication) bool {
-	if application.Spec.ForceRollback && application.Status.Phase != v1alpha1.FlinkApplicationRollingBackJob {
+func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1beta1.FlinkApplication) bool {
+	if application.Spec.ForceRollback && application.Status.Phase != v1beta1.FlinkApplicationRollingBackJob {
 		return true
 	}
 	if application.Status.DeployHash == "" {
@@ -115,7 +115,7 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1a
 	return false
 }
 
-func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.FlinkApplication) error {
+func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.FlinkApplication) error {
 	currentPhase := application.Status.Phase
 	if _, ok := s.metrics.stateMachineHandlePhaseMap[currentPhase]; !ok {
 		errMsg := fmt.Sprintf("Invalid state %s for the application", currentPhase)
@@ -145,41 +145,41 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1alpha1.Fl
 	return err
 }
 
-func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	var appErr error
 	updateApplication := false
 	updateLastSeenError := false
 	appPhase := application.Status.Phase
 
-	if !application.ObjectMeta.DeletionTimestamp.IsZero() && appPhase != v1alpha1.FlinkApplicationDeleting {
-		s.updateApplicationPhase(application, v1alpha1.FlinkApplicationDeleting)
+	if !application.ObjectMeta.DeletionTimestamp.IsZero() && appPhase != v1beta1.FlinkApplicationDeleting {
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationDeleting)
 		// Always perform a single application update per callback
 		return applicationChanged, nil
 	}
 
 	if s.IsTimeToHandlePhase(application) {
-		if !v1alpha1.IsRunningPhase(application.Status.Phase) {
+		if !v1beta1.IsRunningPhase(application.Status.Phase) {
 			logger.Infof(ctx, "Handling state for application")
 		}
 		switch application.Status.Phase {
-		case v1alpha1.FlinkApplicationNew, v1alpha1.FlinkApplicationUpdating:
+		case v1beta1.FlinkApplicationNew, v1beta1.FlinkApplicationUpdating:
 			// Currently just transitions to the next state
 			updateApplication, appErr = s.handleNewOrUpdating(ctx, application)
-		case v1alpha1.FlinkApplicationClusterStarting:
+		case v1beta1.FlinkApplicationClusterStarting:
 			updateApplication, appErr = s.handleClusterStarting(ctx, application)
-		case v1alpha1.FlinkApplicationSubmittingJob:
+		case v1beta1.FlinkApplicationSubmittingJob:
 			updateApplication, appErr = s.handleSubmittingJob(ctx, application)
-		case v1alpha1.FlinkApplicationRunning, v1alpha1.FlinkApplicationDeployFailed:
+		case v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed:
 			updateApplication, appErr = s.handleApplicationRunning(ctx, application)
-		case v1alpha1.FlinkApplicationSavepointing:
+		case v1beta1.FlinkApplicationSavepointing:
 			updateApplication, appErr = s.handleApplicationSavepointing(ctx, application)
-		case v1alpha1.FlinkApplicationRollingBackJob:
+		case v1beta1.FlinkApplicationRollingBackJob:
 			updateApplication, appErr = s.handleRollingBack(ctx, application)
-		case v1alpha1.FlinkApplicationDeleting:
+		case v1beta1.FlinkApplicationDeleting:
 			updateApplication, appErr = s.handleApplicationDeleting(ctx, application)
 		}
 
-		if !v1alpha1.IsRunningPhase(appPhase) {
+		if !v1beta1.IsRunningPhase(appPhase) {
 			// Only update LastSeenError and thereby invoke error handling logic for
 			// non-Running phases
 			updateLastSeenError = s.compareAndUpdateError(application, appErr)
@@ -190,7 +190,7 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1alpha1.Fl
 	return updateApplication || updateLastSeenError, appErr
 }
 
-func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1alpha1.FlinkApplication) bool {
+func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1beta1.FlinkApplication) bool {
 	lastSeenError := application.Status.LastSeenError
 	if application.Status.LastSeenError == nil || !s.retryHandler.IsErrorRetryable(application.Status.LastSeenError) {
 		return true
@@ -213,8 +213,7 @@ func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1alpha1.FlinkAppli
 }
 
 // In this state we create a new cluster, either due to an entirely new FlinkApplication or due to an update.
-func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	logger.Info(ctx, "Handling new FlinkApp or updating an existing one")
+func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// TODO: add up-front validation on the FlinkApplication resource
 	if s.shouldRollback(ctx, application) {
 		// we've failed to make progress; move to deploy failed
@@ -238,7 +237,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	return applicationChanged, nil
 }
 
-func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1alpha1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	hash := flink.HashForApplication(app)
 	s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RolledBackDeploy",
 		fmt.Sprintf("Successfull rolled back deploy %s", hash))
@@ -249,13 +248,12 @@ func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1alpha1.Flin
 	app.Status.LastSeenError = nil
 	app.Status.RetryCount = 0
 
-	s.updateApplicationPhase(app, v1alpha1.FlinkApplicationDeployFailed)
+	s.updateApplicationPhase(app, v1beta1.FlinkApplicationDeployFailed)
 	return applicationChanged, nil
 }
 
 // Create the underlying Kubernetes objects for the new cluster
-func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	logger.Info(ctx, "Handling cluster starting")
+func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	if s.shouldRollback(ctx, application) {
 		// we've failed to make progress; move to deploy failed
 		// TODO: this will need different logic in single mode
@@ -273,14 +271,14 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
 	// TODO: in single mode move to submitting job
-	s.updateApplicationPhase(application, v1alpha1.FlinkApplicationSavepointing)
+	s.updateApplicationPhase(application, v1beta1.FlinkApplicationSavepointing)
 	return applicationChanged, nil
 }
 
-func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
 	if application.Spec.SavepointInfo.SavepointLocation != "" || application.Status.DeployHash == "" {
-		s.updateApplicationPhase(application, v1alpha1.FlinkApplicationSubmittingJob)
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return applicationChanged, nil
 	}
 
@@ -346,14 +344,14 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 	if restorePath != "" {
 		application.Spec.SavepointInfo.SavepointLocation = restorePath
-		s.updateApplicationPhase(application, v1alpha1.FlinkApplicationSubmittingJob)
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return applicationChanged, nil
 	}
 
 	return applicationUnchanged, nil
 }
 
-func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1alpha1.FlinkApplication, hash string,
+func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.FlinkApplication, hash string,
 	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (*client.FlinkJob, error) {
 	isReady, _ := s.flinkController.IsServiceReady(ctx, app, hash)
 	// Ignore errors
@@ -397,7 +395,7 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1alpha1
 	return activeJob, nil
 }
 
-func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1alpha1.FlinkApplication, newHash string) error {
+func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1beta1.FlinkApplication, newHash string) error {
 	service, err := s.k8Cluster.GetService(ctx, app.Namespace, app.Name)
 	if err != nil {
 		return err
@@ -421,10 +419,10 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1alp
 	return nil
 }
 
-func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alpha1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	if s.shouldRollback(ctx, app) {
 		// Something's gone wrong; roll back
-		s.updateApplicationPhase(app, v1alpha1.FlinkApplicationRollingBackJob)
+		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
 		return applicationChanged, nil
 	}
 
@@ -449,7 +447,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 
 	if activeJob != nil && activeJob.Status == client.Running {
 		// Clear the savepoint info
-		app.Spec.SavepointInfo = v1alpha1.SavepointInfo{}
+		app.Spec.SavepointInfo = v1beta1.SavepointInfo{}
 		// Update the application status with the running job info
 		app.Status.DeployHash = hash
 		app.Status.JobStatus.JarName = app.Spec.JarName
@@ -458,7 +456,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 		app.Status.JobStatus.ProgramArgs = app.Spec.ProgramArgs
 		app.Status.JobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
 
-		s.updateApplicationPhase(app, v1alpha1.FlinkApplicationRunning)
+		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRunning)
 		return applicationChanged, nil
 	}
 
@@ -467,7 +465,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1alph
 
 // Something has gone wrong during the update, post job-cancellation (and cluster tear-down in single mode). We need
 // to try to get things back into a working state
-func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	if s.shouldRollback(ctx, app) {
 		// we've failed in our roll back attempt (presumably because something's now wrong with the original cluster)
 		// move immediately to the DeployFailed state so that the user can recover.
@@ -508,7 +506,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 	}
 
 	if activeJob != nil {
-		app.Spec.SavepointInfo = v1alpha1.SavepointInfo{}
+		app.Spec.SavepointInfo = v1beta1.SavepointInfo{}
 		// move to the deploy failed state
 		return s.deployFailed(ctx, app)
 	}
@@ -518,8 +516,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1alpha1
 
 // Check if the application is Running.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
-func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1alpha1.FlinkApplication) (bool, error) {
-	logger.Info(ctx, "Handling FlinkApp running")
+func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	jobs, err := s.flinkController.GetJobsForApplication(ctx, application, application.Status.DeployHash)
 	if err != nil {
 		// TODO: think more about this case
@@ -546,7 +543,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	if cur == nil {
 		logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 		// TODO: handle single mode
-		s.updateApplicationPhase(application, v1alpha1.FlinkApplicationUpdating)
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
 		return applicationChanged, nil
 	}
 
@@ -576,7 +573,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	return applicationUnchanged, nil
 }
 
-func (s *FlinkStateMachine) addFinalizerIfMissing(ctx context.Context, application *v1alpha1.FlinkApplication, finalizer string) error {
+func (s *FlinkStateMachine) addFinalizerIfMissing(ctx context.Context, application *v1beta1.FlinkApplication, finalizer string) error {
 	for _, f := range application.Finalizers {
 		if f == finalizer {
 			return nil
@@ -599,7 +596,7 @@ func removeString(list []string, target string) []string {
 	return ret
 }
 
-func (s *FlinkStateMachine) clearFinalizers(app *v1alpha1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) clearFinalizers(app *v1beta1.FlinkApplication) (bool, error) {
 	app.Finalizers = removeString(app.Finalizers, jobFinalizer)
 	return applicationChanged, nil
 }
@@ -616,7 +613,7 @@ func jobFinished(jobs []client.FlinkJob, id string) bool {
 	return true
 }
 
-func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *v1alpha1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	// There should be a way for the user to force deletion (e.g., if the job is failing and they can't
 	// savepoint). However, this seems dangerous to do automatically.
 	// If https://github.com/kubernetes/kubernetes/issues/56567 is fixed users will be able to use
@@ -624,7 +621,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 
 	// If the delete mode is none or there's no deployhash set (which means we failed to submit the job on the
 	// first deploy) just delete the finalizer so the cluster can be torn down
-	if app.Spec.DeleteMode == v1alpha1.DeleteModeNone || app.Status.DeployHash == "" {
+	if app.Spec.DeleteMode == v1beta1.DeleteModeNone || app.Status.DeployHash == "" {
 		return s.clearFinalizers(app)
 	}
 
@@ -641,10 +638,10 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	}
 
 	switch app.Spec.DeleteMode {
-	case v1alpha1.DeleteModeForceCancel:
+	case v1beta1.DeleteModeForceCancel:
 		logger.Infof(ctx, "Force cancelling job as part of cleanup")
 		return applicationUnchanged, s.flinkController.ForceCancel(ctx, app, app.Status.DeployHash)
-	case v1alpha1.DeleteModeSavepoint, "":
+	case v1beta1.DeleteModeSavepoint, "":
 		if app.Spec.SavepointInfo.SavepointLocation != "" {
 			// we've already created the savepoint, now just waiting for the job to be cancelled
 			return applicationUnchanged, nil
@@ -689,7 +686,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	return applicationUnchanged, nil
 }
 
-func (s *FlinkStateMachine) compareAndUpdateError(application *v1alpha1.FlinkApplication, err error) bool {
+func (s *FlinkStateMachine) compareAndUpdateError(application *v1beta1.FlinkApplication, err error) bool {
 	oldErr := application.Status.LastSeenError
 
 	if err == nil && oldErr == nil {

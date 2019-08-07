@@ -14,9 +14,10 @@ FlinkK8sOperator is a [Kubernetes operator](https://coreos.com/operators/) that 
 
 ## Project Status
 
-*Alpha*
+*Beta*
 
-The FlinkK8sOperator is still under active development and has not been extensively tested in production environment. Backward compatibility of the APIs is not guaranteed for alpha releases.
+The operator is in use for some less-crtical jobs at Lyft. At this point the focus is on testing and stability While in 
+Beta, we will attempt to limit the number of backwards-incompatible changes, but they may still occur as necessary. 
 
 ## Prerequisites
 * Version >= 1.9 of Kubernetes.
