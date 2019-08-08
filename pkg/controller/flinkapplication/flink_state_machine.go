@@ -227,13 +227,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 		return applicationUnchanged, err
 	}
 
-	// If there are old resources left-over from a previous version, clean them up
-	err = s.flinkController.DeleteOldResourcesForApp(ctx, application)
-	if err != nil {
-		logger.Warn(ctx, "Failed to clean up old resources: %v", err)
-	}
-
-	s.updateApplicationPhase(application, v1alpha1.FlinkApplicationClusterStarting)
+	s.updateApplicationPhase(application, v1beta1.FlinkApplicationClusterStarting)
 	return applicationChanged, nil
 }
 

@@ -118,7 +118,6 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 	}
 	labelSelector := labels.SelectorFromSet(labelMap)
 	options := &client.ListOptions{
-		Namespace:     namespace,
 		LabelSelector: labelSelector,
 	}
 	listOptionsFunc := client.UseListOptions(options)
@@ -150,7 +149,6 @@ func (k *Cluster) GetServicesWithLabel(ctx context.Context, namespace string, la
 	}
 	labelSelector := labels.SelectorFromSet(labelMap)
 	options := &client.ListOptions{
-		Namespace:     namespace,
 		LabelSelector: labelSelector,
 	}
 	listOptionsFunc := client.UseListOptions(options)
