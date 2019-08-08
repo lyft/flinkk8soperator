@@ -1,11 +1,8 @@
 package flink
 
 import (
-	"context"
 	"fmt"
 	"hash/fnv"
-
-	"github.com/lyft/flytestdlib/logger"
 
 	"github.com/benlaurie/objecthash/go/objecthash"
 
@@ -262,10 +259,11 @@ func containersEqual(a *v1.Container, b *v1.Container) bool {
 // Returns true if there are no relevant differences between the deployments. This should be used only to determine
 // that two deployments correspond to the same FlinkApplication, not as a general notion of equality.
 func DeploymentsEqual(a *appsv1.Deployment, b *appsv1.Deployment) bool {
-	if !apiequality.Semantic.DeepEqual(a.Spec.Template.Spec.Volumes, b.Spec.Template.Spec.Volumes) {
-		logger.Infof(context.Background(), "%v %v", a.Spec.Template.Spec.Volumes, b.Spec.Template.Spec.Volumes)
-		return false
-	}
+	// The deployment object returned has EmptyDirVolumeSource set as empty object in volume
+	// TODO: Figure out better equals check or remove all together.
+	// if !apiequality.Semantic.DeepEqual(a.Spec.Template.Spec.Volumes, b.Spec.Template.Spec.Volumes) {
+	//	return false
+	//}
 	if len(a.Spec.Template.Spec.Containers) == 0 ||
 		len(b.Spec.Template.Spec.Containers) == 0 ||
 		!containersEqual(&a.Spec.Template.Spec.Containers[0], &b.Spec.Template.Spec.Containers[0]) {
