@@ -228,7 +228,8 @@ func FetchTaskMangerDeploymentCreateObj(app *v1beta1.FlinkApplication, hash stri
 	return template
 }
 
-func TaskManagerDeploymentMatches(deployment *v1.Deployment, application *v1beta1.FlinkApplication) bool {
-	deploymentFromApp := FetchTaskMangerDeploymentCreateObj(application, HashForApplication(application))
-	return DeploymentsEqual(deploymentFromApp, deployment)
+func TaskManagerDeploymentMatches(deployment *v1.Deployment, application *v1beta1.FlinkApplication, hash string) bool {
+	deploymentName := getTaskManagerName(application, hash)
+	logger.Errorf(context.Background(), "%s %s", deployment.Name, deploymentName)
+	return deployment.Name == deploymentName
 }

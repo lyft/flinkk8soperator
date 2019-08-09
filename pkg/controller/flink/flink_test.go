@@ -690,13 +690,14 @@ func TestHealthyTaskmanagers(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
+	hash := getCurrentHash(&flinkApp)
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
-		tmDeployment := FetchTaskMangerDeploymentCreateObj(&flinkApp, testAppHash)
+		tmDeployment := FetchTaskMangerDeploymentCreateObj(&flinkApp, hash)
 		tmDeployment.Status.AvailableReplicas = 1
 		tmDeployment.Status.Replicas = 1
 
-		jmDeployment := FetchJobMangerDeploymentCreateObj(&flinkApp, testAppHash)
+		jmDeployment := FetchJobMangerDeploymentCreateObj(&flinkApp, hash)
 
 		return &v1.DeploymentList{
 			Items: []v1.Deployment{
@@ -709,7 +710,7 @@ func TestHealthyTaskmanagers(t *testing.T) {
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
-		assert.Equal(t, url, "http://app-name-hash.ns:8081")
+		assert.Equal(t, url, "http://app-name-"+hash+".ns:8081")
 		return &client.ClusterOverviewResponse{
 			NumberOfTaskSlots: 1,
 			SlotsAvailable:    0,
@@ -718,7 +719,7 @@ func TestHealthyTaskmanagers(t *testing.T) {
 	}
 
 	mockJmClient.GetTaskManagersFunc = func(ctx context.Context, url string) (*client.TaskManagersResponse, error) {
-		assert.Equal(t, url, "http://app-name-hash.ns:8081")
+		assert.Equal(t, url, "http://app-name-"+hash+".ns:8081")
 		return &client.TaskManagersResponse{
 			TaskManagers: []client.TaskManagerStats{
 				{
@@ -731,7 +732,7 @@ func TestHealthyTaskmanagers(t *testing.T) {
 		}, nil
 	}
 
-	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp, "hash")
+	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp, hash)
 	assert.Nil(t, err)
 	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)

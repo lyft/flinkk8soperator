@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 )
@@ -216,67 +215,4 @@ func InjectOperatorCustomizedConfig(deployment *appsv1.Deployment, app *v1beta1.
 		newContainers = append(newContainers, container)
 	}
 	deployment.Spec.Template.Spec.Containers = newContainers
-}
-
-func envsEqual(a []v1.EnvVar, b []v1.EnvVar) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := 0; i < len(a); i++ {
-		if a[i].Name != b[i].Name || a[i].Value != b[i].Value {
-			return false
-		}
-	}
-	return true
-}
-
-func containersEqual(a *v1.Container, b *v1.Container) bool {
-	if !(a.Image == b.Image &&
-		a.ImagePullPolicy == b.ImagePullPolicy &&
-		apiequality.Semantic.DeepEqual(a.Args, b.Args) &&
-		apiequality.Semantic.DeepEqual(a.Resources, b.Resources) &&
-		envsEqual(a.Env, b.Env) &&
-		apiequality.Semantic.DeepEqual(a.EnvFrom, b.EnvFrom) &&
-		apiequality.Semantic.DeepEqual(a.VolumeMounts, b.VolumeMounts)) {
-		return false
-	}
-
-	if len(a.Ports) != len(b.Ports) {
-		return false
-	}
-
-	for i := 0; i < len(a.Ports); i++ {
-		if a.Ports[i].Name != b.Ports[i].Name ||
-			a.Ports[i].ContainerPort != b.Ports[i].ContainerPort {
-			return false
-		}
-	}
-
-	return true
-}
-
-// Returns true if there are no relevant differences between the deployments. This should be used only to determine
-// that two deployments correspond to the same FlinkApplication, not as a general notion of equality.
-func DeploymentsEqual(a *appsv1.Deployment, b *appsv1.Deployment) bool {
-	// The deployment object returned has EmptyDirVolumeSource set as empty object in volume
-	// TODO: Figure out better equals check or remove all together.
-	// if !apiequality.Semantic.DeepEqual(a.Spec.Template.Spec.Volumes, b.Spec.Template.Spec.Volumes) {
-	//	return false
-	//}
-	if len(a.Spec.Template.Spec.Containers) == 0 ||
-		len(b.Spec.Template.Spec.Containers) == 0 ||
-		!containersEqual(&a.Spec.Template.Spec.Containers[0], &b.Spec.Template.Spec.Containers[0]) {
-		return false
-	}
-	if *a.Spec.Replicas != *b.Spec.Replicas {
-		return false
-	}
-	if a.Annotations[FlinkJobProperties] != b.Annotations[FlinkJobProperties] {
-		return false
-	}
-	if a.Annotations[RestartNonce] != b.Annotations[RestartNonce] {
-		return false
-	}
-	return true
 }
