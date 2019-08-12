@@ -33,6 +33,7 @@ const (
 	FlinkDeploymentTypeTaskmanager   = "taskmanager"
 	FlinkAppHash                     = "flink-app-hash"
 	FlinkJobProperties               = "flink-job-properties"
+	PrometheusScrape                 = "prometheus.io/scrape"
 	RestartNonce                     = "restart-nonce"
 )
 
@@ -51,6 +52,7 @@ func getCommonAppLabels(app *v1beta1.FlinkApplication) map[string]string {
 
 func getCommonAnnotations(app *v1beta1.FlinkApplication) map[string]string {
 	annotations := common.DuplicateMap(app.Annotations)
+	annotations[PrometheusScrape] = "true"
 	annotations[FlinkJobProperties] = fmt.Sprintf(
 		"jarName: %s\nparallelism: %d\nentryClass:%s\nprogramArgs:\"%s\"",
 		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs)
