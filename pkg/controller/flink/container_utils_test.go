@@ -75,29 +75,3 @@ func TestHashForDifferentResourceScales(t *testing.T) {
 
 	assert.Equal(t, HashForApplication(&app1), HashForApplication(&app2))
 }
-
-func TestContainersEqual(t *testing.T) {
-	app := getFlinkTestApp()
-	d1 := FetchJobMangerDeploymentCreateObj(&app, "hash")
-	d2 := FetchJobMangerDeploymentCreateObj(&app, "hash")
-
-	assert.True(t, DeploymentsEqual(d1, d2))
-
-	d1 = FetchTaskMangerDeploymentCreateObj(&app, HashForApplication(&app))
-	d2 = FetchTaskMangerDeploymentCreateObj(&app, HashForApplication(&app))
-
-	assert.True(t, DeploymentsEqual(d1, d2))
-
-	d3 := d1.DeepCopy()
-	d3.Spec.Template.Spec.Containers[0].ImagePullPolicy = "Always"
-	assert.False(t, DeploymentsEqual(d3, d2))
-
-	d3 = d1.DeepCopy()
-	replicas := int32(13)
-	d3.Spec.Replicas = &replicas
-	assert.False(t, DeploymentsEqual(d3, d2))
-
-	d3 = d1.DeepCopy()
-	d3.Annotations[RestartNonce] = "x"
-	assert.False(t, DeploymentsEqual(d3, d2))
-}

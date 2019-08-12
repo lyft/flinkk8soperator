@@ -351,7 +351,7 @@ func FetchJobMangerDeploymentCreateObj(app *v1beta1.FlinkApplication, hash strin
 	return template
 }
 
-func JobManagerDeploymentMatches(deployment *v1.Deployment, application *v1beta1.FlinkApplication) bool {
-	deploymentFromApp := FetchJobMangerDeploymentCreateObj(application, HashForApplication(application))
-	return DeploymentsEqual(deploymentFromApp, deployment)
+func JobManagerDeploymentMatches(deployment *v1.Deployment, application *v1beta1.FlinkApplication, hash string) bool {
+	deploymentName := getJobManagerName(application, hash)
+	return deployment.Name == deploymentName
 }
