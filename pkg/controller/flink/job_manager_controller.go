@@ -307,7 +307,10 @@ func jobmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 		ObjectMeta: metaV1.ObjectMeta{
 			Namespace:   app.Namespace,
 			Labels:      labels,
-			Annotations: getCommonAnnotations(app),
+			Annotations: map[string]string{
+				"prometheus.io/scrape": "true",
+				"prometheus.io/port": "9249",
+			},
 			OwnerReferences: []metaV1.OwnerReference{
 				*metaV1.NewControllerRef(app, app.GroupVersionKind()),
 			},
