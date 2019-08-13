@@ -28,9 +28,9 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 
 	ingressMeta := v1.ObjectMeta{
 		Name:        app.Name,
+		Namespace:   app.Namespace,
 		Annotations: app.Annotations,
 		Labels:      ingressLabels,
-		Namespace:   app.Namespace,
 		OwnerReferences: []v1.OwnerReference{
 			*v1.NewControllerRef(app, app.GroupVersionKind()),
 		},
