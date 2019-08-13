@@ -8,5 +8,6 @@ data:
   config: |-
     operator:
       ingressUrlFormat: "{{$jobCluster}}.{ingress_suffix}"
+      prometheusPort: 9249
     logger:
       level: 4

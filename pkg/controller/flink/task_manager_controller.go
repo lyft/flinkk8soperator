@@ -199,10 +199,7 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 				ObjectMeta: metaV1.ObjectMeta{
 					Namespace:   app.Namespace,
 					Labels:      labels,
-					Annotations: map[string]string{
-						"prometheus.io/scrape": "true",
-						"prometheus.io/port": "9249",
-					},
+					Annotations: GetPrometheusAnnotations(config.GetConfig().PrometheusPort.Port),
 				},
 				Spec: coreV1.PodSpec{
 					Containers: []coreV1.Container{

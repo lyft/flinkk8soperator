@@ -3,6 +3,7 @@ package flink
 import (
 	"fmt"
 	"hash/fnv"
+	"strconv"
 
 	"github.com/benlaurie/objecthash/go/objecthash"
 
@@ -58,6 +59,13 @@ func getCommonAnnotations(app *v1beta1.FlinkApplication) map[string]string {
 		annotations[RestartNonce] = app.Spec.RestartNonce
 	}
 	return annotations
+}
+
+func GetPrometheusAnnotations(port int) map[string]string {
+	return map[string]string{
+		"prometheus.io/scrape": "true",
+		"prometheus.io/port":   strconv.Itoa(port),
+	}
 }
 
 func GetAWSServiceEnv() []v1.EnvVar {
