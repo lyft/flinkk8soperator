@@ -23,13 +23,14 @@ func GetFlinkUIIngressURL(jobName string) string {
 }
 
 func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.Ingress {
-	podLabels := common.DuplicateMap(app.Labels)
-	podLabels = common.CopyMap(podLabels, k8.GetAppLabel(app.Name))
+	ingressLabels := common.DuplicateMap(app.Labels)
+	ingressLabels = common.CopyMap(ingressLabels, k8.GetAppLabel(app.Name))
 
 	ingressMeta := v1.ObjectMeta{
-		Name:      app.Name,
-		Labels:    podLabels,
-		Namespace: app.Namespace,
+		Name:        app.Name,
+		Annotations: app.Annotations,
+		Labels:      ingressLabels,
+		Namespace:   app.Namespace,
 		OwnerReferences: []v1.OwnerReference{
 			*v1.NewControllerRef(app, app.GroupVersionKind()),
 		},

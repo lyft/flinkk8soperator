@@ -187,8 +187,9 @@ func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, hash string)
 			Kind:       k8.Service,
 		},
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:      jmServiceName,
-			Namespace: app.Namespace,
+			Name:        jmServiceName,
+			Namespace:   app.Namespace,
+			Annotations: app.Annotations,
 			OwnerReferences: []metaV1.OwnerReference{
 				*metaV1.NewControllerRef(app, app.GroupVersionKind()),
 			},
