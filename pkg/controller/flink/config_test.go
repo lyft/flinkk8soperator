@@ -28,7 +28,7 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 				"taskmanager.network.memory.fraction":     0.1,
 				"taskmanager.network.request-backoff.max": 5000,
 				"jobmanager.rpc.address":                  "wrong-address",
-				"env.java.opts.jobmanager": "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=39000 -XX:+UseG1GC",
+				"env.java.opts.jobmanager":                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=39000 -XX:+UseG1GC",
 			},
 			TaskManagerConfig: v1beta1.TaskManagerConfig{
 				TaskSlots:             &taskSlots,

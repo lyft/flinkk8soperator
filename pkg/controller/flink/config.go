@@ -116,7 +116,6 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	(*config)["jobmanager.heap.size"] = getJobManagerHeapMemory(app)
 	(*config)["taskmanager.heap.size"] = getTaskManagerHeapMemory(app)
 
-
 	// get the keys for the map
 	var keys = make([]string, len(*config))
 	i := 0
@@ -137,15 +136,13 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 		case int, uint, int32, uint32, int64, uint64, bool, float32, float64:
 			vStr = fmt.Sprintf("%v", v)
 		case string:
-			vStr = fmt.Sprintf("%s", v)
-
+			vStr = v
 		default:
 			return "", fmt.Errorf("invalid type in flink config: %T", v)
 		}
 
 		_, _ = fmt.Fprintf(&s, "%s: %s\n", k, vStr)
 	}
-
 
 	return s.String(), nil
 }
