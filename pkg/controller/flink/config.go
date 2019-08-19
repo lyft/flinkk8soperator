@@ -1,10 +1,11 @@
 package flink
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -115,11 +116,35 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	(*config)["jobmanager.heap.size"] = getJobManagerHeapMemory(app)
 	(*config)["taskmanager.heap.size"] = getTaskManagerHeapMemory(app)
 
-	b, err := yaml.Marshal(config)
-	if err != nil {
-		return "", err
+	// get the keys for the map
+	var keys = make([]string, len(*config))
+	i := 0
+	for k := range *config {
+		keys[i] = k
+		i++
 	}
-	return string(b), nil
+
+	// sort them to provide a stable iteration order
+	sort.Strings(keys)
+
+	// print them in order
+	var s strings.Builder
+	for _, k := range keys {
+		var vStr string
+
+		switch v := (*config)[k].(type) {
+		case int, uint, int32, uint32, int64, uint64, bool, float32, float64:
+			vStr = fmt.Sprintf("%v", v)
+		case string:
+			vStr = v
+		default:
+			return "", fmt.Errorf("invalid type in flink config: %T", v)
+		}
+
+		_, _ = fmt.Fprintf(&s, "%s: %s\n", k, vStr)
+	}
+
+	return s.String(), nil
 }
 
 func isHAEnabled(flinkConfig v1beta1.FlinkConfig) bool {
