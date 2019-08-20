@@ -127,6 +127,7 @@ type SavepointInfo struct {
 }
 
 type FlinkClusterStatus struct {
+	ClusterOverviewURL   string       `json:"clusterOverviewURL,omitempty"`
 	Health               HealthStatus `json:"health,omitempty"`
 	NumberOfTaskManagers int32        `json:"numberOfTaskManagers,omitempty"`
 	HealthyTaskManagers  int32        `json:"healthyTaskManagers,omitepty"`
@@ -135,9 +136,10 @@ type FlinkClusterStatus struct {
 }
 
 type FlinkJobStatus struct {
-	JobID  string       `json:"jobID,omitEmpty"`
-	Health HealthStatus `json:"health,omitEmpty"`
-	State  JobState     `json:"state,omitEmpty"`
+	JobOverviewURL string       `json:"jobOverviewURL,omitempty"`
+	JobID          string       `json:"jobID,omitEmpty"`
+	Health         HealthStatus `json:"health,omitEmpty"`
+	State          JobState     `json:"state,omitEmpty"`
 
 	JarName               string `json:"jarName"`
 	Parallelism           int32  `json:"parallelism"`

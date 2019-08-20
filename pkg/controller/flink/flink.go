@@ -140,6 +140,14 @@ func getURLFromApp(application *v1beta1.FlinkApplication, hash string) string {
 	return fmt.Sprintf("http://%s.%s:%d", service, application.Namespace, port)
 }
 
+func getGenericURLFromApp(application *v1beta1.FlinkApplication) string {
+	cfg := controllerConfig.GetConfig()
+	if cfg.UseProxy {
+		return fmt.Sprintf(proxyURL, cfg.ProxyPort.Port, application.Namespace, application.Name)
+	}
+	return fmt.Sprintf("http://%s.%s:%d", application.Name, application.Namespace, port)
+}
+
 func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
 	if len(jobs) == 0 {
 		return nil
@@ -433,7 +441,7 @@ func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, applicat
 	if deployment == nil || err != nil {
 		return false, err
 	}
-
+	application.Status.ClusterStatus.ClusterOverviewURL = fmt.Sprintf(getGenericURLFromApp(application) + client.WebUIAnchor + client.GetClusterOverviewURL)
 	application.Status.ClusterStatus.NumberOfTaskManagers = deployment.Taskmanager.Status.AvailableReplicas
 	// Get Cluster overview
 	response, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
@@ -484,7 +492,6 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1
 	}
 
 	oldJobStatus := app.Status.JobStatus
-
 	app.Status.JobStatus.JobID = oldJobStatus.JobID
 	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(app, hash), app.Status.JobStatus.JobID)
 	if err != nil {
@@ -496,6 +503,7 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1
 	}
 
 	// Job status
+	app.Status.JobStatus.JobOverviewURL = fmt.Sprintf(getGenericURLFromApp(app)+client.WebUIAnchor+client.GetJobsOverviewURL, app.Status.JobStatus.JobID)
 	app.Status.JobStatus.State = v1beta1.JobState(jobResponse.State)
 	jobStartTime := metav1.NewTime(time.Unix(jobResponse.StartTime/1000, 0))
 	app.Status.JobStatus.StartTime = &jobStartTime

@@ -16,14 +16,16 @@ import (
 	"github.com/pkg/errors"
 )
 
+const GetJobsOverviewURL = "/jobs/%s"
+const GetClusterOverviewURL = "/overview"
+const WebUIAnchor = "/#"
+
 const submitJobURL = "/jars/%s/run"
 const savepointURL = "/jobs/%s/savepoints"
 const jobURL = "/jobs/%s"
 const checkSavepointStatusURL = "/jobs/%s/savepoints/%s"
 const getJobsURL = "/jobs"
-const getJobsOverviewURL = "/jobs/%s"
 const getJobConfigURL = "/jobs/%s/config"
-const getOverviewURL = "/overview"
 const checkpointsURL = "/jobs/%s/checkpoints"
 const taskmanagersURL = "/taskmanagers"
 const httpGet = "GET"
@@ -119,7 +121,7 @@ func (c *FlinkJobManagerClient) GetJobConfig(ctx context.Context, url, jobID str
 }
 
 func (c *FlinkJobManagerClient) GetClusterOverview(ctx context.Context, url string) (*ClusterOverviewResponse, error) {
-	url = url + getOverviewURL
+	url = url + GetClusterOverviewURL
 	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.getClusterFailureCounter.Inc(ctx)
@@ -347,7 +349,7 @@ func (c *FlinkJobManagerClient) GetCheckpointCounts(ctx context.Context, url str
 }
 
 func (c *FlinkJobManagerClient) GetJobOverview(ctx context.Context, url string, jobID string) (*FlinkJobOverview, error) {
-	endpoint := fmt.Sprintf(url+getJobsOverviewURL, jobID)
+	endpoint := fmt.Sprintf(url+GetJobsOverviewURL, jobID)
 	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
 		return nil, GetRetryableError(err, GetJobOverview, GlobalFailure, DefaultRetries)
