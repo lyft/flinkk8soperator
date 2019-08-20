@@ -10,6 +10,7 @@ import (
 
 const (
 	JobManagerDefaultReplicaCount = 1
+	DefaultSa                     = "default"
 	TaskManagerDefaultSlots       = 16
 	RPCDefaultPort                = 6123
 	QueryDefaultPort              = 6124
@@ -40,6 +41,22 @@ func getTaskmanagerSlots(app *v1beta1.FlinkApplication) int32 {
 
 func getJobmanagerReplicas(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.JobManagerConfig.Replicas, JobManagerDefaultReplicaCount)
+}
+
+func getJobmanagerSa(app *v1beta1.FlinkApplication) string {
+	sa := app.Spec.JobManagerConfig.ServiceAccount
+	if sa == "" || &sa == nil {
+		return DefaultSa
+	}
+	return sa
+}
+
+func getTaskmanagerSa(app *v1beta1.FlinkApplication) string {
+	sa := app.Spec.TaskManagerConfig.ServiceAccount
+	if sa == "" || &sa == nil {
+		return DefaultSa
+	}
+	return sa
 }
 
 func getRPCPort(app *v1beta1.FlinkApplication) int32 {

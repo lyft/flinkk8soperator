@@ -4,10 +4,13 @@ metadata:
   name: wordcount-operator-example
   namespace: flink-operator
   annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9249'
   labels:
     environment: development
 spec:
-  image: docker.io/lyft/wordcount-operator-example:{sha}
+  image: lightbend/wordcount-operator-example:test
+  imagePullPolicy: Always
   flinkConfig:
     taskmanager.heap.size: 200
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
@@ -19,13 +22,15 @@ spec:
         memory: "200Mi"
         cpu: "0.2"
     replicas: 1
+    serviceAccount: "imprecise-sasquatch-flink"
   taskManagerConfig:
     taskSlots: 2
+    serviceAccount: "imprecise-sasquatch-flink"
     resources:
       requests:
         memory: "200Mi"
         cpu: "0.2"
   flinkVersion: "1.8"
-  jarName: "wordcount-operator-example-1.0.0-SNAPSHOT.jar"
+  jarName: "WordCount.jar"
   parallelism: 3
-  entryClass: "org.apache.flink.WordCount"
+  entryClass: "org.apache.flink.streaming.examples.wordcount.WordCount"
