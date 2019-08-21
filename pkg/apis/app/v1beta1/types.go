@@ -33,6 +33,7 @@ type FlinkApplicationSpec struct {
 	Image                 string                       `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
 	ImagePullPolicy       apiv1.PullPolicy             `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
 	ImagePullSecrets      []apiv1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
+	ServiceAccount        string                       `json:"serviceAccount,omitempty"`
 	FlinkConfig           FlinkConfig                  `json:"flinkConfig"`
 	FlinkVersion          string                       `json:"flinkVersion"`
 	TaskManagerConfig     TaskManagerConfig            `json:"taskManagerConfig,omitempty"`
@@ -106,7 +107,6 @@ type JobManagerConfig struct {
 	Replicas              *int32                      `json:"replicas,omitempty"`
 	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
 	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
-	ServiceAccount        string                      `json:"serviceAccount,omitempty"`
 }
 
 type TaskManagerConfig struct {
@@ -115,7 +115,6 @@ type TaskManagerConfig struct {
 	TaskSlots             *int32                      `json:"taskSlots,omitempty"`
 	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
 	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
-	ServiceAccount        string                      `json:"serviceAccount,omitempty"`
 }
 
 type EnvironmentConfig struct {

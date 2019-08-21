@@ -40,6 +40,8 @@ spec:
                 properties:
                   name:
                     type: string
+            serviceAccount:
+              type: string
             jarName:
               type: string
             programArgs:
@@ -100,8 +102,6 @@ spec:
                   properties:
                     additionalProperties:
                       type: string
-                serviceAccount:
-                  type: string
                 envConfig:
                   type: object
                   properties:
@@ -227,8 +227,6 @@ spec:
                   properties:
                     additionalProperties:
                       type: string
-                serviceAccount:
-                  type: string
                 envConfig:
                   type: object
                   properties:

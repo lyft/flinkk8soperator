@@ -43,16 +43,8 @@ func getJobmanagerReplicas(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.JobManagerConfig.Replicas, JobManagerDefaultReplicaCount)
 }
 
-func getJobmanagerSa(app *v1beta1.FlinkApplication) string {
-	sa := app.Spec.JobManagerConfig.ServiceAccount
-	if sa == "" || &sa == nil {
-		return DefaultSa
-	}
-	return sa
-}
-
-func getTaskmanagerSa(app *v1beta1.FlinkApplication) string {
-	sa := app.Spec.TaskManagerConfig.ServiceAccount
+func getFlinkSa(app *v1beta1.FlinkApplication) string {
+	sa := app.Spec.ServiceAccount
 	if sa == "" || &sa == nil {
 		return DefaultSa
 	}
