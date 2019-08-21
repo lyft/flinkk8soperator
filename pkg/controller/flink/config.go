@@ -45,7 +45,7 @@ func getJobmanagerReplicas(app *v1beta1.FlinkApplication) int32 {
 
 func getFlinkSa(app *v1beta1.FlinkApplication) string {
 	sa := app.Spec.ServiceAccount
-	if sa == "" || &sa == nil {
+	if sa == "" {
 		return DefaultSa
 	}
 	return sa
