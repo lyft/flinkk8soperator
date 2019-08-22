@@ -40,7 +40,7 @@ spec:
                 properties:
                   name:
                     type: string
-            serviceAccount:
+            serviceAccountName:
               type: string
             jarName:
               type: string
