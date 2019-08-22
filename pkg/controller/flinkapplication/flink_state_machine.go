@@ -77,14 +77,14 @@ func (s *FlinkStateMachine) updateApplicationPhase(application *v1beta1.FlinkApp
 	application.Status.Phase = phase
 }
 
-func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1beta1.FlinkApplication) bool {
+func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1beta1.FlinkApplication) (bool, string) {
 	if application.Spec.ForceRollback && application.Status.Phase != v1beta1.FlinkApplicationRollingBackJob {
-		return true
+		return true, "forceRollback is set in the resource"
 	}
 	if application.Status.DeployHash == "" {
 		// TODO: we may want some more sophisticated way of handling this case
 		// there's no previous deploy for this application, so nothing to roll back to
-		return false
+		return false, ""
 	}
 
 	// Check if the error is retryable
@@ -92,27 +92,29 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1b
 		if s.retryHandler.IsRetryRemaining(application.Status.LastSeenError, application.Status.RetryCount) {
 			logger.Warnf(ctx, "Application in phase %v retrying with error %v",
 				application.Status.Phase, application.Status.LastSeenError)
-			return false
+			return false, ""
 		}
 		// Retryable error with retries exhausted
+		error := application.Status.LastSeenError
 		application.Status.LastSeenError = nil
-		return true
+		return true, fmt.Sprintf("exhausted retries handling error %v", error)
 	}
 
 	// For non-retryable errors, always fail fast
 	if application.Status.LastSeenError != nil {
+		error := application.Status.LastSeenError
 		application.Status.LastSeenError = nil
-		return true
+		return true, fmt.Sprintf("will not retry error %v", error)
 	}
 
 	// As a default, use a time based wait to determine whether to rollback or not.
 	if application.Status.LastUpdatedAt != nil {
 		if _, ok := s.retryHandler.WaitOnError(s.clock, application.Status.LastUpdatedAt.Time); !ok {
 			application.Status.LastSeenError = nil
-			return true
+			return true, fmt.Sprintf("failed to make progress after %v", config.GetConfig().MaxErrDuration)
 		}
 	}
-	return false
+	return false, ""
 }
 
 func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.FlinkApplication) error {
@@ -215,8 +217,10 @@ func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1beta1.FlinkApplic
 // In this state we create a new cluster, either due to an entirely new FlinkApplication or due to an update.
 func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// TODO: add up-front validation on the FlinkApplication resource
-	if s.shouldRollback(ctx, application) {
+	if rollback, reason := s.shouldRollback(ctx, application); rollback {
 		// we've failed to make progress; move to deploy failed
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "ClusterCreationFailed",
+			fmt.Sprintf("Failed to create Flink Cluster: %s", reason))
 		return s.deployFailed(ctx, application)
 	}
 
@@ -248,9 +252,12 @@ func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1beta1.Flink
 
 // Create the underlying Kubernetes objects for the new cluster
 func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
-	if s.shouldRollback(ctx, application) {
+	if rollback, reason := s.shouldRollback(ctx, application); rollback {
 		// we've failed to make progress; move to deploy failed
 		// TODO: this will need different logic in single mode
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "ClusterCreationFailed",
+			fmt.Sprintf(
+				"Flink cluster failed to become available: %s", reason))
 		return s.deployFailed(ctx, application)
 	}
 
@@ -279,11 +286,13 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	// we haven't started savepointing yet; do so now
 	// TODO: figure out the idempotence of this
 	if application.Spec.SavepointInfo.TriggerID == "" {
-		if s.shouldRollback(ctx, application) {
+		if rollback, reason := s.shouldRollback(ctx, application); rollback {
 			// we were unable to start savepointing for our failure period, so roll back
 			// TODO: we should think about how to handle the case where the cluster has started savepointing, but does
 			//       not finish within some time frame. Currently, we just wait indefinitely for the JM to report its
 			//       status. It's not clear what the right answer is.
+			s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
+				fmt.Sprintf("Could not start savepointing: %s", reason))
 			return s.deployFailed(ctx, application)
 		}
 
@@ -414,8 +423,10 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 }
 
 func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
-	if s.shouldRollback(ctx, app) {
+	if rollback, reason := s.shouldRollback(ctx, app); rollback {
 		// Something's gone wrong; roll back
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobsSubmissionFailed",
+			fmt.Sprintf("Failed to submit job: %s", reason))
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
 		return applicationChanged, nil
 	}
@@ -460,9 +471,11 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 // Something has gone wrong during the update, post job-cancellation (and cluster tear-down in single mode). We need
 // to try to get things back into a working state
 func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
-	if s.shouldRollback(ctx, app) {
+	if rollback, reason := s.shouldRollback(ctx, app); rollback {
 		// we've failed in our roll back attempt (presumably because something's now wrong with the original cluster)
 		// move immediately to the DeployFailed state so that the user can recover.
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RollbackFailed",
+			fmt.Sprintf("Failed to rollback to origin deployment, manual intervention needed: %s", reason))
 		return s.deployFailed(ctx, app)
 	}
 
