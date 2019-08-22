@@ -2,6 +2,7 @@ package flinkapplication
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"k8s.io/client-go/tools/record"
@@ -676,6 +677,8 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 					fmt.Sprintf("Failed to take savepoint %v", status.Operation.FailureCause))
 				// clear the trigger id so that we can try again
 				app.Spec.SavepointInfo.TriggerID = ""
+				return true, client.GetRetryableError(errors.New("failed to take savepoint"),
+					client.CancelJobWithSavepoint, "500", math.MaxInt32)
 			} else if status.SavepointStatus.Status == client.SavePointCompleted {
 				// we're done, clean up
 				s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "CanceledJob",
