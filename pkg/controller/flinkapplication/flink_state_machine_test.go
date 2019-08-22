@@ -635,7 +635,8 @@ func TestIsApplicationStuck(t *testing.T) {
 		return ferr.IsFailFast
 	}
 	// Retryable error
-	assert.False(t, stateMachineForTest.shouldRollback(context.Background(), app))
+	shouldRollback, _ := stateMachineForTest.shouldRollback(context.Background(), app)
+	assert.False(t, shouldRollback)
 	// Retryable errors don't get reset until all retries are exhausted
 	assert.NotNil(t, app.Status.LastSeenError)
 	// the rollback loop does not update retry counts.
@@ -644,14 +645,16 @@ func TestIsApplicationStuck(t *testing.T) {
 	// Retryable error with retries exhausted
 	app.Status.RetryCount = 100
 	app.Status.LastSeenError = retryableErr.(*client.FlinkApplicationError)
-	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
+	shouldRollback, _ = stateMachineForTest.shouldRollback(context.Background(), app)
+	assert.True(t, shouldRollback, app)
 	assert.Nil(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(100), app.Status.RetryCount)
 
 	// Fail fast error
 	app.Status.RetryCount = 0
 	app.Status.LastSeenError = failFastError.(*client.FlinkApplicationError)
-	assert.True(t, stateMachineForTest.shouldRollback(context.Background(), app))
+	shouldRollback, _ = stateMachineForTest.shouldRollback(context.Background(), app)
+	assert.True(t, shouldRollback)
 	assert.Nil(t, app.Status.LastSeenError)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
 
