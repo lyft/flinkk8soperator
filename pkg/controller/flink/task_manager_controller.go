@@ -214,9 +214,9 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 		},
 	}
 
-	flinkSa := getServiceAccountName(app)
-	if flinkSa != "" {
-		deployment.Spec.Template.Spec.ServiceAccountName = flinkSa
+	serviceAccountName := getServiceAccountName(app)
+	if serviceAccountName != "" {
+		deployment.Spec.Template.Spec.ServiceAccountName = serviceAccountName
 	}
 	return deployment
 }
