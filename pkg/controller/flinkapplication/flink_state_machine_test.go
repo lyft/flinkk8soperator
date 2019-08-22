@@ -730,21 +730,20 @@ func TestDeleteWithSavepoint(t *testing.T) {
 				},
 				Operation: client.SavepointOperationResponse{
 					FailureCause: client.FailureCause{
-						Class: "java.util.concurrent.CompletionException",
+						Class:      "java.util.concurrent.CompletionException",
 						StackTrace: "Exception",
 					},
 				},
 			}, nil
-		} else {
-			return &client.SavepointResponse{
-				SavepointStatus: client.SavepointStatusResponse{
-					Status: client.SavePointCompleted,
-				},
-				Operation: client.SavepointOperationResponse{
-					Location: "s3:///path/to/savepoint",
-				},
-			}, nil
 		}
+		return &client.SavepointResponse{
+			SavepointStatus: client.SavepointStatusResponse{
+				Status: client.SavePointCompleted,
+			},
+			Operation: client.SavepointOperationResponse{
+				Location: "s3:///path/to/savepoint",
+			},
+		}, nil
 	}
 
 	// the first time we return an error from the savepointing status
