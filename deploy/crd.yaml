@@ -40,6 +40,8 @@ spec:
                 properties:
                   name:
                     type: string
+            serviceAccountName:
+              type: string
             jarName:
               type: string
             programArgs:

@@ -42,6 +42,10 @@ func getJobmanagerReplicas(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.JobManagerConfig.Replicas, JobManagerDefaultReplicaCount)
 }
 
+func getServiceAccountName(app *v1beta1.FlinkApplication) string {
+	return app.Spec.ServiceAccountName
+}
+
 func getRPCPort(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.RPCPort, RPCDefaultPort)
 }

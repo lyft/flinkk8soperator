@@ -299,7 +299,7 @@ func jobmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 	replicas := getJobmanagerReplicas(app)
 	jobManagerContainer := FetchJobManagerContainerObj(app)
 
-	return &v1.Deployment{
+	deployment := &v1.Deployment{
 		TypeMeta: metaV1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
 			Kind:       k8.Deployment,
@@ -335,6 +335,12 @@ func jobmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 			},
 		},
 	}
+
+	serviceAccountName := getServiceAccountName(app)
+	if serviceAccountName != "" {
+		deployment.Spec.Template.Spec.ServiceAccountName = serviceAccountName
+	}
+	return deployment
 }
 
 func FetchJobMangerDeploymentCreateObj(app *v1beta1.FlinkApplication, hash string) *v1.Deployment {

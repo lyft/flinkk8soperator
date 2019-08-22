@@ -176,7 +176,8 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 	taskContainer := FetchTaskManagerContainerObj(app)
 
 	replicas := computeTaskManagerReplicas(app)
-	return &v1.Deployment{
+
+	deployment := &v1.Deployment{
 		TypeMeta: metaV1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
 			Kind:       k8.Deployment,
@@ -212,6 +213,12 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 			},
 		},
 	}
+
+	serviceAccountName := getServiceAccountName(app)
+	if serviceAccountName != "" {
+		deployment.Spec.Template.Spec.ServiceAccountName = serviceAccountName
+	}
+	return deployment
 }
 
 func FetchTaskMangerDeploymentCreateObj(app *v1beta1.FlinkApplication, hash string) *v1.Deployment {
