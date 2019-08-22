@@ -704,8 +704,10 @@ func TestDeleteWithSavepoint(t *testing.T) {
 		if updateCount == 1 {
 			assert.Equal(t, triggerID, application.Spec.SavepointInfo.TriggerID)
 		} else if updateCount == 2 {
-			assert.Equal(t, savepointPath, application.Spec.SavepointInfo.SavepointLocation)
+			assert.NotNil(t, application.Status.LastSeenError)
 		} else if updateCount == 3 {
+			assert.Equal(t, savepointPath, application.Spec.SavepointInfo.SavepointLocation)
+		} else if updateCount == 4 {
 			assert.Equal(t, 0, len(app.Finalizers))
 		}
 
@@ -717,21 +719,42 @@ func TestDeleteWithSavepoint(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 2, updateCount)
 
+	savepointStatusCount := 0
 	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
-		return &client.SavepointResponse{
-			SavepointStatus: client.SavepointStatusResponse{
-				Status: client.SavePointCompleted,
-			},
-			Operation: client.SavepointOperationResponse{
-				Location: "s3:///path/to/savepoint",
-			},
-		}, nil
+		savepointStatusCount++
+
+		if savepointStatusCount == 1 {
+			return &client.SavepointResponse{
+				SavepointStatus: client.SavepointStatusResponse{
+					Status: client.SavePointCompleted,
+				},
+				Operation: client.SavepointOperationResponse{
+					FailureCause: client.FailureCause{
+						Class: "java.util.concurrent.CompletionException",
+						StackTrace: "Exception",
+					},
+				},
+			}, nil
+		} else {
+			return &client.SavepointResponse{
+				SavepointStatus: client.SavepointStatusResponse{
+					Status: client.SavePointCompleted,
+				},
+				Operation: client.SavepointOperationResponse{
+					Location: "s3:///path/to/savepoint",
+				},
+			}, nil
+		}
 	}
+
+	// the first time we return an error from the savepointing status
+	err = stateMachineForTest.Handle(context.Background(), app.DeepCopy())
+	assert.Error(t, err)
 
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 3, updateCount)
+	assert.Equal(t, 4, updateCount)
 
 	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs []client.FlinkJob, err error) {
 		return []client.FlinkJob{
@@ -745,7 +768,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 4, updateCount)
+	assert.Equal(t, 5, updateCount)
 
 }
 
