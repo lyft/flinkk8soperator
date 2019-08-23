@@ -635,6 +635,7 @@ func TestClusterStatusUpdated(t *testing.T) {
 	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
 	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.HealthyTaskManagers)
 	assert.Equal(t, v1beta1.Green, flinkApp.Status.ClusterStatus.Health)
+	assert.Equal(t, "/#/overview", flinkApp.Status.ClusterStatus.ClusterOverviewURL)
 
 }
 
@@ -791,6 +792,7 @@ func TestJobStatusUpdated(t *testing.T) {
 	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.RestoreTime)
 	assert.Equal(t, "/test/externalpath", flinkApp.Status.JobStatus.RestorePath)
 	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.LastCheckpointTime)
+	assert.Equal(t, "/#/jobs/abc", flinkApp.Status.JobStatus.JobOverviewURL)
 
 }
 
@@ -810,6 +812,7 @@ func TestNoJobStatusChange(t *testing.T) {
 	app1.Status.JobStatus.Health = v1beta1.Green
 	app1.Status.JobStatus.RestoreTime = &metaTime
 	app1.Status.JobStatus.RestorePath = "/test/externalpath"
+	app1.Status.JobStatus.JobOverviewURL = "/#/jobs/j1"
 
 	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, url, "http://app-name-hash.ns:8081")
