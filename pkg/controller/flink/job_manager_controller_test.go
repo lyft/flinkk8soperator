@@ -3,6 +3,8 @@ package flink
 import (
 	"testing"
 
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
+
 	k8mock "github.com/lyft/flinkk8soperator/pkg/controller/k8/mock"
 	mockScope "github.com/lyft/flytestdlib/promutils"
 
@@ -45,6 +47,8 @@ func TestGetJobManagerPodName(t *testing.T) {
 }
 
 func TestJobManagerCreateSuccess(t *testing.T) {
+	err := initTestConfigForIngress()
+	assert.Nil(t, err)
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	app.Spec.JarName = testJarName
@@ -113,9 +117,12 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
 	assert.Nil(t, err)
 	assert.True(t, newlyCreated)
+	assert.Equal(t, 4, ctr)
 }
 
 func TestJobManagerHACreateSuccess(t *testing.T) {
+	err := initTestConfigForIngress()
+	assert.Nil(t, err)
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	app.Spec.JarName = testJarName
@@ -203,6 +210,8 @@ func TestJobManagerCreateErr(t *testing.T) {
 }
 
 func TestJobManagerCreateAlreadyExists(t *testing.T) {
+	err := initTestConfigForIngress()
+	assert.Nil(t, err)
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
@@ -213,6 +222,25 @@ func TestJobManagerCreateAlreadyExists(t *testing.T) {
 	}
 	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
 	assert.Equal(t, ctr, 4)
+	assert.Nil(t, err)
+	assert.False(t, newlyCreated)
+}
+
+func TestJobManagerCreateNoIngress(t *testing.T) {
+	err := config.ConfigSection.SetConfig(&config.Config{
+		FlinkIngressURLFormat: "",
+	})
+	assert.Nil(t, err)
+	testController := getJMControllerForTest()
+	app := getFlinkTestApp()
+	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
+	ctr := 0
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		ctr++
+		return k8sErrors.NewAlreadyExists(schema.GroupResource{}, "")
+	}
+	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
+	assert.Equal(t, ctr, 3)
 	assert.Nil(t, err)
 	assert.False(t, newlyCreated)
 }

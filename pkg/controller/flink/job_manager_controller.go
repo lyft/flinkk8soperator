@@ -137,18 +137,20 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 		j.metrics.serviceCreationSuccess.Inc(ctx)
 	}
 
-	jobManagerIngress := FetchJobManagerIngressCreateObj(application)
-	err = j.k8Cluster.CreateK8Object(ctx, jobManagerIngress)
-	if err != nil {
-		if !k8_err.IsAlreadyExists(err) {
-			j.metrics.ingressCreationFailure.Inc(ctx)
-			logger.Errorf(ctx, "Jobmanager ingress creation failed %v", err)
-			return false, err
+	if config.GetConfig().FlinkIngressURLFormat != "" {
+		jobManagerIngress := FetchJobManagerIngressCreateObj(application)
+		err = j.k8Cluster.CreateK8Object(ctx, jobManagerIngress)
+		if err != nil {
+			if !k8_err.IsAlreadyExists(err) {
+				j.metrics.ingressCreationFailure.Inc(ctx)
+				logger.Errorf(ctx, "Jobmanager ingress creation failed %v", err)
+				return false, err
+			}
+			logger.Infof(ctx, "Jobmanager ingress already exists")
+		} else {
+			newlyCreated = true
+			j.metrics.ingressCreationSuccess.Inc(ctx)
 		}
-		logger.Infof(ctx, "Jobmanager ingress already exists")
-	} else {
-		newlyCreated = true
-		j.metrics.ingressCreationSuccess.Inc(ctx)
 	}
 
 	return newlyCreated, nil
