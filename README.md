@@ -34,7 +34,7 @@ The Operator creates flink clusters dynamically using the specified custom resou
 * JobManager [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
 * TaskManager [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
 * JobManager [Service](https://kubernetes.io/docs/concepts/services-networking/service/)
-* JobManager [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) for the UI
+* JobManager [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) for the UI (optional)
 
 Deploying and managing Flink applications in Kubernetes involves two steps:
 

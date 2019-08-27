@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/lyft/flinkk8soperator/pkg/controller/config"
+
 	"github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/scheme"
 	"k8s.io/client-go/tools/record"
 
@@ -580,6 +582,8 @@ func TestFindExternalizedCheckpoint(t *testing.T) {
 }
 
 func TestClusterStatusUpdated(t *testing.T) {
+	err := initTestConfigForIngress()
+	assert.Nil(t, err)
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
@@ -629,13 +633,13 @@ func TestClusterStatusUpdated(t *testing.T) {
 		}, nil
 	}
 
-	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp, "hash")
+	_, err = flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
 	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.HealthyTaskManagers)
 	assert.Equal(t, v1beta1.Green, flinkApp.Status.ClusterStatus.Health)
-	assert.Equal(t, "/#/overview", flinkApp.Status.ClusterStatus.ClusterOverviewURL)
+	assert.Equal(t, "app-name.lyft.xyz/#/overview", flinkApp.Status.ClusterStatus.ClusterOverviewURL)
 
 }
 
@@ -743,6 +747,8 @@ func TestHealthyTaskmanagers(t *testing.T) {
 }
 
 func TestJobStatusUpdated(t *testing.T) {
+	err := initTestConfigForIngress()
+	assert.Nil(t, err)
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 	startTime := metaV1.Now().UnixNano() / int64(time.Millisecond)
@@ -779,7 +785,7 @@ func TestJobStatusUpdated(t *testing.T) {
 
 	flinkApp.Status.JobStatus.JobID = "abc"
 	expectedTime := metaV1.NewTime(time.Unix(startTime/1000, 0))
-	_, err := flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &flinkApp, "hash")
+	_, err = flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 
 	assert.Equal(t, v1beta1.Running, flinkApp.Status.JobStatus.State)
@@ -792,11 +798,15 @@ func TestJobStatusUpdated(t *testing.T) {
 	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.RestoreTime)
 	assert.Equal(t, "/test/externalpath", flinkApp.Status.JobStatus.RestorePath)
 	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.LastCheckpointTime)
-	assert.Equal(t, "/#/jobs/abc", flinkApp.Status.JobStatus.JobOverviewURL)
+	assert.Equal(t, "app-name.lyft.xyz/#/jobs/abc", flinkApp.Status.JobStatus.JobOverviewURL)
 
 }
 
 func TestNoJobStatusChange(t *testing.T) {
+	err := config.ConfigSection.SetConfig(&config.Config{
+		FlinkIngressURLFormat: "",
+	})
+	assert.Nil(t, err)
 	flinkControllerForTest := getTestFlinkController()
 	constTime := time.Now().UnixNano() / int64(time.Millisecond)
 	metaTime := metaV1.NewTime(time.Unix(constTime/1000, 0))
@@ -812,7 +822,7 @@ func TestNoJobStatusChange(t *testing.T) {
 	app1.Status.JobStatus.Health = v1beta1.Green
 	app1.Status.JobStatus.RestoreTime = &metaTime
 	app1.Status.JobStatus.RestorePath = "/test/externalpath"
-	app1.Status.JobStatus.JobOverviewURL = "/#/jobs/j1"
+	app1.Status.JobStatus.JobOverviewURL = ""
 
 	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, url, "http://app-name-hash.ns:8081")
