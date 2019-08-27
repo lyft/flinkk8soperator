@@ -29,6 +29,7 @@ data:
     logger:
       level: 4
 ```
+Note: If `ingressUrlFormat` is not set, then no ingress is created for the application.
 
 Then create the ConfigMap containing the configurations:
 ```bash
