@@ -678,7 +678,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 				// clear the trigger id so that we can try again
 				app.Spec.SavepointInfo.TriggerID = ""
 				return true, client.GetRetryableError(errors.New("failed to take savepoint"),
-					client.CancelJobWithSavepoint, "500", math.MaxInt32)
+					v1beta1.CancelJobWithSavepoint, "500", math.MaxInt32)
 			} else if status.SavepointStatus.Status == client.SavePointCompleted {
 				// we're done, clean up
 				s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "CanceledJob",
@@ -706,11 +706,11 @@ func (s *FlinkStateMachine) compareAndUpdateError(application *v1beta1.FlinkAppl
 	if err == nil {
 		application.Status.LastSeenError = nil
 	} else {
-		if flinkAppError, ok := err.(*client.FlinkApplicationError); ok {
+		if flinkAppError, ok := err.(*v1beta1.FlinkApplicationError); ok {
 			application.Status.LastSeenError = flinkAppError
 		} else {
 			err = client.GetRetryableError(err, "UnknownMethod", client.GlobalFailure, client.DefaultRetries)
-			application.Status.LastSeenError = err.(*client.FlinkApplicationError)
+			application.Status.LastSeenError = err.(*v1beta1.FlinkApplicationError)
 		}
 
 		now := v1.NewTime(s.clock.Now())
