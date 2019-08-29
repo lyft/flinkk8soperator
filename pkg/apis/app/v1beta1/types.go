@@ -3,8 +3,6 @@ package v1beta1
 import (
 	"fmt"
 
-	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
-
 	apiv1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -159,17 +157,17 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase            FlinkApplicationPhase         `json:"phase"`
-	StartedAt        *metav1.Time                  `json:"startedAt,omitempty"`
-	LastUpdatedAt    *metav1.Time                  `json:"lastUpdatedAt,omitempty"`
-	Reason           string                        `json:"reason,omitempty"`
-	ClusterStatus    FlinkClusterStatus            `json:"clusterStatus,omitempty"`
-	JobStatus        FlinkJobStatus                `json:"jobStatus"`
-	FailedDeployHash string                        `json:"failedDeployHash,omitEmpty"`
-	RollbackHash     string                        `json:"rollbackHash,omitEmpty"`
-	DeployHash       string                        `json:"deployHash"`
-	RetryCount       int32                         `json:"retryCount,omitEmpty"`
-	LastSeenError    *client.FlinkApplicationError `json:"lastSeenError,omitEmpty"`
+	Phase            FlinkApplicationPhase  `json:"phase"`
+	StartedAt        *metav1.Time           `json:"startedAt,omitempty"`
+	LastUpdatedAt    *metav1.Time           `json:"lastUpdatedAt,omitempty"`
+	Reason           string                 `json:"reason,omitempty"`
+	ClusterStatus    FlinkClusterStatus     `json:"clusterStatus,omitempty"`
+	JobStatus        FlinkJobStatus         `json:"jobStatus"`
+	FailedDeployHash string                 `json:"failedDeployHash,omitEmpty"`
+	RollbackHash     string                 `json:"rollbackHash,omitEmpty"`
+	DeployHash       string                 `json:"deployHash"`
+	RetryCount       int32                  `json:"retryCount,omitEmpty"`
+	LastSeenError    *FlinkApplicationError `json:"lastSeenError,omitEmpty"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
@@ -267,4 +265,35 @@ const (
 	Restarting  JobState = "RESTARTING"
 	Suspended   JobState = "SUSPENDED"
 	Reconciling JobState = "RECONCILING"
+)
+
+// FlinkApplicationError implements the error interface to make error handling more structured
+type FlinkApplicationError struct {
+	AppError            string       `json:"appError,omitempty"`
+	Method              FlinkMethod  `json:"method,omitempty"`
+	ErrorCode           string       `json:"errorCode,omitempty"`
+	IsRetryable         bool         `json:"isRetryable,omitempty"`
+	IsFailFast          bool         `json:"isFailFast,omitempty"`
+	MaxRetries          int32        `json:"maxRetries,omitempty"`
+	LastErrorUpdateTime *metav1.Time `json:"lastErrorUpdateTime,omitempty"`
+}
+
+func (f *FlinkApplicationError) Error() string {
+	return f.AppError
+}
+
+type FlinkMethod string
+
+const (
+	CancelJobWithSavepoint FlinkMethod = "CancelJobWithSavepoint"
+	ForceCancelJob         FlinkMethod = "ForceCancelJob"
+	SubmitJob              FlinkMethod = "SubmitJob"
+	CheckSavepointStatus   FlinkMethod = "CheckSavepointStatus"
+	GetJobs                FlinkMethod = "GetJobs"
+	GetClusterOverview     FlinkMethod = "GetClusterOverview"
+	GetLatestCheckpoint    FlinkMethod = "GetLatestCheckpoint"
+	GetJobConfig           FlinkMethod = "GetJobConfig"
+	GetTaskManagers        FlinkMethod = "GetTaskManagers"
+	GetCheckpointCounts    FlinkMethod = "GetCheckpointCounts"
+	GetJobOverview         FlinkMethod = "GetJobOverview"
 )

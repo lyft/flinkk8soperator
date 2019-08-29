@@ -613,24 +613,24 @@ func TestIsApplicationStuck(t *testing.T) {
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:         v1beta1.FlinkApplicationClusterStarting,
 			DeployHash:    "prevhash",
-			LastSeenError: retryableErr.(*client.FlinkApplicationError),
+			LastSeenError: retryableErr.(*v1beta1.FlinkApplicationError),
 		},
 	}
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
 	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
-		ferr, ok := err.(*client.FlinkApplicationError)
+		ferr, ok := err.(*v1beta1.FlinkApplicationError)
 		assert.True(t, ok)
 		return ferr.IsRetryable
 	}
 
 	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
-		ferr, ok := err.(*client.FlinkApplicationError)
+		ferr, ok := err.(*v1beta1.FlinkApplicationError)
 		assert.True(t, ok)
 		return retryCount <= ferr.MaxRetries
 	}
 
 	mockRetryHandler.IsErrorFailFastFunc = func(err error) bool {
-		ferr, ok := err.(*client.FlinkApplicationError)
+		ferr, ok := err.(*v1beta1.FlinkApplicationError)
 		assert.True(t, ok)
 		return ferr.IsFailFast
 	}
@@ -644,7 +644,7 @@ func TestIsApplicationStuck(t *testing.T) {
 
 	// Retryable error with retries exhausted
 	app.Status.RetryCount = 100
-	app.Status.LastSeenError = retryableErr.(*client.FlinkApplicationError)
+	app.Status.LastSeenError = retryableErr.(*v1beta1.FlinkApplicationError)
 	shouldRollback, _ = stateMachineForTest.shouldRollback(context.Background(), app)
 	assert.True(t, shouldRollback, app)
 	assert.Nil(t, app.Status.LastSeenError)
@@ -652,7 +652,7 @@ func TestIsApplicationStuck(t *testing.T) {
 
 	// Fail fast error
 	app.Status.RetryCount = 0
-	app.Status.LastSeenError = failFastError.(*client.FlinkApplicationError)
+	app.Status.LastSeenError = failFastError.(*v1beta1.FlinkApplicationError)
 	shouldRollback, _ = stateMachineForTest.shouldRollback(context.Background(), app)
 	assert.True(t, shouldRollback)
 	assert.Nil(t, app.Status.LastSeenError)
@@ -982,13 +982,13 @@ func TestRollbackWithRetryableError(t *testing.T) {
 
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
 	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
-		ferr, ok := err.(*client.FlinkApplicationError)
+		ferr, ok := err.(*v1beta1.FlinkApplicationError)
 		assert.True(t, ok)
 		return ferr.IsRetryable
 	}
 
 	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
-		ferr, ok := err.(*client.FlinkApplicationError)
+		ferr, ok := err.(*v1beta1.FlinkApplicationError)
 		assert.True(t, ok)
 		return retryCount <= ferr.MaxRetries
 	}
@@ -1098,7 +1098,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	}
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
 	mockRetryHandler.IsErrorFailFastFunc = func(err error) bool {
-		ferr, ok := err.(*client.FlinkApplicationError)
+		ferr, ok := err.(*v1beta1.FlinkApplicationError)
 		assert.True(t, ok)
 		return ferr.IsFailFast
 	}
@@ -1239,7 +1239,7 @@ func TestLastSeenErrTimeIsNil(t *testing.T) {
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:         v1beta1.FlinkApplicationClusterStarting,
 			DeployHash:    oldHash,
-			LastSeenError: retryableErr.(*client.FlinkApplicationError),
+			LastSeenError: retryableErr.(*v1beta1.FlinkApplicationError),
 		},
 	}
 	app.Status.LastSeenError.LastErrorUpdateTime = nil
