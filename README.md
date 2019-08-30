@@ -48,3 +48,8 @@ Deploying and managing Flink applications in Kubernetes involves two steps:
 * [User guide](/docs/user_guide.md)
 * [Flink application custom resource](/docs/crd.md)
 * [Operator state machine](/docs/state_machine.md)
+
+## Community
+
+* Join our [Slack](https://join.slack.com/t/flinkk8soperator/shared_invite/enQtNzIxMjc5NDYxODkxLTEwMThmN2I0M2QwYjM3ZDljYTFhMGRiNDUzM2FjZGYzNTRjYWNmYTE1NzNlNWM2YWM5NzNiNGFhMTkxZjA4OGU) channel.
+* Check out [who is using the Kubernetes Operator for Apache Flink](docs/who-is-using.md).
