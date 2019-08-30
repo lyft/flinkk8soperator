@@ -52,4 +52,4 @@ Deploying and managing Flink applications in Kubernetes involves two steps:
 ## Community
 
 * Join our [Slack](https://join.slack.com/t/flinkk8soperator/shared_invite/enQtNzIxMjc5NDYxODkxLTEwMThmN2I0M2QwYjM3ZDljYTFhMGRiNDUzM2FjZGYzNTRjYWNmYTE1NzNlNWM2YWM5NzNiNGFhMTkxZjA4OGU) channel.
-* Check out [who is using the Kubernetes Operator for Apache Flink](docs/who-is-using.md).
+* Check out [who is using FlinkK8sOperator](docs/who-is-using.md).

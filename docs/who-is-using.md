@@ -1,4 +1,4 @@
-## Who Is Using the Kubernetes Operator for Apache Flink?
+## Who is using FlinkK8sOperator?
 
 | Organization | Contact (Github User Name) | Environment | Description of Use |
 | ------------- | ------------- | ------------- | ------------- |
