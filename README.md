@@ -54,4 +54,4 @@ Deploying and managing Flink applications in Kubernetes involves two steps:
 * Join our [Slack](https://join.slack.com/t/flinkk8soperator/shared_invite/enQtNzIxMjc5NDYxODkxLTEwMThmN2I0M2QwYjM3ZDljYTFhMGRiNDUzM2FjZGYzNTRjYWNmYTE1NzNlNWM2YWM5NzNiNGFhMTkxZjA4OGU) channel.
 * Check out [who is using FlinkK8sOperator](docs/who-is-using.md).
 
-We really encourages anyone to contribute and to make our system better. For questions, and changes please create an [issue](https://github.com/lyft/flinkk8soperator/issues/new) or submit a [pull request](https://github.com/lyft/flinkk8soperator/compare).
+We really encourages anyone to contribute and make our system better. For questions, and changes please create an [issue](https://github.com/lyft/flinkk8soperator/issues/new) or submit a [pull request](https://github.com/lyft/flinkk8soperator/compare).
