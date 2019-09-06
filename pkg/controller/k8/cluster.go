@@ -10,7 +10,6 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -116,20 +115,17 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 			Kind:       Deployment,
 		},
 	}
-	labelSelector := labels.SelectorFromSet(labelMap)
-	options := &client.ListOptions{
-		Namespace:     namespace,
-		LabelSelector: labelSelector,
-	}
-	listOptionsFunc := client.UseListOptions(options)
-	err := k.cache.List(ctx, deploymentList, listOptionsFunc)
+
+	namespaceOpt := client.InNamespace(namespace)
+	matchField := client.MatchingFields(labelMap)
+	err := k.cache.List(ctx, deploymentList, namespaceOpt, matchField)
 	if err == nil {
 		k.metrics.getDeploymentCacheHit.Inc(ctx)
 		return deploymentList, nil
 	}
 	if IsK8sObjectDoesNotExist(err) {
 		k.metrics.getDeploymentCacheMiss.Inc(ctx)
-		err := k.client.List(ctx, deploymentList, listOptionsFunc)
+		err := k.client.List(ctx, deploymentList, namespaceOpt, matchField)
 		if err != nil {
 			k.metrics.getDeploymentFailure.Inc(ctx)
 			logger.Warnf(ctx, "Failed to list deployments %v", err)
@@ -148,17 +144,13 @@ func (k *Cluster) GetServicesWithLabel(ctx context.Context, namespace string, la
 			Kind:       Service,
 		},
 	}
-	labelSelector := labels.SelectorFromSet(labelMap)
-	options := &client.ListOptions{
-		Namespace:     namespace,
-		LabelSelector: labelSelector,
-	}
-	listOptionsFunc := client.UseListOptions(options)
+	namespaceOpt := client.InNamespace(namespace)
+	matchField := client.MatchingFields(labelMap)
 
-	err := k.cache.List(ctx, serviceList, listOptionsFunc)
+	err := k.cache.List(ctx, serviceList, namespaceOpt, matchField)
 	if err != nil {
 		if IsK8sObjectDoesNotExist(err) {
-			err := k.client.List(ctx, serviceList, listOptionsFunc)
+			err := k.client.List(ctx, serviceList, namespaceOpt, matchField)
 			if err != nil {
 				logger.Warnf(ctx, "Failed to list services %v", err)
 				return nil, err
