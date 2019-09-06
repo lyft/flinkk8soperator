@@ -18,19 +18,19 @@ func getTestRetryer() RetryHandler {
 func TestGetError(t *testing.T) {
 	testErr := errors.New("Service unavailable")
 	ferr := GetNonRetryableError(testErr, "GetTest", "500")
-	assert.Equal(t, "GetTest call failed with status 500 and message []: Service unavailable", ferr.Error())
+	assert.Equal(t, "GetTest call failed with status 500 and message '': Service unavailable", ferr.Error())
 
 	//nil error
 	ferrNil := GetNonRetryableError(nil, "GetTest", "500")
-	assert.Equal(t, "GetTest call failed with status 500 and message []", ferrNil.Error())
+	assert.Equal(t, "GetTest call failed with status 500 and message ''", ferrNil.Error())
 
 	testWrappedErr := errors.Wrap(testErr, "Wrapped errors")
 	ferrWrapped := GetNonRetryableError(testWrappedErr, "GetTestWrapped", "400")
-	assert.Equal(t, "GetTestWrapped call failed with status 400 and message []: Wrapped errors: Service unavailable", ferrWrapped.Error())
+	assert.Equal(t, "GetTestWrapped call failed with status 400 and message '': Wrapped errors: Service unavailable", ferrWrapped.Error())
 
 	testMessageErr := errors.New("Test Error")
-	ferrMessage := GetNonRetryableError(testMessageErr, "GetTest", "500", "message1", "message2")
-	assert.Equal(t, "GetTest call failed with status 500 and message [message1 message2]: Test Error", ferrMessage.Error())
+	ferrMessage := GetNonRetryableErrorWithMessage(testMessageErr, "GetTest", "500", "message")
+	assert.Equal(t, "GetTest call failed with status 500 and message 'message': Test Error", ferrMessage.Error())
 }
 
 func TestErrors(t *testing.T) {
