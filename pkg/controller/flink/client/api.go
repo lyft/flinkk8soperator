@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
@@ -227,16 +228,22 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID
 		c.metrics.submitJobFailureCounter.Inc(ctx)
 		logger.Warnf(ctx, fmt.Sprintf("Job submission failed with response %v", response))
 		if response.StatusCode() > 499 {
-			return nil, GetRetryableError(err, v1beta1.SubmitJob, response.Status(), DefaultRetries, string(response.Body()))
+			// Flink returns a 500 when the entry class doesn't exist or crashes on start, but we want to fail fast
+			// in those cases
+			body := response.String()
+			if strings.Contains(body, "org.apache.flink.client.program.ProgramInvocationException") {
+				return nil, GetNonRetryableErrorWithMessage(err, v1beta1.SubmitJob, response.Status(), body)
+			}
+			return nil, GetRetryableErrorWithMessage(err, v1beta1.SubmitJob, response.Status(), DefaultRetries, string(response.Body()))
 		}
 
-		return nil, GetNonRetryableError(err, v1beta1.SubmitJob, response.Status(), string(response.Body()))
+		return nil, GetNonRetryableErrorWithMessage(err, v1beta1.SubmitJob, response.Status(), string(response.Body()))
 	}
 
 	var submitJobResponse SubmitJobResponse
 	if err = json.Unmarshal(response.Body(), &submitJobResponse); err != nil {
 		logger.Errorf(ctx, "Unable to Unmarshal submitJobResponse %v, err: %v", response, err)
-		return nil, GetRetryableError(err, v1beta1.SubmitJob, response.Status(), DefaultRetries, JSONUnmarshalError)
+		return nil, GetRetryableErrorWithMessage(err, v1beta1.SubmitJob, response.Status(), DefaultRetries, JSONUnmarshalError)
 	}
 
 	c.metrics.submitJobSuccessCounter.Inc(ctx)

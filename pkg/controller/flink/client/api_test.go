@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+
 	"github.com/jarcoal/httpmock"
 	mockScope "github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
@@ -17,6 +19,7 @@ import (
 
 const testURL = "http://abc.com"
 const invalidTestResponse = "invalid response"
+const wrongEntryClassResponse = `{"errors":["Internal server error.","<Exception on server side:\norg.apache.flink.client.program.ProgramInvocationException: The program's entry point class 'com.lyft.streamingplatform.OperatorTestAppX' was not found in the jar file.\n\tat org.apache.flink.client.program.PackagedProgram.loadMainClass(PackagedProgram.java:617)\n\tat org.apache.flink.client.program.PackagedProgram.<init>(PackagedProgram.java:199)\n\tat org.apache.flink.client.program.PackagedProgram.<init>(PackagedProgram.java:149)\n\tat org.apache.flink.runtime.webmonitor.handlers.utils.JarHandlerUtils$JarHandlerContext.toJobGraph(JarHandlerUtils.java:125)\n\tat org.apache.flink.runtime.webmonitor.handlers.JarRunHandler.lambda$getJobGraphAsync$6(JarRunHandler.java:142)\n\tat java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1590)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)\n\tat java.lang.Thread.run(Thread.java:748)\nCaused by: java.lang.ClassNotFoundException: com.lyft.streamingplatform.OperatorTestAppX\n\tat java.net.URLClassLoader.findClass(URLClassLoader.java:382)\n\tat java.lang.ClassLoader.loadClass(ClassLoader.java:424)\n\tat java.lang.ClassLoader.loadClass(ClassLoader.java:357)\n\tat java.lang.Class.forName0(Native Method)\n\tat java.lang.Class.forName(Class.java:348)\n\tat org.apache.flink.client.program.PackagedProgram.loadMainClass(PackagedProgram.java:614)\n\t... 8 more\n\nEnd of exception on server side>"]}`
 const fakeJobsURL = "http://abc.com/jobs"
 const fakeOverviewURL = "http://abc.com/overview"
 const fakeJobConfigURL = "http://abc.com/jobs/1/config"
@@ -79,7 +82,7 @@ func TestGetJobs500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.GetJobs(ctx, testURL)
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "GetJobs call failed with status 500 and message []")
+	assert.EqualError(t, err, "GetJobs call failed with status 500 and message ''")
 }
 
 func TestGetJobsError(t *testing.T) {
@@ -150,7 +153,7 @@ func TestGetCluster500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.GetClusterOverview(ctx, testURL)
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "GetClusterOverview call failed with status 500 and message []")
+	assert.EqualError(t, err, "GetClusterOverview call failed with status 500 and message ''")
 }
 
 func TestGetCluster503Response(t *testing.T) {
@@ -163,7 +166,7 @@ func TestGetCluster503Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.GetClusterOverview(ctx, testURL)
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "GetClusterOverview call failed with status 503 and message []")
+	assert.EqualError(t, err, "GetClusterOverview call failed with status 503 and message ''")
 }
 
 func TestGetClusterOverviewError(t *testing.T) {
@@ -218,7 +221,7 @@ func TestGetJobConfig500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.GetJobConfig(ctx, testURL, "1")
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "GetJobConfig call failed with status 500 and message []")
+	assert.EqualError(t, err, "GetJobConfig call failed with status 500 and message ''")
 }
 
 func TestGetJobConfigError(t *testing.T) {
@@ -275,7 +278,7 @@ func TestCheckSavepoint500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.CheckSavepointStatus(ctx, testURL, "1", "2")
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "CheckSavepointStatus call failed with status 500 and message []")
+	assert.EqualError(t, err, "CheckSavepointStatus call failed with status 500 and message ''")
 }
 
 func TestCheckSavepointError(t *testing.T) {
@@ -336,7 +339,32 @@ func TestSubmitJob500Response(t *testing.T) {
 		Parallelism: 10,
 	})
 	assert.Nil(t, resp)
-	assert.EqualError(t, err, "SubmitJob call failed with status 500 and message [could not submit]")
+
+	assert.EqualError(t, err, "SubmitJob call failed with status 500 and message 'could not submit'")
+}
+
+func TestSubmitStartupFail(t *testing.T) {
+	// Tests the case where we submit a job that fails to start up we want to immediately roll back, even though
+	// the Flink API unhelpfully returns a 500 in that case
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+	ctx := context.Background()
+
+	//var message json.RawMessage
+	//err := json.Unmarshal([]byte(wrongEntryClassResponse), message)
+	responder := httpmock.NewStringResponder(500, wrongEntryClassResponse)
+	httpmock.RegisterResponder("POST", fakeSubmitURL, responder)
+
+	client := getTestJobManagerClient()
+	resp, err := client.SubmitJob(ctx, testURL, "1", SubmitJobRequest{
+		Parallelism: 10,
+	})
+	assert.Nil(t, resp)
+	flinkAppError, _ := err.(*v1beta1.FlinkApplicationError)
+	assert.True(t, flinkAppError.IsFailFast)
+
+	assert.EqualError(t, err, "SubmitJob call failed with status 500 and message '"+
+		wrongEntryClassResponse+"'")
 }
 
 func TestSubmitJobError(t *testing.T) {
@@ -393,7 +421,7 @@ func TestCancelJob500Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1")
 	assert.Empty(t, resp)
-	assert.EqualError(t, err, "CancelJobWithSavepoint call failed with status 500 and message []")
+	assert.EqualError(t, err, "CancelJobWithSavepoint call failed with status 500 and message ''")
 }
 
 func TestCancelJobError(t *testing.T) {
@@ -426,7 +454,7 @@ func TestHttpGetNon200Response(t *testing.T) {
 	client := getTestJobManagerClient()
 	_, err := client.GetJobs(ctx, testURL)
 	assert.NotNil(t, err)
-	assert.EqualError(t, err, "GetJobs call failed with status 500 and message []")
+	assert.EqualError(t, err, "GetJobs call failed with status 500 and message ''")
 }
 
 func TestClientInvalidMethod(t *testing.T) {

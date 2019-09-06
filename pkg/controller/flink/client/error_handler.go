@@ -21,22 +21,31 @@ const (
 	NoRetries          = 0
 )
 
-func GetRetryableError(err error, method v1beta1.FlinkMethod, errorCode string, maxRetries int32, message ...string) error {
+func GetRetryableError(err error, method v1beta1.FlinkMethod, errorCode string, maxRetries int32) error {
+	return GetRetryableErrorWithMessage(err, method, errorCode, maxRetries, "")
+}
+
+func GetRetryableErrorWithMessage(err error, method v1beta1.FlinkMethod, errorCode string, maxRetries int32, message string) error {
 	appError := getErrorValue(err, method, errorCode, message)
 	return NewFlinkApplicationError(appError.Error(), method, errorCode, true, false, maxRetries)
 }
 
-func GetNonRetryableError(err error, method v1beta1.FlinkMethod, errorCode string, message ...string) error {
+func GetNonRetryableError(err error, method v1beta1.FlinkMethod, errorCode string) error {
+	return GetNonRetryableErrorWithMessage(err, method, errorCode, "")
+}
+
+func GetNonRetryableErrorWithMessage(err error, method v1beta1.FlinkMethod, errorCode string, message string) error {
 	appError := getErrorValue(err, method, errorCode, message)
 	return NewFlinkApplicationError(appError.Error(), method, errorCode, false, true, NoRetries)
 }
 
-func getErrorValue(err error, method v1beta1.FlinkMethod, errorCode string, message []string) error {
+func getErrorValue(err error, method v1beta1.FlinkMethod, errorCode string, message string) error {
 	if err == nil {
-		return errors.New(fmt.Sprintf("%v call failed with status %v and message %v", method, errorCode, message))
+		return errors.New(fmt.Sprintf("%v call failed with status %v and message '%s'", method, errorCode, message))
 	}
-	return errors.Wrapf(err, "%v call failed with status %v and message %v", method, errorCode, message)
+	return errors.Wrapf(err, "%v call failed with status %v and message '%s'", method, errorCode, message)
 }
+
 func min(a, b int) int {
 	if a < b {
 		return a
