@@ -117,15 +117,15 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 	}
 
 	namespaceOpt := client.InNamespace(namespace)
-	matchField := client.MatchingFields(labelMap)
-	err := k.cache.List(ctx, deploymentList, namespaceOpt, matchField)
+	matchLabel := client.MatchingLabels(labelMap)
+	err := k.cache.List(ctx, deploymentList, namespaceOpt, matchLabel)
 	if err == nil {
 		k.metrics.getDeploymentCacheHit.Inc(ctx)
 		return deploymentList, nil
 	}
 	if IsK8sObjectDoesNotExist(err) {
 		k.metrics.getDeploymentCacheMiss.Inc(ctx)
-		err := k.client.List(ctx, deploymentList, namespaceOpt, matchField)
+		err := k.client.List(ctx, deploymentList, namespaceOpt, matchLabel)
 		if err != nil {
 			k.metrics.getDeploymentFailure.Inc(ctx)
 			logger.Warnf(ctx, "Failed to list deployments %v", err)
@@ -145,12 +145,12 @@ func (k *Cluster) GetServicesWithLabel(ctx context.Context, namespace string, la
 		},
 	}
 	namespaceOpt := client.InNamespace(namespace)
-	matchField := client.MatchingFields(labelMap)
+	matchLabel := client.MatchingLabels(labelMap)
 
-	err := k.cache.List(ctx, serviceList, namespaceOpt, matchField)
+	err := k.cache.List(ctx, serviceList, namespaceOpt, matchLabel)
 	if err != nil {
 		if IsK8sObjectDoesNotExist(err) {
-			err := k.client.List(ctx, serviceList, namespaceOpt, matchField)
+			err := k.client.List(ctx, serviceList, namespaceOpt, matchLabel)
 			if err != nil {
 				logger.Warnf(ctx, "Failed to list services %v", err)
 				return nil, err
