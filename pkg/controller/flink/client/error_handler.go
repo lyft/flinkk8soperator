@@ -64,7 +64,7 @@ type RetryHandlerInterface interface {
 // A Retryer that has methods to determine if an error is retryable and also does exponential backoff
 type RetryHandler struct {
 	baseBackOffDuration      time.Duration
-	maxErrWaitDuration       time.Duration
+	maxErrDuration           time.Duration
 	maxBackOffMillisDuration time.Duration
 }
 
@@ -95,7 +95,7 @@ func (r RetryHandler) IsRetryRemaining(err error, retryCount int32) bool {
 
 func (r RetryHandler) WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool) {
 	elapsedTime := clock.Since(lastUpdatedTime)
-	return elapsedTime, elapsedTime <= r.maxErrWaitDuration
+	return elapsedTime, elapsedTime <= r.maxErrDuration
 
 }
 func (r RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
