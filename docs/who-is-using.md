@@ -4,4 +4,5 @@
 | ------------- | ------------- | ------------- | ------------- |
 | Lyft | @anandswaminathan, @mwylde, @glaksh100 | Production | Streaming Platform |
 | The Trade Desk | @JonnyIncognito | Production | Data Engineering Infrastructure |
+| McAfee | @jmdacruz | Development | Streaming Platform |
 
