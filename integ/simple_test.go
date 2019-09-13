@@ -226,6 +226,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 	}
 	// Wait for the job to be in a running state before deleting, otherwise savepoint failures can happen
 	// if all tasks are not yet ready to be savepointed.
+	c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksInState(newApp.Name, "RUNNING"), IsNil)
 
 	// delete the application and ensure everything is cleaned up successfully
