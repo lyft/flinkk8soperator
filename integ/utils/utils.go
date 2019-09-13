@@ -427,7 +427,7 @@ func (f *TestUtil) WaitForAllTasksInState(name string, state string) error {
 			break
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	}
 
 	// wait a little bit longer, as sometimes the flink api reports tasks as running
