@@ -432,7 +432,7 @@ func (f *TestUtil) WaitForAllTasksInState(name string, state string) error {
 
 	// wait a little bit longer, as sometimes the flink api reports tasks as running
 	// just before they actually are
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	return nil
 }
