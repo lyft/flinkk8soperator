@@ -139,7 +139,7 @@ func (f *TestUtil) CreateCRD() error {
 
 func (f *TestUtil) CreateOperator() error {
 	configValue := make(map[string]string)
-	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n  resyncPeriod: 5s\n  baseBackoffDuration: 50ms\n  maxBackoffDuration: 2s\n  maxErrDuration: 40s\n "
+	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n  resyncPeriod: 5s\n  baseBackoffDuration: 100ms\n  maxBackoffDuration: 20s\n  maxErrDuration: 40s\n "
 
 	configMap := v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -427,12 +427,12 @@ func (f *TestUtil) WaitForAllTasksInState(name string, state string) error {
 			break
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	// wait a little bit longer, as sometimes the flink api reports tasks as running
 	// just before they actually are
-	time.Sleep(30 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	return nil
 }
