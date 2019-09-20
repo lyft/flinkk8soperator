@@ -895,7 +895,7 @@
   revision = "c55fbcfc754a5b2ec2fbae8fb9dcac36bdba6a12"
 
 [[projects]]
-  digest = "1:4bd3324a3d2244bbc74f82d352e97af5df6f808afcb6b15f0dd181cff3051400"
+  digest = "1:a24c9ac4cb9e3c67edc0a37a1d828e3fbb92a7e9e12bb84f9c0e781aa42f71b0"
   name = "sigs.k8s.io/controller-runtime"
   packages = [
     "pkg/cache",
@@ -927,8 +927,8 @@
     "pkg/webhook/internal/metrics",
   ]
   pruneopts = ""
-  revision = "e1159d6655b260c4812fd0792cd1344ecc96a57e"
-  version = "v0.2.0"
+  revision = "fc5542c693e3340f8abbe91c6345bd64c494a60c"
+  version = "v0.2.2"
 
 [[projects]]
   digest = "1:321081b4a44256715f2b68411d8eda9a17f17ebfe6f0cc61d2cc52d11c08acfa"
