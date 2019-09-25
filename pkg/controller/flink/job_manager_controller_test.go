@@ -59,7 +59,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
 	app.Annotations = annotations
-	hash := "d62c9c38"
+	hash := "3b2fc68e"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -84,10 +84,10 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
-			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1536\n"+
+			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+
 				"jobmanager.rpc.port: 6123\n"+
 				"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-				"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
+				"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 				"taskmanager.numberOfTaskSlots: 16\n\n"+
 				"jobmanager.rpc.address: app-name-"+hash+"\n",
 				common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
@@ -136,7 +136,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 	app.Spec.FlinkConfig = map[string]interface{}{
 		"high-availability": "zookeeper",
 	}
-	hash := "063e33b7"
+	hash := "4a2f1a08"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -161,10 +161,10 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
-			assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1536\n"+
+			assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1572864k\n"+
 				"jobmanager.rpc.port: 6123\n"+
 				"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-				"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
+				"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 				"taskmanager.numberOfTaskSlots: 16\n\n"+
 				"high-availability.cluster-id: app-name-"+hash+"\n"+
 				"jobmanager.rpc.address: $HOST_IP\n",

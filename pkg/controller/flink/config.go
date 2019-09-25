@@ -2,6 +2,7 @@ package flink
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -84,20 +85,21 @@ func getJobManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	return jmMemory
 }
 
-func getTaskManagerHeapMemory(app *v1beta1.FlinkApplication) float64 {
-	offHeapMemoryFrac := getValidFraction(app.Spec.TaskManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
-	tmMemory := float64(getTaskManagerMemory(app))
-	heapMemoryBytes := tmMemory - (tmMemory * offHeapMemoryFrac)
-	heapMemoryMB := heapMemoryBytes / (1024 * 1024)
-	return heapMemoryMB
+func computeHeap(memoryInBytes float64, fraction float64) string {
+	kbs := int64(math.Round(memoryInBytes-(memoryInBytes*fraction)) / 1024)
+	return fmt.Sprintf("%dk", kbs)
 }
 
-func getJobManagerHeapMemory(app *v1beta1.FlinkApplication) float64 {
+func getTaskManagerHeapMemory(app *v1beta1.FlinkApplication) string {
+	offHeapMemoryFrac := getValidFraction(app.Spec.TaskManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
+	tmMemory := float64(getTaskManagerMemory(app))
+	return computeHeap(tmMemory, offHeapMemoryFrac)
+}
+
+func getJobManagerHeapMemory(app *v1beta1.FlinkApplication) string {
 	offHeapMemoryFrac := getValidFraction(app.Spec.JobManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
 	jmMemory := float64(getJobManagerMemory(app))
-	heapMemoryBytes := jmMemory - (jmMemory * offHeapMemoryFrac)
-	heapMemoryMB := heapMemoryBytes / (1024 * 1024)
-	return heapMemoryMB
+	return computeHeap(jmMemory, offHeapMemoryFrac)
 }
 
 // Renders the flink configuration overrides stored in FlinkApplication.FlinkConfig into a
