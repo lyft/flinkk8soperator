@@ -14,6 +14,7 @@ spec:
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints
   jobManagerConfig:
+    offHeapMemoryFraction: 0.2
     resources:
       requests:
         memory: "200Mi"
@@ -21,6 +22,7 @@ spec:
     replicas: 1
   taskManagerConfig:
     taskSlots: 2
+    offHeapMemoryFraction: 0.5
     resources:
       requests:
         memory: "400Mi"
