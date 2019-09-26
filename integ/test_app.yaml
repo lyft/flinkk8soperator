@@ -10,7 +10,6 @@ spec:
   imagePullSecrets:
     - name: dockerhub
   flinkConfig:
-    taskmanager.heap.size: 200
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints
@@ -24,8 +23,10 @@ spec:
     taskSlots: 2
     resources:
       requests:
-        memory: "200Mi"
+        memory: "400Mi"
         cpu: "0.2"
+      limits:
+        memory: "400Mi"
   volumeMounts:
     - mountPath: /checkpoints
       name: checkpoints

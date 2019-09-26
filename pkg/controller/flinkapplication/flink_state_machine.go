@@ -239,7 +239,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	hash := flink.HashForApplication(app)
 	s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RolledBackDeploy",
-		fmt.Sprintf("Successfull rolled back deploy %s", hash))
+		fmt.Sprintf("Successful rolled back deploy %s", hash))
 	app.Status.FailedDeployHash = hash
 	// set rollbackHash to deployHash
 	app.Status.RollbackHash = app.Status.DeployHash
