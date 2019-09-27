@@ -34,7 +34,9 @@ Below is the list of fields in the custom resource and their description
 
     * **offHeapMemoryFraction** `type:float64`
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
-      remaining memory is allocated for heap.
+      remaining memory is given to the taskmanager. Note that Flink may further reserve some of this
+      memory for off-heap uses like network buffers, so you may see the JVM heap size configured to
+      a lower amount.
 
     * **nodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the task manager
@@ -108,7 +110,7 @@ Below is the list of fields in the custom resource and their description
   * **volumeMounts** `type:[]v1.VolumeMount`
     Describes a mounting of a Volume within a container.
     
-  * **ForceRollback** `type:bool`
+  * **forceRollback** `type:bool`
     Can be set to true to force rollback a deploy/update. The rollback is **not** performed when the application is in a **RUNNING** phase.
     If an application is successfully rolled back, it is moved to a *DeployFailed* phase. Un-setting or setting `ForceRollback` to `False` will allow updates to progress normally.
     

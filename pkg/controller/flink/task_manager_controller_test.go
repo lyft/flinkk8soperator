@@ -60,7 +60,7 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 
-	hash := "d62c9c38"
+	hash := "3b2fc68e"
 
 	app.Annotations = annotations
 	expectedLabels := map[string]string{
@@ -79,10 +79,10 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 		assert.Equal(t, expectedLabels, deployment.Labels)
 
-		assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1536\n"+
+		assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+
 			"jobmanager.rpc.port: 6123\n"+
 			"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-			"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
+			"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 			"taskmanager.numberOfTaskSlots: 16\n\n"+
 			"jobmanager.rpc.address: app-name-"+hash+"\n"+
 			"taskmanager.host: $HOST_IP\n",
@@ -107,7 +107,7 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 
-	hash := "063e33b7"
+	hash := "4a2f1a08"
 	app.Spec.FlinkConfig = map[string]interface{}{
 		"high-availability": "zookeeper",
 	}
@@ -128,10 +128,10 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 		assert.Equal(t, expectedLabels, deployment.Labels)
 
-		assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1536\n"+
+		assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1572864k\n"+
 			"jobmanager.rpc.port: 6123\n"+
 			"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-			"query.server.port: 6124\ntaskmanager.heap.size: 512\n"+
+			"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 			"taskmanager.numberOfTaskSlots: 16\n\n"+
 			"high-availability.cluster-id: app-name-"+hash+"\n"+
 			"taskmanager.host: $HOST_IP\n",
