@@ -1,6 +1,6 @@
 sudo: required
 language: go
-dist: xenial
+dist: bionic
 cache:
   directories:
     - $GOPATH/pkg/dep

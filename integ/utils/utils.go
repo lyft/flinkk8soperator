@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/go-resty/resty"
 	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
@@ -23,8 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+
+	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
 )
-import clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
 
 type TestUtil struct {
 	KubeClient             kubernetes.Interface
@@ -127,7 +130,6 @@ func (f *TestUtil) CreateCRD() error {
 	}
 
 	crd.Namespace = f.Namespace.Name
-	fmt.Printf("crd %v", crd)
 
 	_, err = f.APIExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
 	if err != nil {
@@ -139,7 +141,9 @@ func (f *TestUtil) CreateCRD() error {
 
 func (f *TestUtil) CreateOperator() error {
 	configValue := make(map[string]string)
-	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n  resyncPeriod: 5s\n  baseBackoffDuration: 50ms\n  maxBackoffDuration: 2s\n  maxErrDuration: 40s\n "
+	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n  resyncPeriod: 5s\n" +
+		"  baseBackoffDuration: 50ms\n  maxBackoffDuration: 2s\n  maxErrDuration: 40s\n" +
+		"logger:\n  formatter:\n    type: text\n"
 
 	configMap := v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -402,7 +406,25 @@ func (f *TestUtil) FlinkAPIGet(app *flinkapp.FlinkApplication, endpoint string) 
 	return result, nil
 }
 
-func (f *TestUtil) WaitForAllTasksInState(name string, state string) error {
+func vertexRunning(vertex map[string]interface{}) bool {
+	if vertex["status"] != "RUNNING" {
+		return false
+	}
+
+	if val, ok := vertex["tasks"]; ok {
+		parallelism := int(vertex["parallelism"].(float64))
+		tasks := val.(map[string]interface{})
+		if int(tasks["RUNNING"].(float64)) != parallelism {
+			return false
+		}
+	} else {
+		return false
+	}
+
+	return true
+}
+
+func (f *TestUtil) WaitForAllTasksRunning(name string) error {
 	flinkApp, err := f.GetFlinkApplication(name)
 	if err != nil {
 		return err
@@ -420,7 +442,7 @@ func (f *TestUtil) WaitForAllTasksInState(name string, state string) error {
 
 		var allRunning = true
 		for _, vertex := range vertices {
-			allRunning = allRunning && (vertex.(map[string]interface{})["status"] == state)
+			allRunning = allRunning && vertexRunning(vertex.(map[string]interface{}))
 		}
 
 		if allRunning && len(vertices) > 0 {
@@ -435,4 +457,29 @@ func (f *TestUtil) WaitForAllTasksInState(name string, state string) error {
 	time.Sleep(5 * time.Second)
 
 	return nil
+}
+
+func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplication)) (*flinkapp.FlinkApplication, error) {
+	for {
+		newApp, err := f.GetFlinkApplication(name)
+		if err != nil {
+			return nil, err
+		}
+
+		// Update the app
+		updateFn(newApp)
+
+		updated, err := f.FlinkApps().Update(newApp)
+
+		if err == nil {
+			return updated, nil
+		}
+
+		if !errors2.IsConflict(err) {
+			return nil, err
+		}
+
+		log.Warn("Got conflict while updating... retrying")
+		time.Sleep(500 * time.Millisecond)
+	}
 }
