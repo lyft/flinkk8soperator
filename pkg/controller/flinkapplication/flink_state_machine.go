@@ -374,9 +374,7 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.
 		return nil, err
 	}
 
-	// TODO: check if there are multiple active jobs
-	activeJob := flink.GetActiveFlinkJob(jobs)
-	if activeJob == nil {
+	if len(jobs) == 0 {
 		logger.Infof(ctx, "No active job found for the application %v", jobs)
 		jobID, err := s.flinkController.StartFlinkJob(ctx, app, hash,
 			jarName, parallelism, entryClass, programArgs, allowNonRestoredState)
@@ -391,12 +389,15 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "JobSubmitted",
 			fmt.Sprintf("Flink job submitted to cluster with id %s", jobID))
 		app.Status.JobStatus.JobID = jobID
-		activeJob = flink.GetActiveFlinkJob(jobs)
+		return nil, nil
 	} else {
-		app.Status.JobStatus.JobID = activeJob.JobID
-	}
+		if len(jobs) > 1 {
+			logger.Warn(ctx, "Found multiple jobs in cluster")
+		}
 
-	return activeJob, nil
+		app.Status.JobStatus.JobID = jobs[0].JobID
+		return &jobs[0], nil
+	}
 }
 
 func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1beta1.FlinkApplication, newHash string) error {

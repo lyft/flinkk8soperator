@@ -297,7 +297,7 @@ func TestGetActiveJobFinished(t *testing.T) {
 
 func TestGetActiveJobNil(t *testing.T) {
 	job := client.FlinkJob{
-		Status: client.Cancelling,
+		Status: client.Canceled,
 		JobID:  "j1",
 	}
 	jobs := []client.FlinkJob{
