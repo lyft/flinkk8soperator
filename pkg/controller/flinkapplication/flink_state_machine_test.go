@@ -309,7 +309,7 @@ func TestSubmittingToRunning(t *testing.T) {
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, appHash, hash)
 		return &client.FlinkJobOverview{
-			JobID:  jobID,
+			JobID: jobID,
 			State: client.Running,
 		}, nil
 	}
@@ -682,7 +682,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs *client.FlinkJobOverview, err error) {
 		return &client.FlinkJobOverview{
-			JobID:  jobID,
+			JobID: jobID,
 			State: "RUNNING",
 		}, nil
 	}
@@ -749,14 +749,13 @@ func TestDeleteWithSavepoint(t *testing.T) {
 
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs *client.FlinkJobOverview, err error) {
 		return &client.FlinkJobOverview{
-			JobID:  jobID,
+			JobID: jobID,
 			State: "CANCELED",
 		}, nil
 	}
 
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.NoError(t, err)
-
 
 	assert.Equal(t, 5, updateCount)
 
@@ -832,7 +831,7 @@ func TestDeleteWithForceCancel(t *testing.T) {
 
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		return &client.FlinkJobOverview{
-			JobID:  jobID,
+			JobID: jobID,
 			State: "RUNNING",
 		}, nil
 	}
@@ -864,7 +863,7 @@ func TestDeleteWithForceCancel(t *testing.T) {
 
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		return &client.FlinkJobOverview{
-			JobID:  jobID,
+			JobID: jobID,
 			State: "CANCELED",
 		}, nil
 	}

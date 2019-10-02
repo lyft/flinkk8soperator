@@ -121,7 +121,6 @@ func (m *FlinkController) GetJobForApplication(ctx context.Context, application 
 	return nil, nil
 }
 
-
 func (m *FlinkController) FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
 	if m.FindExternalizedCheckpointFunc != nil {
 		return m.FindExternalizedCheckpointFunc(ctx, application, hash)

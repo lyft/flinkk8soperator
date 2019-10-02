@@ -455,14 +455,14 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	if app.Status.JobStatus.JobID == "" {
-		appJobId, err := s.submitJobIfNeeded(ctx, app, hash,
+		appJobID, err := s.submitJobIfNeeded(ctx, app, hash,
 			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs, app.Spec.AllowNonRestoredState)
 		if err != nil {
 			return applicationUnchanged, err
 		}
 
-		if appJobId != "" {
-			app.Status.JobStatus.JobID = appJobId
+		if appJobID != "" {
+			app.Status.JobStatus.JobID = appJobID
 			return applicationChanged, nil
 		}
 
@@ -527,7 +527,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 	}
 
 	// submit the old job
-	jobId, err := s.submitJobIfNeeded(ctx, app, app.Status.DeployHash,
+	jobID, err := s.submitJobIfNeeded(ctx, app, app.Status.DeployHash,
 		app.Status.JobStatus.JarName, app.Status.JobStatus.Parallelism,
 		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs,
 		app.Status.JobStatus.AllowNonRestoredState)
@@ -538,8 +538,8 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 		return applicationUnchanged, err
 	}
 
-	if jobId != "" {
-		app.Status.JobStatus.JobID = jobId
+	if jobID != "" {
+		app.Status.JobStatus.JobID = jobID
 		app.Spec.SavepointInfo = v1beta1.SavepointInfo{}
 		// move to the deploy failed state
 		return s.deployFailed(ctx, app)
@@ -633,7 +633,7 @@ func (s *FlinkStateMachine) clearFinalizers(app *v1beta1.FlinkApplication) (bool
 
 func jobFinished(job *client.FlinkJobOverview) bool {
 	return job == nil ||
-		job.State== client.Canceled ||
+		job.State == client.Canceled ||
 		job.State == client.Failed ||
 		job.State == client.Finished
 }

@@ -205,7 +205,6 @@ func (f *Controller) GetJobsForApplication(ctx context.Context, application *v1b
 	return jobResponse.Jobs, nil
 }
 
-
 func (f *Controller) GetJobForApplication(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 	if application.Status.JobStatus.JobID == "" {
 		return nil, nil
