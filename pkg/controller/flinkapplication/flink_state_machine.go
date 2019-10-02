@@ -280,6 +280,7 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
 	if application.Spec.SavepointInfo.SavepointLocation != "" || application.Status.DeployHash == "" {
+		application.Status.JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return applicationChanged, nil
 	}
@@ -348,6 +349,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 	if restorePath != "" {
 		application.Spec.SavepointInfo.SavepointLocation = restorePath
+		application.Status.JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return applicationChanged, nil
 	}
@@ -356,47 +358,54 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 }
 
 func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.FlinkApplication, hash string,
-	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (*client.FlinkJob, error) {
+	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
 	isReady, _ := s.flinkController.IsServiceReady(ctx, app, hash)
 	// Ignore errors
 	if !isReady {
-		return nil, nil
+		return "", nil
 	}
 
 	// add the job running finalizer if necessary
 	if err := s.addFinalizerIfMissing(ctx, app, jobFinalizer); err != nil {
-		return nil, err
+		return "", err
+	}
+
+	// Check if the job id has already been set on our application
+	if app.Status.JobStatus.JobID != "" {
+		return app.Status.JobStatus.JobID, nil
 	}
 
 	// Check that there are no jobs running before starting the job
 	jobs, err := s.flinkController.GetJobsForApplication(ctx, app, hash)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	// TODO: check if there are multiple active jobs
-	activeJob := flink.GetActiveFlinkJob(jobs)
-	if activeJob == nil {
-		logger.Infof(ctx, "No active job found for the application %v", jobs)
+	activeJobs := flink.GetActiveFlinkJobs(jobs)
+
+	switch n := len(activeJobs); n {
+	case 0:
+		// no active jobs, we need to submit a new one
+		logger.Infof(ctx, "No job found for the application")
 		jobID, err := s.flinkController.StartFlinkJob(ctx, app, hash,
 			jarName, parallelism, entryClass, programArgs, allowNonRestoredState)
 		if err != nil {
 			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
 				fmt.Sprintf("Failed to submit job to cluster for deploy %s: %v", hash, err))
-
-			// TODO: we probably want some kind of back-off here
-			return nil, err
+			return "", err
 		}
 
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "JobSubmitted",
 			fmt.Sprintf("Flink job submitted to cluster with id %s", jobID))
-		app.Status.JobStatus.JobID = jobID
-		activeJob = flink.GetActiveFlinkJob(jobs)
-	} else {
-		app.Status.JobStatus.JobID = activeJob.JobID
+		return jobID, nil
+	case 1:
+		// there's one active job, we must have failed to save the update after job submission in a previous cycle
+		logger.Warnf(ctx, "Found already-submitted job for application with id %s", activeJobs[0].JobID)
+		return activeJobs[0].JobID, nil
+	default:
+		// there's more than one active jobs, something has gone terribly wrong
+		return "", errors.New("found multiple active jobs for application")
 	}
-
-	return activeJob, nil
 }
 
 func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1beta1.FlinkApplication, newHash string) error {
@@ -445,13 +454,29 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		logger.Errorf(ctx, "Updating cluster status failed with error: %v", clusterErr)
 	}
 
-	activeJob, err := s.submitJobIfNeeded(ctx, app, hash,
-		app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs, app.Spec.AllowNonRestoredState)
+	if app.Status.JobStatus.JobID == "" {
+		appJobID, err := s.submitJobIfNeeded(ctx, app, hash,
+			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs, app.Spec.AllowNonRestoredState)
+		if err != nil {
+			return applicationUnchanged, err
+		}
+
+		if appJobID != "" {
+			app.Status.JobStatus.JobID = appJobID
+			return applicationChanged, nil
+		}
+
+		// we weren't ready to submit yet
+		return applicationUnchanged, nil
+	}
+
+	// get the state of the current application
+	job, err := s.flinkController.GetJobForApplication(ctx, app, hash)
 	if err != nil {
 		return applicationUnchanged, err
 	}
 
-	if activeJob != nil && activeJob.Status == client.Running {
+	if job.State == client.Running {
 		// Clear the savepoint info
 		app.Spec.SavepointInfo = v1beta1.SavepointInfo{}
 		// Update the application status with the running job info
@@ -502,7 +527,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 	}
 
 	// submit the old job
-	activeJob, err := s.submitJobIfNeeded(ctx, app, app.Status.DeployHash,
+	jobID, err := s.submitJobIfNeeded(ctx, app, app.Status.DeployHash,
 		app.Status.JobStatus.JarName, app.Status.JobStatus.Parallelism,
 		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs,
 		app.Status.JobStatus.AllowNonRestoredState)
@@ -513,7 +538,8 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 		return applicationUnchanged, err
 	}
 
-	if activeJob != nil {
+	if jobID != "" {
+		app.Status.JobStatus.JobID = jobID
 		app.Spec.SavepointInfo = v1beta1.SavepointInfo{}
 		// move to the deploy failed state
 		return s.deployFailed(ctx, app)
@@ -525,21 +551,17 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 // Check if the application is Running.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
 func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
-	jobs, err := s.flinkController.GetJobsForApplication(ctx, application, application.Status.DeployHash)
+	job, err := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
 	if err != nil {
 		// TODO: think more about this case
 		return applicationUnchanged, err
 	}
 
-	// The jobid in Flink can change if there is a Job manager failover.
-	// The Operator needs to update its state with the right value.
-	// In the Running state, there must be a job already started in the cluster.
-	activeJob := flink.GetActiveFlinkJob(jobs)
-	if activeJob != nil {
-		application.Status.JobStatus.JobID = activeJob.JobID
+	if job == nil {
+		logger.Warnf(ctx, "Could not find active job {}", application.Status.JobStatus.JobID)
+	} else {
+		logger.Debugf(ctx, "Application running with job %v", job.JobID)
 	}
-
-	logger.Debugf(ctx, "Application running with job %v", activeJob)
 
 	cur, err := s.flinkController.GetCurrentDeploymentsForApp(ctx, application)
 	if err != nil {
@@ -609,16 +631,11 @@ func (s *FlinkStateMachine) clearFinalizers(app *v1beta1.FlinkApplication) (bool
 	return applicationChanged, nil
 }
 
-func jobFinished(jobs []client.FlinkJob, id string) bool {
-	for _, job := range jobs {
-		if job.JobID == id {
-			return job.Status == client.Canceled ||
-				job.Status == client.Failed ||
-				job.Status == client.Finished
-		}
-	}
-
-	return true
+func jobFinished(job *client.FlinkJobOverview) bool {
+	return job == nil ||
+		job.State == client.Canceled ||
+		job.State == client.Failed ||
+		job.State == client.Finished
 }
 
 func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
@@ -633,14 +650,12 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 		return s.clearFinalizers(app)
 	}
 
-	jobs, err := s.flinkController.GetJobsForApplication(ctx, app, app.Status.DeployHash)
+	job, err := s.flinkController.GetJobForApplication(ctx, app, app.Status.DeployHash)
 	if err != nil {
 		return applicationUnchanged, err
 	}
 
-	finished := jobFinished(jobs, app.Status.JobStatus.JobID)
-
-	if len(jobs) == 0 || finished {
+	if jobFinished(job) {
 		// there are no running jobs for this application, we can just tear down
 		return s.clearFinalizers(app)
 	}

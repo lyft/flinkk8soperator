@@ -306,19 +306,12 @@ func TestSubmittingToRunning(t *testing.T) {
 		return true, nil
 	}
 
-	getCount := 0
-	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, appHash, hash)
-		var res []client.FlinkJob
-		if getCount == 1 {
-			res = []client.FlinkJob{
-				{
-					JobID:  jobID,
-					Status: client.Running,
-				}}
-		}
-		getCount++
-		return res, nil
+		return &client.FlinkJobOverview{
+			JobID: jobID,
+			State: client.Running,
+		}, nil
 	}
 
 	startCount := 0
@@ -374,6 +367,8 @@ func TestSubmittingToRunning(t *testing.T) {
 		} else if updateCount == 2 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobID, application.Status.JobStatus.JobID)
+		} else if updateCount == 3 {
+			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, appHash, application.Status.DeployHash)
 			assert.Equal(t, app.Spec.JarName, app.Status.JobStatus.JarName)
 			assert.Equal(t, app.Spec.Parallelism, app.Status.JobStatus.Parallelism)
@@ -391,9 +386,8 @@ func TestSubmittingToRunning(t *testing.T) {
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 
-	assert.Equal(t, 2, getCount)
 	assert.Equal(t, 1, startCount)
-	assert.Equal(t, 3, updateCount)
+	assert.Equal(t, 4, updateCount)
 }
 
 func TestHandleApplicationNotReady(t *testing.T) {
@@ -600,7 +594,7 @@ func TestRollingBack(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.True(t, startCalled)
-	assert.Equal(t, 3, updateCount)
+	assert.Equal(t, 4, updateCount)
 }
 
 func TestIsApplicationStuck(t *testing.T) {
@@ -686,12 +680,10 @@ func TestDeleteWithSavepoint(t *testing.T) {
 		return triggerID, nil
 	}
 
-	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs []client.FlinkJob, err error) {
-		return []client.FlinkJob{
-			{
-				JobID:  jobID,
-				Status: "RUNNING",
-			},
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs *client.FlinkJobOverview, err error) {
+		return &client.FlinkJobOverview{
+			JobID: jobID,
+			State: "RUNNING",
 		}, nil
 	}
 
@@ -755,12 +747,10 @@ func TestDeleteWithSavepoint(t *testing.T) {
 
 	assert.Equal(t, 4, updateCount)
 
-	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs []client.FlinkJob, err error) {
-		return []client.FlinkJob{
-			{
-				JobID:  jobID,
-				Status: "CANCELED",
-			},
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs *client.FlinkJobOverview, err error) {
+		return &client.FlinkJobOverview{
+			JobID: jobID,
+			State: "CANCELED",
 		}, nil
 	}
 
@@ -839,12 +829,10 @@ func TestDeleteWithForceCancel(t *testing.T) {
 
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 
-	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs []client.FlinkJob, err error) {
-		return []client.FlinkJob{
-			{
-				JobID:  jobID,
-				Status: "RUNNING",
-			},
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		return &client.FlinkJobOverview{
+			JobID: jobID,
+			State: "RUNNING",
 		}, nil
 	}
 
@@ -873,12 +861,10 @@ func TestDeleteWithForceCancel(t *testing.T) {
 	assert.Equal(t, 1, updateCount)
 	assert.True(t, cancelled)
 
-	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs []client.FlinkJob, err error) {
-		return []client.FlinkJob{
-			{
-				JobID:  jobID,
-				Status: "CANCELED",
-			},
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		return &client.FlinkJobOverview{
+			JobID: jobID,
+			State: "CANCELED",
 		}, nil
 	}
 
@@ -1142,7 +1128,7 @@ func TestErrorHandlingInRunningPhase(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 
-	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		return nil, client.GetNonRetryableError(errors.New("running phase error"), "TestError", "400")
 	}
 

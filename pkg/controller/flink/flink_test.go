@@ -277,9 +277,9 @@ func TestGetActiveJob(t *testing.T) {
 	jobs := []client.FlinkJob{
 		job,
 	}
-	activeJob := GetActiveFlinkJob(jobs)
-	assert.NotNil(t, activeJob)
-	assert.Equal(t, *activeJob, job)
+	activeJob := GetActiveFlinkJobs(jobs)
+	assert.Equal(t, 1, len(activeJob))
+	assert.Equal(t, job, activeJob[0])
 }
 
 func TestGetActiveJobFinished(t *testing.T) {
@@ -290,27 +290,27 @@ func TestGetActiveJobFinished(t *testing.T) {
 	jobs := []client.FlinkJob{
 		job,
 	}
-	activeJob := GetActiveFlinkJob(jobs)
-	assert.NotNil(t, activeJob)
-	assert.Equal(t, *activeJob, job)
+	activeJob := GetActiveFlinkJobs(jobs)
+	assert.Equal(t, 1, len(activeJob))
+	assert.Equal(t, job, activeJob[0])
 }
 
 func TestGetActiveJobNil(t *testing.T) {
 	job := client.FlinkJob{
-		Status: client.Cancelling,
+		Status: client.Canceled,
 		JobID:  "j1",
 	}
 	jobs := []client.FlinkJob{
 		job,
 	}
-	activeJob := GetActiveFlinkJob(jobs)
-	assert.Nil(t, activeJob)
+	activeJob := GetActiveFlinkJobs(jobs)
+	assert.Equal(t, 0, len(activeJob))
 }
 
 func TestGetActiveJobEmpty(t *testing.T) {
 	jobs := []client.FlinkJob{}
-	activeJob := GetActiveFlinkJob(jobs)
-	assert.Nil(t, activeJob)
+	activeJob := GetActiveFlinkJobs(jobs)
+	assert.Equal(t, 0, len(activeJob))
 }
 
 func TestDeleteOldResources(t *testing.T) {

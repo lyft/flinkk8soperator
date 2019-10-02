@@ -51,7 +51,7 @@ func (e RetryHandler) WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) 
 		return e.WaitOnErrorFunc(clock, lastUpdatedTime)
 	}
 
-	return time.Duration(time.Now().UnixNano()), false
+	return time.Duration(time.Now().UnixNano()), true
 }
 
 func (e RetryHandler) GetRetryDelay(retryCount int32) time.Duration {

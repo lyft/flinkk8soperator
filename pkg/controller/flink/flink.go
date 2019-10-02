@@ -71,6 +71,9 @@ type ControllerInterface interface {
 	// Returns the list of Jobs running on the Flink Cluster for the Application
 	GetJobsForApplication(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error)
 
+	// Returns the current job for the application, if one exists in the cluster
+	GetJobForApplication(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
+
 	// Returns the pair of deployments (tm/jm) for the current version of the application
 	GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error)
 
@@ -165,18 +168,17 @@ func getExternalURLFromApp(application *v1beta1.FlinkApplication) string {
 	return GetFlinkUIIngressURL(application.Name)
 }
 
-func GetActiveFlinkJob(jobs []client.FlinkJob) *client.FlinkJob {
-	if len(jobs) == 0 {
-		return nil
-	}
+func GetActiveFlinkJobs(jobs []client.FlinkJob) []client.FlinkJob {
+	var activeJobs []client.FlinkJob
+
 	for _, job := range jobs {
-		if job.Status == client.Running ||
-			job.Status == client.Created ||
-			job.Status == client.Finished {
-			return &job
+		if job.Status != client.Canceled &&
+			job.Status != client.Failed {
+			activeJobs = append(activeJobs, job)
 		}
 	}
-	return nil
+
+	return activeJobs
 }
 
 // Returns true iff the deployment exactly matches the flink application
@@ -201,6 +203,19 @@ func (f *Controller) GetJobsForApplication(ctx context.Context, application *v1b
 	}
 
 	return jobResponse.Jobs, nil
+}
+
+func (f *Controller) GetJobForApplication(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+	if application.Status.JobStatus.JobID == "" {
+		return nil, nil
+	}
+
+	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(application, hash), application.Status.JobStatus.JobID)
+	if err != nil {
+		return nil, err
+	}
+
+	return jobResponse, nil
 }
 
 // The operator for now assumes and is intended to run single application per Flink Cluster.
