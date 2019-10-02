@@ -19,6 +19,7 @@ type GetSavepointStatusFunc func(ctx context.Context, application *v1beta1.Flink
 type IsClusterReadyFunc func(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error)
 type IsServiceReadyFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error)
 type GetJobsForApplicationFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error)
+type GetJobForApplicationFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
 type GetCurrentDeploymentsForAppFunc func(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error)
 type FindExternalizedCheckpointFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error)
 type CompareAndUpdateClusterStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error)
@@ -34,6 +35,7 @@ type FlinkController struct {
 	IsClusterReadyFunc                IsClusterReadyFunc
 	IsServiceReadyFunc                IsServiceReadyFunc
 	GetJobsForApplicationFunc         GetJobsForApplicationFunc
+	GetJobForApplicationFunc          GetJobForApplicationFunc
 	GetCurrentDeploymentsForAppFunc   GetCurrentDeploymentsForAppFunc
 	FindExternalizedCheckpointFunc    FindExternalizedCheckpointFunc
 	Events                            []corev1.Event
@@ -111,6 +113,14 @@ func (m *FlinkController) GetJobsForApplication(ctx context.Context, application
 	}
 	return nil, nil
 }
+
+func (m *FlinkController) GetJobForApplication(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+	if m.GetJobForApplicationFunc != nil {
+		return m.GetJobForApplicationFunc(ctx, application, hash)
+	}
+	return nil, nil
+}
+
 
 func (m *FlinkController) FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
 	if m.FindExternalizedCheckpointFunc != nil {

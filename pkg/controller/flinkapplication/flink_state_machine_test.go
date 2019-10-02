@@ -307,15 +307,14 @@ func TestSubmittingToRunning(t *testing.T) {
 	}
 
 	getCount := 0
-	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, appHash, hash)
-		var res []client.FlinkJob
+		var res *client.FlinkJobOverview
 		if getCount == 1 {
-			res = []client.FlinkJob{
-				{
-					JobID:  jobID,
-					Status: client.Running,
-				}}
+			res = &client.FlinkJobOverview{
+				JobID:  jobID,
+				State: client.Running,
+			}
 		}
 		getCount++
 		return res, nil
