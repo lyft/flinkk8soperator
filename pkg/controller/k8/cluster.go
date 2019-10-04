@@ -2,6 +2,7 @@ package k8
 
 import (
 	"context"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
