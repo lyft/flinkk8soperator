@@ -2,6 +2,7 @@ package k8
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flytestdlib/logger"
@@ -55,6 +56,7 @@ func newK8ClusterMetrics(scope promutils.Scope) *k8ClusterMetrics {
 		createFailure:          labeled.NewCounter("create_failure", "K8 object creation failed", k8ClusterScope),
 		updateSuccess:          labeled.NewCounter("update_success", "K8 object updated successfully", k8ClusterScope),
 		updateFailure:          labeled.NewCounter("update_failure", "K8 object update failed", k8ClusterScope),
+		updateConflicts:        labeled.NewCounter("update_conflict", "K8 object update failed due to a conflict", k8ClusterScope),
 		deleteSuccess:          labeled.NewCounter("delete_success", "K8 object deleted successfully", k8ClusterScope),
 		deleteFailure:          labeled.NewCounter("delete_failure", "K8 object deletion failed", k8ClusterScope),
 		getDeploymentCacheHit:  labeled.NewCounter("get_deployment_cache_hit", "Deployment fetched from cache", k8ClusterScope),
@@ -75,6 +77,7 @@ type k8ClusterMetrics struct {
 	createFailure          labeled.Counter
 	updateSuccess          labeled.Counter
 	updateFailure          labeled.Counter
+	updateConflicts        labeled.Counter
 	deleteSuccess          labeled.Counter
 	deleteFailure          labeled.Counter
 	getDeploymentCacheHit  labeled.Counter
@@ -178,8 +181,13 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) err
 	objUpdate := object.DeepCopyObject()
 	err := k.client.Update(ctx, objUpdate)
 	if err != nil {
-		logger.Errorf(ctx, "K8 object update failed %v", err)
-		k.metrics.updateFailure.Inc(ctx)
+		if errors.IsConflict(err) {
+			logger.Warnf(ctx, "Conflict while updating object")
+			k.metrics.updateConflicts.Inc(ctx)
+		} else {
+			logger.Errorf(ctx, "K8 object update failed %v", err)
+			k.metrics.updateFailure.Inc(ctx)
+		}
 		return err
 	}
 	k.metrics.updateSuccess.Inc(ctx)
