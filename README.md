@@ -6,7 +6,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/lyft/flinkk8soperator)](https://goreportcard.com/report/github.com/lyft/flinkk8soperator)
 ![Commit activity](https://img.shields.io/github/commit-activity/w/lyft/flinkk8soperator.svg?style=plastic)
 ![Commit since last release](https://img.shields.io/github/commits-since/lyft/flinkk8soperator/latest.svg?style=plastic)
-[![Slack](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://join.slack.com/t/flinkk8soperator/shared_invite/enQtNzgyNzg5NzIwNDg0LWIzMjIxNjUxYTA3ZmE5MTMyNDZlMmRlYmM4ZGQ1OTM1NmUxOTJmMTY0NjI2ZDE4YjE0ZDM4Y2Q1YjgxYmUyNzI)
+[![Slack](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](http://go.lyft.com/flinkoperator_slack)
 
 
 # Flinkk8soperator
@@ -51,7 +51,7 @@ Deploying and managing Flink applications in Kubernetes involves two steps:
 
 ## Community
 
-* Join our [Slack](https://join.slack.com/t/flinkk8soperator/shared_invite/enQtNzIxMjc5NDYxODkxLTEwMThmN2I0M2QwYjM3ZDljYTFhMGRiNDUzM2FjZGYzNTRjYWNmYTE1NzNlNWM2YWM5NzNiNGFhMTkxZjA4OGU) channel.
+* Join our [Slack](http://go.lyft.com/flinkoperator_slack) channel.
 * Check out [who is using FlinkK8sOperator](docs/who-is-using.md).
 
 We welcome you to contribute and make the operator better! For questions, and changes please create an [issue](https://github.com/lyft/flinkk8soperator/issues/new) or submit a [pull request](https://github.com/lyft/flinkk8soperator/compare).
