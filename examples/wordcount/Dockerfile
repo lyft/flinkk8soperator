@@ -51,7 +51,7 @@ RUN groupadd --system --gid=9999 flink && \
 WORKDIR $FLINK_HOME
 
 ENV FLINK_URL_FILE_PATH=flink/flink-${FLINK_VERSION}/flink-${FLINK_VERSION}-bin-${HADOOP_SCALA_VARIANT}.tgz
-ENV FLINK_TGZ_URL=https://mirrors.ocf.berkeley.edu/apache/$FLINK_URL_FILE_PATH
+ENV FLINK_TGZ_URL=https://archive.apache.org/dist/$FLINK_URL_FILE_PATH
 
 # Install Flink
 RUN set -ex; \
