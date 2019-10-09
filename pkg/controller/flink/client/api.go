@@ -38,6 +38,13 @@ const retryCount = 3
 const httpGetTimeOut = 5 * time.Second
 const defaultTimeOut = 1 * time.Minute
 
+// ProgramInvocationException is thrown when the entry class doesn't exist or throws an exception
+const programInvocationException = "org.apache.flink.client.program.ProgramInvocationException"
+
+// JobSubmissionException is thrown when there is an error submitting the job (e.g., the savepoint is
+// incompatible, classes for parts of the jobgraph cannot be found, jobgraph is invalid, etc.)
+const jobSubmissionException = "org.apache.flink.runtime.client.JobSubmissionException"
+
 type FlinkAPIInterface interface {
 	CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error)
 	ForceCancelJob(ctx context.Context, url string, jobID string) error
@@ -231,7 +238,7 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID
 			// Flink returns a 500 when the entry class doesn't exist or crashes on start, but we want to fail fast
 			// in those cases
 			body := response.String()
-			if strings.Contains(body, "org.apache.flink.client.program.ProgramInvocationException") {
+			if strings.Contains(body, programInvocationException) || strings.Contains(body, jobSubmissionException) {
 				return nil, GetNonRetryableErrorWithMessage(err, v1beta1.SubmitJob, response.Status(), body)
 			}
 			return nil, GetRetryableErrorWithMessage(err, v1beta1.SubmitJob, response.Status(), DefaultRetries, string(response.Body()))
