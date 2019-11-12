@@ -211,11 +211,10 @@ func TestHandleApplicationSavepointingFailed(t *testing.T) {
 	}
 
 	app := v1beta1.FlinkApplication{
-		Spec: v1beta1.FlinkApplicationSpec{
-		},
+		Spec: v1beta1.FlinkApplicationSpec{},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:      v1beta1.FlinkApplicationSavepointing,
-			DeployHash: "blah",
+			Phase:              v1beta1.FlinkApplicationSavepointing,
+			DeployHash:         "blah",
 			SavepointTriggerID: "trigger",
 		},
 	}
@@ -239,11 +238,10 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 	updateInvoked := false
 
 	app := v1beta1.FlinkApplication{
-		Spec: v1beta1.FlinkApplicationSpec{
-		},
+		Spec: v1beta1.FlinkApplicationSpec{},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:      v1beta1.FlinkApplicationSavepointing,
-			DeployHash: "blah",
+			Phase:              v1beta1.FlinkApplicationSavepointing,
+			DeployHash:         "blah",
 			SavepointTriggerID: "trigger",
 		},
 	}
@@ -492,8 +490,8 @@ func TestRollingBack(t *testing.T) {
 			ProgramArgs: "--test",
 		},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:      v1beta1.FlinkApplicationRollingBackJob,
-			DeployHash: "old-hash",
+			Phase:         v1beta1.FlinkApplicationRollingBackJob,
+			DeployHash:    "old-hash",
 			SavepointPath: "file:///savepoint",
 			JobStatus: v1beta1.FlinkJobStatus{
 				JarName:     "old-job.jar",
