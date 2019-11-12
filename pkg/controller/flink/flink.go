@@ -55,7 +55,8 @@ type ControllerInterface interface {
 
 	// Starts the Job in the Flink Cluster
 	StartFlinkJob(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error)
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool,
+		savepointPath string) (string, error)
 
 	// Savepoint creation is asynchronous.
 	// Polls the status of the Savepoint, using the triggerID
@@ -271,14 +272,15 @@ func (f *Controller) CreateCluster(ctx context.Context, application *v1beta1.Fli
 }
 
 func (f *Controller) StartFlinkJob(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool,
+	savepointPath string) (string, error) {
 	response, err := f.flinkClient.SubmitJob(
 		ctx,
 		getURLFromApp(application, hash),
 		jarName,
 		client.SubmitJobRequest{
 			Parallelism:           parallelism,
-			SavepointPath:         application.Spec.SavepointInfo.SavepointLocation,
+			SavepointPath:         savepointPath,
 			EntryClass:            entryClass,
 			ProgramArgs:           programArgs,
 			AllowNonRestoredState: allowNonRestoredState,
@@ -298,7 +300,7 @@ func (f *Controller) GetSavepointStatus(ctx context.Context, application *v1beta
 	if err != nil {
 		return nil, err
 	}
-	return f.flinkClient.CheckSavepointStatus(ctx, getURLFromApp(application, hash), jobID, application.Spec.SavepointInfo.TriggerID)
+	return f.flinkClient.CheckSavepointStatus(ctx, getURLFromApp(application, hash), jobID, application.Status.SavepointTriggerID)
 }
 
 func (f *Controller) IsClusterReady(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {

@@ -40,7 +40,9 @@ type FlinkApplicationSpec struct {
 	Parallelism           int32                        `json:"parallelism"`
 	EntryClass            string                       `json:"entryClass,omitempty"`
 	ProgramArgs           string                       `json:"programArgs,omitempty"`
+	// Deprecated
 	SavepointInfo         SavepointInfo                `json:"savepointInfo,omitempty"`
+	SavepointPath         string                       `json:"savepointPath,omitempty"`
 	DeploymentMode        DeploymentMode               `json:"deploymentMode,omitempty"`
 	RPCPort               *int32                       `json:"rpcPort,omitempty"`
 	BlobPort              *int32                       `json:"blobPort,omitempty"`
@@ -122,7 +124,6 @@ type EnvironmentConfig struct {
 
 type SavepointInfo struct {
 	SavepointLocation string `json:"savepointLocation,omitempty"`
-	TriggerID         string `json:"triggerId,omitempty"`
 }
 
 type FlinkClusterStatus struct {
@@ -166,6 +167,8 @@ type FlinkApplicationStatus struct {
 	FailedDeployHash string                 `json:"failedDeployHash,omitEmpty"`
 	RollbackHash     string                 `json:"rollbackHash,omitEmpty"`
 	DeployHash       string                 `json:"deployHash"`
+	SavepointTriggerID string `json:"savepointTriggerId,omitempty"`
+	SavepointPath string `json:"savepointPath,omitempty"`
 	RetryCount       int32                  `json:"retryCount,omitEmpty"`
 	LastSeenError    *FlinkApplicationError `json:"lastSeenError,omitEmpty"`
 }

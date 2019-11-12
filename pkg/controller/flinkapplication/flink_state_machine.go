@@ -279,7 +279,7 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
-	if application.Spec.SavepointInfo.SavepointLocation != "" || application.Status.DeployHash == "" {
+	if application.Status.SavepointPath != "" || application.Status.DeployHash == "" {
 		application.Status.JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return applicationChanged, nil
@@ -287,7 +287,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 	// we haven't started savepointing yet; do so now
 	// TODO: figure out the idempotence of this
-	if application.Spec.SavepointInfo.TriggerID == "" {
+	if application.Status.SavepointTriggerID == "" {
 		if rollback, reason := s.shouldRollback(ctx, application); rollback {
 			// we were unable to start savepointing for our failure period, so roll back
 			// TODO: we should think about how to handle the case where the cluster has started savepointing, but does
@@ -306,7 +306,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CancellingJob",
 			fmt.Sprintf("Cancelling job %s with a final savepoint", application.Status.JobStatus.JobID))
 
-		application.Spec.SavepointInfo.TriggerID = triggerID
+		application.Status.SavepointTriggerID = triggerID
 		return applicationChanged, nil
 	}
 
@@ -348,7 +348,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	}
 
 	if restorePath != "" {
-		application.Spec.SavepointInfo.SavepointLocation = restorePath
+		application.Status.SavepointPath = restorePath
 		application.Status.JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return applicationChanged, nil
@@ -358,7 +358,8 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 }
 
 func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.FlinkApplication, hash string,
-	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool,
+	savepointPath string) (string, error) {
 	isReady, _ := s.flinkController.IsServiceReady(ctx, app, hash)
 	// Ignore errors
 	if !isReady {
@@ -387,8 +388,9 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.
 	case 0:
 		// no active jobs, we need to submit a new one
 		logger.Infof(ctx, "No job found for the application")
+
 		jobID, err := s.flinkController.StartFlinkJob(ctx, app, hash,
-			jarName, parallelism, entryClass, programArgs, allowNonRestoredState)
+			jarName, parallelism, entryClass, programArgs, allowNonRestoredState, savepointPath)
 		if err != nil {
 			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
 				fmt.Sprintf("Failed to submit job to cluster for deploy %s: %v", hash, err))
@@ -455,8 +457,14 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	if app.Status.JobStatus.JobID == "" {
+		savepointPath := app.Spec.SavepointPath
+		if savepointPath == "" {
+			savepointPath = app.Spec.SavepointInfo.SavepointLocation
+		}
+
 		appJobID, err := s.submitJobIfNeeded(ctx, app, hash,
-			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs, app.Spec.AllowNonRestoredState)
+			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs,
+			app.Spec.AllowNonRestoredState, savepointPath)
 		if err != nil {
 			return applicationUnchanged, err
 		}
@@ -477,10 +485,10 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	if job.State == client.Running {
-		// Clear the savepoint info
-		app.Spec.SavepointInfo = v1beta1.SavepointInfo{}
 		// Update the application status with the running job info
 		app.Status.DeployHash = hash
+		app.Status.SavepointPath = ""
+		app.Status.SavepointTriggerID = ""
 		app.Status.JobStatus.JarName = app.Spec.JarName
 		app.Status.JobStatus.Parallelism = app.Spec.Parallelism
 		app.Status.JobStatus.EntryClass = app.Spec.EntryClass
@@ -530,7 +538,8 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 	jobID, err := s.submitJobIfNeeded(ctx, app, app.Status.DeployHash,
 		app.Status.JobStatus.JarName, app.Status.JobStatus.Parallelism,
 		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs,
-		app.Status.JobStatus.AllowNonRestoredState)
+		app.Status.JobStatus.AllowNonRestoredState,
+		app.Status.SavepointPath)
 
 	// set rollbackHash
 	app.Status.RollbackHash = app.Status.DeployHash
@@ -665,12 +674,12 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 		logger.Infof(ctx, "Force cancelling job as part of cleanup")
 		return applicationUnchanged, s.flinkController.ForceCancel(ctx, app, app.Status.DeployHash)
 	case v1beta1.DeleteModeSavepoint, "":
-		if app.Spec.SavepointInfo.SavepointLocation != "" {
+		if app.Status.SavepointPath != "" {
 			// we've already created the savepoint, now just waiting for the job to be cancelled
 			return applicationUnchanged, nil
 		}
 
-		if app.Spec.SavepointInfo.TriggerID == "" {
+		if app.Status.SavepointTriggerID == "" {
 			// delete with savepoint
 			triggerID, err := s.flinkController.CancelWithSavepoint(ctx, app, app.Status.DeployHash)
 			if err != nil {
@@ -678,7 +687,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 			}
 			s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "CancellingJob",
 				fmt.Sprintf("Cancelling job with savepoint %v", triggerID))
-			app.Spec.SavepointInfo.TriggerID = triggerID
+			app.Status.SavepointTriggerID = triggerID
 		} else {
 			// we've already started savepointing; check the status
 			status, err := s.flinkController.GetSavepointStatus(ctx, app, app.Status.DeployHash)
@@ -691,15 +700,15 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 				s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "SavepointFailed",
 					fmt.Sprintf("Failed to take savepoint %v", status.Operation.FailureCause))
 				// clear the trigger id so that we can try again
-				app.Spec.SavepointInfo.TriggerID = ""
+				app.Status.SavepointTriggerID = ""
 				return true, client.GetRetryableError(errors.New("failed to take savepoint"),
 					v1beta1.CancelJobWithSavepoint, "500", math.MaxInt32)
 			} else if status.SavepointStatus.Status == client.SavePointCompleted {
 				// we're done, clean up
 				s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "CanceledJob",
 					fmt.Sprintf("Cancelled job with savepoint '%s'", status.Operation.Location))
-				app.Spec.SavepointInfo.SavepointLocation = status.Operation.Location
-				app.Spec.SavepointInfo.TriggerID = ""
+				app.Status.SavepointPath = status.Operation.Location
+				app.Status.SavepointTriggerID = ""
 			}
 		}
 
