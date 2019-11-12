@@ -218,7 +218,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	c.Assert(app.Spec.SavepointInfo.SavepointLocation, NotNil)
+	c.Assert(app.Status.SavepointPath, NotNil)
 	job := func() map[string]interface{} {
 		jobs, _ := s.Util.FlinkAPIGet(app, "/jobs")
 		jobMap := jobs.(map[string]interface{})

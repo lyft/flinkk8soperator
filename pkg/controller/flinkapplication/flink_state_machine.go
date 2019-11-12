@@ -665,18 +665,26 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 		return applicationUnchanged, err
 	}
 
-	if app.Status.SavepointTriggerID == "" && jobFinished(job) {
-		// there are no running jobs for this application and we've completed savepointing, we can just tear down
-		return s.clearFinalizers(app)
-	}
 
 	switch app.Spec.DeleteMode {
 	case v1beta1.DeleteModeForceCancel:
-		logger.Infof(ctx, "Force cancelling job as part of cleanup")
+		if job.State == client.Cancelling {
+			// we've already cancelled the job, waiting for it to finish
+			return applicationUnchanged, nil
+		} else if jobFinished(job) {
+			// job was successfully cancelled
+			return s.clearFinalizers(app)
+		}
+
+		logger.Infof(ctx, "Force-cancelling job without a savepoint")
 		return applicationUnchanged, s.flinkController.ForceCancel(ctx, app, app.Status.DeployHash)
 	case v1beta1.DeleteModeSavepoint, "":
 		if app.Status.SavepointPath != "" {
 			// we've already created the savepoint, now just waiting for the job to be cancelled
+			if jobFinished(job) {
+				return s.clearFinalizers(app)
+			}
+
 			return applicationUnchanged, nil
 		}
 
