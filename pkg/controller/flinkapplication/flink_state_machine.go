@@ -457,9 +457,17 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	if app.Status.JobStatus.JobID == "" {
-		savepointPath := app.Spec.SavepointPath
-		if savepointPath == "" {
-			savepointPath = app.Spec.SavepointInfo.SavepointLocation
+		savepointPath := ""
+		if app.Status.DeployHash == "" {
+			// this is the first deploy, use the user-provided savepoint
+			savepointPath = app.Spec.SavepointPath
+			if savepointPath == "" {
+				// fall back to the old config for backwards-compatibility
+				savepointPath = app.Spec.SavepointInfo.SavepointLocation
+			}
+		} else {
+			// otherwise use the savepoint created by the operator
+			savepointPath = app.Status.SavepointPath
 		}
 
 		appJobID, err := s.submitJobIfNeeded(ctx, app, hash,
@@ -664,7 +672,6 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	if err != nil {
 		return applicationUnchanged, err
 	}
-
 
 	switch app.Spec.DeleteMode {
 	case v1beta1.DeleteModeForceCancel:

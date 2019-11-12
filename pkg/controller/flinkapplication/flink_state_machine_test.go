@@ -770,6 +770,7 @@ func TestDeleteWithSavepointAndFinishedJob(t *testing.T) {
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:      v1beta1.FlinkApplicationDeleting,
 			DeployHash: "deployhash",
+			SavepointPath: "file:///savepoint",
 			JobStatus: v1beta1.FlinkJobStatus{
 				JobID: jobID,
 			},
