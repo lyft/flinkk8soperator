@@ -232,7 +232,7 @@ func TestFlinkIsServiceReadyErr(t *testing.T) {
 func TestFlinkGetSavepointStatus(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Spec.SavepointInfo.TriggerID = "t1"
+	flinkApp.Status.SavepointTriggerID = "t1"
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.CheckSavepointStatusFunc = func(ctx context.Context, url string, jobID, triggerID string) (*client.SavepointResponse, error) {
@@ -428,7 +428,7 @@ func TestStartFlinkJob(t *testing.T) {
 	flinkApp.Spec.ProgramArgs = "args"
 	flinkApp.Spec.EntryClass = "class"
 	flinkApp.Spec.JarName = "jar-name"
-	flinkApp.Spec.SavepointInfo.SavepointLocation = "location//"
+	flinkApp.Spec.SavepointPath = "location//"
 	flinkApp.Spec.FlinkVersion = "1.7"
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
@@ -446,7 +446,8 @@ func TestStartFlinkJob(t *testing.T) {
 		}, nil
 	}
 	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
-		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs, flinkApp.Spec.AllowNonRestoredState)
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs,
+		flinkApp.Spec.AllowNonRestoredState, "location//")
 	assert.Nil(t, err)
 	assert.Equal(t, jobID, testJobID)
 }
@@ -465,7 +466,8 @@ func TestStartFlinkJobAllowNonRestoredState(t *testing.T) {
 		}, nil
 	}
 	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
-		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs, flinkApp.Spec.AllowNonRestoredState)
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs,
+		flinkApp.Spec.AllowNonRestoredState, "")
 	assert.Nil(t, err)
 	assert.Equal(t, jobID, testJobID)
 }
@@ -480,7 +482,8 @@ func TestStartFlinkJobEmptyJobID(t *testing.T) {
 		return &client.SubmitJobResponse{}, nil
 	}
 	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
-		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs, flinkApp.Spec.AllowNonRestoredState)
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs,
+		flinkApp.Spec.AllowNonRestoredState, "")
 	assert.EqualError(t, err, "unable to submit job: invalid job id")
 	assert.Empty(t, jobID)
 }
@@ -494,7 +497,8 @@ func TestStartFlinkJobErr(t *testing.T) {
 		return nil, errors.New("submit error")
 	}
 	jobID, err := flinkControllerForTest.StartFlinkJob(context.Background(), &flinkApp, "hash",
-		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs, flinkApp.Spec.AllowNonRestoredState)
+		flinkApp.Spec.JarName, flinkApp.Spec.Parallelism, flinkApp.Spec.EntryClass, flinkApp.Spec.ProgramArgs,
+		flinkApp.Spec.AllowNonRestoredState, "")
 	assert.EqualError(t, err, "submit error")
 	assert.Empty(t, jobID)
 }

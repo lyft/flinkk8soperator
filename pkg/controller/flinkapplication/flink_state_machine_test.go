@@ -177,9 +177,9 @@ func TestHandleApplicationSavepointingDual(t *testing.T) {
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		if updateCount == 0 {
-			assert.Equal(t, "trigger", application.Spec.SavepointInfo.TriggerID)
+			assert.Equal(t, "trigger", application.Status.SavepointTriggerID)
 		} else {
-			assert.Equal(t, testSavepointLocation, application.Spec.SavepointInfo.SavepointLocation)
+			assert.Equal(t, testSavepointLocation, application.Status.SavepointPath)
 			assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
 		}
 
@@ -212,13 +212,11 @@ func TestHandleApplicationSavepointingFailed(t *testing.T) {
 
 	app := v1beta1.FlinkApplication{
 		Spec: v1beta1.FlinkApplicationSpec{
-			SavepointInfo: v1beta1.SavepointInfo{
-				TriggerID: "trigger",
-			},
 		},
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:      v1beta1.FlinkApplicationSavepointing,
 			DeployHash: "blah",
+			SavepointTriggerID: "trigger",
 		},
 	}
 	hash := flink.HashForApplication(&app)
@@ -242,13 +240,11 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 
 	app := v1beta1.FlinkApplication{
 		Spec: v1beta1.FlinkApplicationSpec{
-			SavepointInfo: v1beta1.SavepointInfo{
-				TriggerID: "trigger",
-			},
 		},
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:      v1beta1.FlinkApplicationSavepointing,
 			DeployHash: "blah",
+			SavepointTriggerID: "trigger",
 		},
 	}
 
@@ -269,7 +265,7 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
-		assert.Equal(t, "/tmp/checkpoint", application.Spec.SavepointInfo.SavepointLocation)
+		assert.Equal(t, "/tmp/checkpoint", application.Status.SavepointPath)
 		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
 		updateInvoked = true
 		return nil
@@ -316,7 +312,7 @@ func TestSubmittingToRunning(t *testing.T) {
 
 	startCount := 0
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
 
 		assert.Equal(t, appHash, hash)
 		assert.Equal(t, app.Spec.JarName, jarName)
@@ -324,6 +320,7 @@ func TestSubmittingToRunning(t *testing.T) {
 		assert.Equal(t, app.Spec.EntryClass, entryClass)
 		assert.Equal(t, app.Spec.ProgramArgs, programArgs)
 		assert.Equal(t, app.Spec.AllowNonRestoredState, allowNonRestoredState)
+		assert.Equal(t, app.Spec.SavepointPath, savepointPath)
 
 		startCount++
 		return jobID, nil
@@ -401,7 +398,7 @@ func TestHandleApplicationNotReady(t *testing.T) {
 		return nil, nil
 	}
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
 		assert.False(t, true)
 		return "", nil
 	}
@@ -497,6 +494,7 @@ func TestRollingBack(t *testing.T) {
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:      v1beta1.FlinkApplicationRollingBackJob,
 			DeployHash: "old-hash",
+			SavepointPath: "file:///savepoint",
 			JobStatus: v1beta1.FlinkJobStatus{
 				JarName:     "old-job.jar",
 				Parallelism: 10,
@@ -516,7 +514,7 @@ func TestRollingBack(t *testing.T) {
 
 	startCalled := false
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
 
 		startCalled = true
 		assert.Equal(t, "old-hash", hash)
@@ -525,6 +523,7 @@ func TestRollingBack(t *testing.T) {
 		assert.Equal(t, app.Status.JobStatus.EntryClass, entryClass)
 		assert.Equal(t, app.Status.JobStatus.ProgramArgs, programArgs)
 		assert.Equal(t, app.Status.JobStatus.AllowNonRestoredState, allowNonRestoredState)
+		assert.Equal(t, app.Status.SavepointPath, savepointPath)
 		return jobID, nil
 	}
 
@@ -694,11 +693,11 @@ func TestDeleteWithSavepoint(t *testing.T) {
 		assert.Equal(t, v1beta1.FlinkApplicationDeleting, application.Status.Phase)
 
 		if updateCount == 1 {
-			assert.Equal(t, triggerID, application.Spec.SavepointInfo.TriggerID)
+			assert.Equal(t, triggerID, application.Status.SavepointTriggerID)
 		} else if updateCount == 2 {
 			assert.NotNil(t, application.Status.LastSeenError)
 		} else if updateCount == 3 {
-			assert.Equal(t, savepointPath, application.Spec.SavepointInfo.SavepointLocation)
+			assert.Equal(t, savepointPath, application.Status.SavepointPath)
 		} else if updateCount == 4 {
 			assert.Equal(t, 0, len(app.Finalizers))
 		}
@@ -1056,7 +1055,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	}
 	failFastError := client.GetNonRetryableError(errors.New("blah"), "SubmitJob", "400BadRequest")
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
 		return "", failFastError
 	}
 

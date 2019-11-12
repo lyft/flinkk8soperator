@@ -549,7 +549,8 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 
 	if jobID != "" {
 		app.Status.JobStatus.JobID = jobID
-		app.Spec.SavepointInfo = v1beta1.SavepointInfo{}
+		app.Status.SavepointPath = ""
+		app.Status.SavepointTriggerID = ""
 		// move to the deploy failed state
 		return s.deployFailed(ctx, app)
 	}
@@ -664,8 +665,8 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 		return applicationUnchanged, err
 	}
 
-	if jobFinished(job) {
-		// there are no running jobs for this application, we can just tear down
+	if app.Status.SavepointTriggerID == "" && jobFinished(job) {
+		// there are no running jobs for this application and we've completed savepointing, we can just tear down
 		return s.clearFinalizers(app)
 	}
 
