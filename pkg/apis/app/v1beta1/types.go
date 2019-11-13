@@ -40,7 +40,7 @@ type FlinkApplicationSpec struct {
 	Parallelism        int32                        `json:"parallelism"`
 	EntryClass         string                       `json:"entryClass,omitempty"`
 	ProgramArgs        string                       `json:"programArgs,omitempty"`
-	// Deprecated
+	// Deprecated: use SavepointPath instead
 	SavepointInfo         SavepointInfo       `json:"savepointInfo,omitempty"`
 	SavepointPath         string              `json:"savepointPath,omitempty"`
 	DeploymentMode        DeploymentMode      `json:"deploymentMode,omitempty"`

@@ -223,7 +223,7 @@ func TestHandleApplicationSavepointingFailed(t *testing.T) {
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
-		assert.Empty(t, application.Spec.SavepointInfo.SavepointLocation)
+		assert.Empty(t, application.Status.SavepointPath)
 		assert.Equal(t, hash, application.Status.FailedDeployHash)
 		assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
 		updateInvoked = true

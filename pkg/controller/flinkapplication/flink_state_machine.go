@@ -462,7 +462,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 			// this is the first deploy, use the user-provided savepoint
 			savepointPath = app.Spec.SavepointPath
 			if savepointPath == "" {
-				// fall back to the old config for backwards-compatibility
+				//nolint // fall back to the old config for backwards-compatibility
 				savepointPath = app.Spec.SavepointInfo.SavepointLocation
 			}
 		} else {
