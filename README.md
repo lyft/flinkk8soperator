@@ -21,7 +21,7 @@ The operator is in use for some less-critical jobs at Lyft. At this point the fo
 Beta, we will attempt to limit the number of backwards-incompatible changes, but they may still occur as necessary. 
 
 ## Prerequisites
-* Version >= 1.9 of Kubernetes.
+* Version >= 1.10 of Kubernetes (versions < 1.13 require `--feature-gates=CustomResourceSubresources=true`)
 * Version >= 1.7 of Apache Flink.
 
 ## Overview
