@@ -2,7 +2,7 @@
 
 set -e
 
-sudo snap install microk8s --classic --channel=1.13/stable
+sudo snap install microk8s --classic --channel=1.10/stable
 microk8s.status --wait-ready
 microk8s.enable dns
 microk8s.enable registry
