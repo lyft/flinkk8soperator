@@ -38,6 +38,8 @@ type ClusterInterface interface {
 	CreateK8Object(ctx context.Context, object runtime.Object) error
 	UpdateK8Object(ctx context.Context, object runtime.Object) error
 	DeleteK8Object(ctx context.Context, object runtime.Object) error
+
+	UpdateStatus(ctx context.Context, object runtime.Object) error
 }
 
 func NewK8Cluster(mgr manager.Manager, cfg config.RuntimeConfig) ClusterInterface {
@@ -170,7 +172,7 @@ func (k *Cluster) CreateK8Object(ctx context.Context, object runtime.Object) err
 	objCreate := object.DeepCopyObject()
 	err := k.client.Create(ctx, objCreate)
 	if err != nil {
-		logger.Errorf(ctx, "K8 object creation failed %v", err)
+		logger.Errorf(ctx, "K8s object creation failed %v", err)
 		k.metrics.createFailure.Inc(ctx)
 		return err
 	}
@@ -186,7 +188,25 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) err
 			logger.Warnf(ctx, "Conflict while updating object")
 			k.metrics.updateConflicts.Inc(ctx)
 		} else {
-			logger.Errorf(ctx, "K8 object update failed %v", err)
+			logger.Errorf(ctx, "K8s object update failed %v", err)
+			k.metrics.updateFailure.Inc(ctx)
+		}
+		return err
+	}
+	k.metrics.updateSuccess.Inc(ctx)
+	return nil
+}
+
+func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error {
+	objectCopy := object.DeepCopyObject()
+
+	err := k.client.Status().Update(ctx, objectCopy)
+	if err != nil {
+		if errors.IsConflict(err) {
+			logger.Warnf(ctx, "Conflict while updating status")
+			k.metrics.updateConflicts.Inc(ctx)
+		} else {
+			logger.Errorf(ctx, "K8s object update failed %v", err)
 			k.metrics.updateFailure.Inc(ctx)
 		}
 		return err
@@ -199,7 +219,7 @@ func (k *Cluster) DeleteK8Object(ctx context.Context, object runtime.Object) err
 	objDelete := object.DeepCopyObject()
 	err := k.client.Delete(ctx, objDelete)
 	if err != nil {
-		logger.Errorf(ctx, "K8 object delete failed %v", err)
+		logger.Errorf(ctx, "K8s object delete failed %v", err)
 		k.metrics.deleteFailure.Inc(ctx)
 		return err
 	}

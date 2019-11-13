@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	jobFinalizer         = "job.finalizers.flink.k8s.io"
-	applicationChanged   = true
-	applicationUnchanged = false
+	jobFinalizer    = "job.finalizers.flink.k8s.io"
+	statusChanged   = true
+	statusUnchanged = false
 )
 
 // The core state machine that manages Flink clusters and jobs. See docs/state_machine.md for a description of the
@@ -128,13 +128,13 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.Fli
 	successTimer := s.metrics.stateMachineHandleSuccessPhaseMap[currentPhase].Start(ctx)
 
 	defer timer.Stop()
-	updateApplication, err := s.handle(ctx, application)
+	updateStatus, err := s.handle(ctx, application)
 
 	// Update k8s object
-	if updateApplication {
+	if updateStatus {
 		now := v1.NewTime(s.clock.Now())
 		application.Status.LastUpdatedAt = &now
-		updateAppErr := s.k8Cluster.UpdateK8Object(ctx, application)
+		updateAppErr := s.k8Cluster.UpdateStatus(ctx, application)
 		if updateAppErr != nil {
 			s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
 			return updateAppErr
@@ -157,7 +157,7 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 	if !application.ObjectMeta.DeletionTimestamp.IsZero() && appPhase != v1beta1.FlinkApplicationDeleting {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationDeleting)
 		// Always perform a single application update per callback
-		return applicationChanged, nil
+		return statusChanged, nil
 	}
 
 	if s.IsTimeToHandlePhase(application) {
@@ -229,11 +229,11 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
-		return applicationUnchanged, err
+		return statusUnchanged, err
 	}
 
 	s.updateApplicationPhase(application, v1beta1.FlinkApplicationClusterStarting)
-	return applicationChanged, nil
+	return statusChanged, nil
 }
 
 func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
@@ -248,7 +248,7 @@ func (s *FlinkStateMachine) deployFailed(ctx context.Context, app *v1beta1.Flink
 	app.Status.RetryCount = 0
 
 	s.updateApplicationPhase(app, v1beta1.FlinkApplicationDeployFailed)
-	return applicationChanged, nil
+	return statusChanged, nil
 }
 
 // Create the underlying Kubernetes objects for the new cluster
@@ -265,29 +265,29 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	// Wait for all to be running
 	ready, err := s.flinkController.IsClusterReady(ctx, application)
 	if err != nil {
-		return applicationUnchanged, err
+		return statusUnchanged, err
 	}
 	if !ready {
-		return applicationUnchanged, nil
+		return statusUnchanged, nil
 	}
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
 	// TODO: in single mode move to submitting job
 	s.updateApplicationPhase(application, v1beta1.FlinkApplicationSavepointing)
-	return applicationChanged, nil
+	return statusChanged, nil
 }
 
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
-	if application.Spec.SavepointInfo.SavepointLocation != "" || application.Status.DeployHash == "" {
+	if application.Status.SavepointPath != "" || application.Status.DeployHash == "" {
 		application.Status.JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
-		return applicationChanged, nil
+		return statusChanged, nil
 	}
 
 	// we haven't started savepointing yet; do so now
 	// TODO: figure out the idempotence of this
-	if application.Spec.SavepointInfo.TriggerID == "" {
+	if application.Status.SavepointTriggerID == "" {
 		if rollback, reason := s.shouldRollback(ctx, application); rollback {
 			// we were unable to start savepointing for our failure period, so roll back
 			// TODO: we should think about how to handle the case where the cluster has started savepointing, but does
@@ -300,20 +300,20 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 		triggerID, err := s.flinkController.CancelWithSavepoint(ctx, application, application.Status.DeployHash)
 		if err != nil {
-			return applicationUnchanged, err
+			return statusUnchanged, err
 		}
 
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CancellingJob",
 			fmt.Sprintf("Cancelling job %s with a final savepoint", application.Status.JobStatus.JobID))
 
-		application.Spec.SavepointInfo.TriggerID = triggerID
-		return applicationChanged, nil
+		application.Status.SavepointTriggerID = triggerID
+		return statusChanged, nil
 	}
 
 	// check the savepoints in progress
 	savepointStatusResponse, err := s.flinkController.GetSavepointStatus(ctx, application, application.Status.DeployHash)
 	if err != nil {
-		return applicationUnchanged, err
+		return statusUnchanged, err
 	}
 
 	var restorePath string
@@ -348,17 +348,18 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	}
 
 	if restorePath != "" {
-		application.Spec.SavepointInfo.SavepointLocation = restorePath
+		application.Status.SavepointPath = restorePath
 		application.Status.JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
-		return applicationChanged, nil
+		return statusChanged, nil
 	}
 
-	return applicationUnchanged, nil
+	return statusUnchanged, nil
 }
 
 func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.FlinkApplication, hash string,
-	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool,
+	savepointPath string) (string, error) {
 	isReady, _ := s.flinkController.IsServiceReady(ctx, app, hash)
 	// Ignore errors
 	if !isReady {
@@ -387,8 +388,9 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.
 	case 0:
 		// no active jobs, we need to submit a new one
 		logger.Infof(ctx, "No job found for the application")
+
 		jobID, err := s.flinkController.StartFlinkJob(ctx, app, hash,
-			jarName, parallelism, entryClass, programArgs, allowNonRestoredState)
+			jarName, parallelism, entryClass, programArgs, allowNonRestoredState, savepointPath)
 		if err != nil {
 			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
 				fmt.Sprintf("Failed to submit job to cluster for deploy %s: %v", hash, err))
@@ -438,14 +440,14 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobsSubmissionFailed",
 			fmt.Sprintf("Failed to submit job: %s", reason))
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
-		return applicationChanged, nil
+		return statusChanged, nil
 	}
 
 	// switch the service to point to the new jobmanager
 	hash := flink.HashForApplication(app)
 	err := s.updateGenericService(ctx, app, hash)
 	if err != nil {
-		return applicationUnchanged, err
+		return statusUnchanged, err
 	}
 
 	// Update status of the cluster
@@ -455,32 +457,46 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	if app.Status.JobStatus.JobID == "" {
+		savepointPath := ""
+		if app.Status.DeployHash == "" {
+			// this is the first deploy, use the user-provided savepoint
+			savepointPath = app.Spec.SavepointPath
+			if savepointPath == "" {
+				//nolint // fall back to the old config for backwards-compatibility
+				savepointPath = app.Spec.SavepointInfo.SavepointLocation
+			}
+		} else {
+			// otherwise use the savepoint created by the operator
+			savepointPath = app.Status.SavepointPath
+		}
+
 		appJobID, err := s.submitJobIfNeeded(ctx, app, hash,
-			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs, app.Spec.AllowNonRestoredState)
+			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs,
+			app.Spec.AllowNonRestoredState, savepointPath)
 		if err != nil {
-			return applicationUnchanged, err
+			return statusUnchanged, err
 		}
 
 		if appJobID != "" {
 			app.Status.JobStatus.JobID = appJobID
-			return applicationChanged, nil
+			return statusChanged, nil
 		}
 
 		// we weren't ready to submit yet
-		return applicationUnchanged, nil
+		return statusUnchanged, nil
 	}
 
 	// get the state of the current application
 	job, err := s.flinkController.GetJobForApplication(ctx, app, hash)
 	if err != nil {
-		return applicationUnchanged, err
+		return statusUnchanged, err
 	}
 
 	if job.State == client.Running {
-		// Clear the savepoint info
-		app.Spec.SavepointInfo = v1beta1.SavepointInfo{}
 		// Update the application status with the running job info
 		app.Status.DeployHash = hash
+		app.Status.SavepointPath = ""
+		app.Status.SavepointTriggerID = ""
 		app.Status.JobStatus.JarName = app.Spec.JarName
 		app.Status.JobStatus.Parallelism = app.Spec.Parallelism
 		app.Status.JobStatus.EntryClass = app.Spec.EntryClass
@@ -488,10 +504,10 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		app.Status.JobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
 
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRunning)
-		return applicationChanged, nil
+		return statusChanged, nil
 	}
 
-	return applicationUnchanged, nil
+	return statusUnchanged, nil
 }
 
 // Something has gone wrong during the update, post job-cancellation (and cluster tear-down in single mode). We need
@@ -516,36 +532,38 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 	// update the service to point back to the old deployment if needed
 	err := s.updateGenericService(ctx, app, app.Status.DeployHash)
 	if err != nil {
-		return applicationUnchanged, err
+		return statusUnchanged, err
 	}
 
 	// wait until the service is ready
 	isReady, _ := s.flinkController.IsServiceReady(ctx, app, app.Status.DeployHash)
 	// Ignore errors
 	if !isReady {
-		return applicationUnchanged, nil
+		return statusUnchanged, nil
 	}
 
 	// submit the old job
 	jobID, err := s.submitJobIfNeeded(ctx, app, app.Status.DeployHash,
 		app.Status.JobStatus.JarName, app.Status.JobStatus.Parallelism,
 		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs,
-		app.Status.JobStatus.AllowNonRestoredState)
+		app.Status.JobStatus.AllowNonRestoredState,
+		app.Status.SavepointPath)
 
 	// set rollbackHash
 	app.Status.RollbackHash = app.Status.DeployHash
 	if err != nil {
-		return applicationUnchanged, err
+		return statusUnchanged, err
 	}
 
 	if jobID != "" {
 		app.Status.JobStatus.JobID = jobID
-		app.Spec.SavepointInfo = v1beta1.SavepointInfo{}
+		app.Status.SavepointPath = ""
+		app.Status.SavepointTriggerID = ""
 		// move to the deploy failed state
 		return s.deployFailed(ctx, app)
 	}
 
-	return applicationUnchanged, nil
+	return statusUnchanged, nil
 }
 
 // Check if the application is Running.
@@ -554,7 +572,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	job, err := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
 	if err != nil {
 		// TODO: think more about this case
-		return applicationUnchanged, err
+		return statusUnchanged, err
 	}
 
 	if job == nil {
@@ -565,7 +583,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 
 	cur, err := s.flinkController.GetCurrentDeploymentsForApp(ctx, application)
 	if err != nil {
-		return applicationUnchanged, err
+		return statusUnchanged, err
 	}
 
 	// If the application has changed (i.e., there are no current deployments), and we haven't already failed trying to
@@ -574,7 +592,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 		// TODO: handle single mode
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
-		return applicationChanged, nil
+		return statusChanged, nil
 	}
 
 	// If there are old resources left-over from a previous version, clean them up
@@ -597,10 +615,10 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 
 	// Update k8s object if either job or cluster status has changed
 	if hasJobStatusChanged || hasClusterStatusChanged {
-		return applicationChanged, nil
+		return statusChanged, nil
 	}
 
-	return applicationUnchanged, nil
+	return statusUnchanged, nil
 }
 
 func (s *FlinkStateMachine) addFinalizerIfMissing(ctx context.Context, application *v1beta1.FlinkApplication, finalizer string) error {
@@ -626,9 +644,9 @@ func removeString(list []string, target string) []string {
 	return ret
 }
 
-func (s *FlinkStateMachine) clearFinalizers(app *v1beta1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) clearFinalizers(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	app.Finalizers = removeString(app.Finalizers, jobFinalizer)
-	return applicationChanged, nil
+	return statusUnchanged, s.k8Cluster.UpdateK8Object(ctx, app)
 }
 
 func jobFinished(job *client.FlinkJobOverview) bool {
@@ -647,43 +665,50 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	// If the delete mode is none or there's no deployhash set (which means we failed to submit the job on the
 	// first deploy) just delete the finalizer so the cluster can be torn down
 	if app.Spec.DeleteMode == v1beta1.DeleteModeNone || app.Status.DeployHash == "" {
-		return s.clearFinalizers(app)
+		return s.clearFinalizers(ctx, app)
 	}
 
 	job, err := s.flinkController.GetJobForApplication(ctx, app, app.Status.DeployHash)
 	if err != nil {
-		return applicationUnchanged, err
-	}
-
-	if jobFinished(job) {
-		// there are no running jobs for this application, we can just tear down
-		return s.clearFinalizers(app)
+		return statusUnchanged, err
 	}
 
 	switch app.Spec.DeleteMode {
 	case v1beta1.DeleteModeForceCancel:
-		logger.Infof(ctx, "Force cancelling job as part of cleanup")
-		return applicationUnchanged, s.flinkController.ForceCancel(ctx, app, app.Status.DeployHash)
-	case v1beta1.DeleteModeSavepoint, "":
-		if app.Spec.SavepointInfo.SavepointLocation != "" {
-			// we've already created the savepoint, now just waiting for the job to be cancelled
-			return applicationUnchanged, nil
+		if job.State == client.Cancelling {
+			// we've already cancelled the job, waiting for it to finish
+			return statusUnchanged, nil
+		} else if jobFinished(job) {
+			// job was successfully cancelled
+			return s.clearFinalizers(ctx, app)
 		}
 
-		if app.Spec.SavepointInfo.TriggerID == "" {
+		logger.Infof(ctx, "Force-cancelling job without a savepoint")
+		return statusUnchanged, s.flinkController.ForceCancel(ctx, app, app.Status.DeployHash)
+	case v1beta1.DeleteModeSavepoint, "":
+		if app.Status.SavepointPath != "" {
+			// we've already created the savepoint, now just waiting for the job to be cancelled
+			if jobFinished(job) {
+				return s.clearFinalizers(ctx, app)
+			}
+
+			return statusUnchanged, nil
+		}
+
+		if app.Status.SavepointTriggerID == "" {
 			// delete with savepoint
 			triggerID, err := s.flinkController.CancelWithSavepoint(ctx, app, app.Status.DeployHash)
 			if err != nil {
-				return applicationUnchanged, err
+				return statusUnchanged, err
 			}
 			s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "CancellingJob",
 				fmt.Sprintf("Cancelling job with savepoint %v", triggerID))
-			app.Spec.SavepointInfo.TriggerID = triggerID
+			app.Status.SavepointTriggerID = triggerID
 		} else {
 			// we've already started savepointing; check the status
 			status, err := s.flinkController.GetSavepointStatus(ctx, app, app.Status.DeployHash)
 			if err != nil {
-				return applicationUnchanged, err
+				return statusUnchanged, err
 			}
 
 			if status.Operation.Location == "" && status.SavepointStatus.Status != client.SavePointInProgress {
@@ -691,31 +716,31 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 				s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "SavepointFailed",
 					fmt.Sprintf("Failed to take savepoint %v", status.Operation.FailureCause))
 				// clear the trigger id so that we can try again
-				app.Spec.SavepointInfo.TriggerID = ""
+				app.Status.SavepointTriggerID = ""
 				return true, client.GetRetryableError(errors.New("failed to take savepoint"),
 					v1beta1.CancelJobWithSavepoint, "500", math.MaxInt32)
 			} else if status.SavepointStatus.Status == client.SavePointCompleted {
 				// we're done, clean up
 				s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "CanceledJob",
 					fmt.Sprintf("Cancelled job with savepoint '%s'", status.Operation.Location))
-				app.Spec.SavepointInfo.SavepointLocation = status.Operation.Location
-				app.Spec.SavepointInfo.TriggerID = ""
+				app.Status.SavepointPath = status.Operation.Location
+				app.Status.SavepointTriggerID = ""
 			}
 		}
 
-		return applicationChanged, nil
+		return statusChanged, nil
 	default:
 		logger.Errorf(ctx, "Unsupported DeleteMode %s", app.Spec.DeleteMode)
 	}
 
-	return applicationUnchanged, nil
+	return statusUnchanged, nil
 }
 
 func (s *FlinkStateMachine) compareAndUpdateError(application *v1beta1.FlinkApplication, err error) bool {
 	oldErr := application.Status.LastSeenError
 
 	if err == nil && oldErr == nil {
-		return applicationUnchanged
+		return statusUnchanged
 	}
 
 	if err == nil {
@@ -732,7 +757,7 @@ func (s *FlinkStateMachine) compareAndUpdateError(application *v1beta1.FlinkAppl
 		application.Status.LastSeenError.LastErrorUpdateTime = &now
 	}
 
-	return applicationChanged
+	return statusChanged
 
 }
 

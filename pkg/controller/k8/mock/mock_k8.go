@@ -13,6 +13,7 @@ type CreateK8ObjectFunc func(ctx context.Context, object runtime.Object) error
 type GetServiceFunc func(ctx context.Context, namespace string, name string) (*corev1.Service, error)
 type GetServiceWithLabelFunc func(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.ServiceList, error)
 type UpdateK8ObjectFunc func(ctx context.Context, object runtime.Object) error
+type UpdateStatusFunc func(ctx context.Context, object runtime.Object) error
 type DeleteK8ObjectFunc func(ctx context.Context, object runtime.Object) error
 
 type K8Cluster struct {
@@ -21,6 +22,7 @@ type K8Cluster struct {
 	GetServicesWithLabelFunc    GetServiceWithLabelFunc
 	CreateK8ObjectFunc          CreateK8ObjectFunc
 	UpdateK8ObjectFunc          UpdateK8ObjectFunc
+	UpdateStatusFunc            UpdateStatusFunc
 	DeleteK8ObjectFunc          DeleteK8ObjectFunc
 }
 
@@ -55,6 +57,13 @@ func (m *K8Cluster) CreateK8Object(ctx context.Context, object runtime.Object) e
 func (m *K8Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) error {
 	if m.UpdateK8ObjectFunc != nil {
 		return m.UpdateK8ObjectFunc(ctx, object)
+	}
+	return nil
+}
+
+func (m *K8Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error {
+	if m.UpdateStatusFunc != nil {
+		return m.UpdateStatusFunc(ctx, object)
 	}
 	return nil
 }

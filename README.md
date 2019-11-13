@@ -17,11 +17,11 @@ FlinkK8sOperator is a [Kubernetes operator](https://coreos.com/operators/) that 
 
 *Beta*
 
-The operator is in use for some less-crtical jobs at Lyft. At this point the focus is on testing and stability While in 
+The operator is in use for some less-critical jobs at Lyft. At this point the focus is on testing and stability While in 
 Beta, we will attempt to limit the number of backwards-incompatible changes, but they may still occur as necessary. 
 
 ## Prerequisites
-* Version >= 1.9 of Kubernetes.
+* Version >= 1.10 of Kubernetes (versions < 1.13 require `--feature-gates=CustomResourceSubresources=true`)
 * Version >= 1.7 of Apache Flink.
 
 ## Overview

@@ -89,6 +89,8 @@ spec:
               properties:
                 savepointLocation:
                   type: string
+            savepointPath:
+              type: string
             jobManagerConfig:
               type: object
               properties:
@@ -377,7 +379,8 @@ spec:
             - jarName
             - parallelism
             - entryClass
-
+  subresources:
+    status: {}
   additionalPrinterColumns:
     - name: Phase
       type: string

@@ -28,31 +28,33 @@ type FlinkApplication struct {
 }
 
 type FlinkApplicationSpec struct {
-	Image                 string                       `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
-	ImagePullPolicy       apiv1.PullPolicy             `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
-	ImagePullSecrets      []apiv1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
-	ServiceAccountName    string                       `json:"serviceAccountName,omitempty"`
-	FlinkConfig           FlinkConfig                  `json:"flinkConfig"`
-	FlinkVersion          string                       `json:"flinkVersion"`
-	TaskManagerConfig     TaskManagerConfig            `json:"taskManagerConfig,omitempty"`
-	JobManagerConfig      JobManagerConfig             `json:"jobManagerConfig,omitempty"`
-	JarName               string                       `json:"jarName"`
-	Parallelism           int32                        `json:"parallelism"`
-	EntryClass            string                       `json:"entryClass,omitempty"`
-	ProgramArgs           string                       `json:"programArgs,omitempty"`
-	SavepointInfo         SavepointInfo                `json:"savepointInfo,omitempty"`
-	DeploymentMode        DeploymentMode               `json:"deploymentMode,omitempty"`
-	RPCPort               *int32                       `json:"rpcPort,omitempty"`
-	BlobPort              *int32                       `json:"blobPort,omitempty"`
-	QueryPort             *int32                       `json:"queryPort,omitempty"`
-	UIPort                *int32                       `json:"uiPort,omitempty"`
-	MetricsQueryPort      *int32                       `json:"metricsQueryPort,omitempty"`
-	Volumes               []apiv1.Volume               `json:"volumes,omitempty"`
-	VolumeMounts          []apiv1.VolumeMount          `json:"volumeMounts,omitempty"`
-	RestartNonce          string                       `json:"restartNonce"`
-	DeleteMode            DeleteMode                   `json:"deleteMode,omitempty"`
-	AllowNonRestoredState bool                         `json:"allowNonRestoredState,omitempty"`
-	ForceRollback         bool                         `json:"forceRollback"`
+	Image              string                       `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
+	ImagePullPolicy    apiv1.PullPolicy             `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
+	ImagePullSecrets   []apiv1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
+	ServiceAccountName string                       `json:"serviceAccountName,omitempty"`
+	FlinkConfig        FlinkConfig                  `json:"flinkConfig"`
+	FlinkVersion       string                       `json:"flinkVersion"`
+	TaskManagerConfig  TaskManagerConfig            `json:"taskManagerConfig,omitempty"`
+	JobManagerConfig   JobManagerConfig             `json:"jobManagerConfig,omitempty"`
+	JarName            string                       `json:"jarName"`
+	Parallelism        int32                        `json:"parallelism"`
+	EntryClass         string                       `json:"entryClass,omitempty"`
+	ProgramArgs        string                       `json:"programArgs,omitempty"`
+	// Deprecated: use SavepointPath instead
+	SavepointInfo         SavepointInfo       `json:"savepointInfo,omitempty"`
+	SavepointPath         string              `json:"savepointPath,omitempty"`
+	DeploymentMode        DeploymentMode      `json:"deploymentMode,omitempty"`
+	RPCPort               *int32              `json:"rpcPort,omitempty"`
+	BlobPort              *int32              `json:"blobPort,omitempty"`
+	QueryPort             *int32              `json:"queryPort,omitempty"`
+	UIPort                *int32              `json:"uiPort,omitempty"`
+	MetricsQueryPort      *int32              `json:"metricsQueryPort,omitempty"`
+	Volumes               []apiv1.Volume      `json:"volumes,omitempty"`
+	VolumeMounts          []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
+	RestartNonce          string              `json:"restartNonce"`
+	DeleteMode            DeleteMode          `json:"deleteMode,omitempty"`
+	AllowNonRestoredState bool                `json:"allowNonRestoredState,omitempty"`
+	ForceRollback         bool                `json:"forceRollback"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -122,7 +124,6 @@ type EnvironmentConfig struct {
 
 type SavepointInfo struct {
 	SavepointLocation string `json:"savepointLocation,omitempty"`
-	TriggerID         string `json:"triggerId,omitempty"`
 }
 
 type FlinkClusterStatus struct {
@@ -157,17 +158,19 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase            FlinkApplicationPhase  `json:"phase"`
-	StartedAt        *metav1.Time           `json:"startedAt,omitempty"`
-	LastUpdatedAt    *metav1.Time           `json:"lastUpdatedAt,omitempty"`
-	Reason           string                 `json:"reason,omitempty"`
-	ClusterStatus    FlinkClusterStatus     `json:"clusterStatus,omitempty"`
-	JobStatus        FlinkJobStatus         `json:"jobStatus"`
-	FailedDeployHash string                 `json:"failedDeployHash,omitEmpty"`
-	RollbackHash     string                 `json:"rollbackHash,omitEmpty"`
-	DeployHash       string                 `json:"deployHash"`
-	RetryCount       int32                  `json:"retryCount,omitEmpty"`
-	LastSeenError    *FlinkApplicationError `json:"lastSeenError,omitEmpty"`
+	Phase              FlinkApplicationPhase  `json:"phase"`
+	StartedAt          *metav1.Time           `json:"startedAt,omitempty"`
+	LastUpdatedAt      *metav1.Time           `json:"lastUpdatedAt,omitempty"`
+	Reason             string                 `json:"reason,omitempty"`
+	ClusterStatus      FlinkClusterStatus     `json:"clusterStatus,omitempty"`
+	JobStatus          FlinkJobStatus         `json:"jobStatus"`
+	FailedDeployHash   string                 `json:"failedDeployHash,omitEmpty"`
+	RollbackHash       string                 `json:"rollbackHash,omitEmpty"`
+	DeployHash         string                 `json:"deployHash"`
+	SavepointTriggerID string                 `json:"savepointTriggerId,omitempty"`
+	SavepointPath      string                 `json:"savepointPath,omitempty"`
+	RetryCount         int32                  `json:"retryCount,omitEmpty"`
+	LastSeenError      *FlinkApplicationError `json:"lastSeenError,omitEmpty"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {

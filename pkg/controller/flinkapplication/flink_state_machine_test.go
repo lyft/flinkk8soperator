@@ -97,7 +97,7 @@ func TestHandleStartingDual(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationSavepointing, application.Status.Phase)
 		updateInvoked = true
@@ -125,7 +125,7 @@ func TestHandleApplicationSavepointingInitialDeploy(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
 		updateInvoked = true
@@ -174,12 +174,12 @@ func TestHandleApplicationSavepointingDual(t *testing.T) {
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	updateCount := 0
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		if updateCount == 0 {
-			assert.Equal(t, "trigger", application.Spec.SavepointInfo.TriggerID)
+			assert.Equal(t, "trigger", application.Status.SavepointTriggerID)
 		} else {
-			assert.Equal(t, testSavepointLocation, application.Spec.SavepointInfo.SavepointLocation)
+			assert.Equal(t, testSavepointLocation, application.Status.SavepointPath)
 			assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
 		}
 
@@ -211,22 +211,19 @@ func TestHandleApplicationSavepointingFailed(t *testing.T) {
 	}
 
 	app := v1beta1.FlinkApplication{
-		Spec: v1beta1.FlinkApplicationSpec{
-			SavepointInfo: v1beta1.SavepointInfo{
-				TriggerID: "trigger",
-			},
-		},
+		Spec: v1beta1.FlinkApplicationSpec{},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:      v1beta1.FlinkApplicationSavepointing,
-			DeployHash: "blah",
+			Phase:              v1beta1.FlinkApplicationSavepointing,
+			DeployHash:         "blah",
+			SavepointTriggerID: "trigger",
 		},
 	}
 	hash := flink.HashForApplication(&app)
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
-		assert.Empty(t, application.Spec.SavepointInfo.SavepointLocation)
+		assert.Empty(t, application.Status.SavepointPath)
 		assert.Equal(t, hash, application.Status.FailedDeployHash)
 		assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
 		updateInvoked = true
@@ -241,14 +238,11 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 	updateInvoked := false
 
 	app := v1beta1.FlinkApplication{
-		Spec: v1beta1.FlinkApplicationSpec{
-			SavepointInfo: v1beta1.SavepointInfo{
-				TriggerID: "trigger",
-			},
-		},
+		Spec: v1beta1.FlinkApplicationSpec{},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:      v1beta1.FlinkApplicationSavepointing,
-			DeployHash: "blah",
+			Phase:              v1beta1.FlinkApplicationSavepointing,
+			DeployHash:         "blah",
+			SavepointTriggerID: "trigger",
 		},
 	}
 
@@ -267,9 +261,9 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
-		assert.Equal(t, "/tmp/checkpoint", application.Spec.SavepointInfo.SavepointLocation)
+		assert.Equal(t, "/tmp/checkpoint", application.Status.SavepointPath)
 		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
 		updateInvoked = true
 		return nil
@@ -316,7 +310,7 @@ func TestSubmittingToRunning(t *testing.T) {
 
 	startCount := 0
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
 
 		assert.Equal(t, appHash, hash)
 		assert.Equal(t, app.Spec.JarName, jarName)
@@ -324,6 +318,7 @@ func TestSubmittingToRunning(t *testing.T) {
 		assert.Equal(t, app.Spec.EntryClass, entryClass)
 		assert.Equal(t, app.Spec.ProgramArgs, programArgs)
 		assert.Equal(t, app.Spec.AllowNonRestoredState, allowNonRestoredState)
+		assert.Equal(t, app.Spec.SavepointPath, savepointPath)
 
 		startCount++
 		return jobID, nil
@@ -364,10 +359,18 @@ func TestSubmittingToRunning(t *testing.T) {
 		} else if updateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobFinalizer, application.Finalizers[0])
-		} else if updateCount == 2 {
+		}
+
+		updateCount++
+		return nil
+	}
+
+	statusUpdateCount := 0
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+		if statusUpdateCount == 0 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobID, application.Status.JobStatus.JobID)
-		} else if updateCount == 3 {
+		} else if statusUpdateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, appHash, application.Status.DeployHash)
 			assert.Equal(t, app.Spec.JarName, app.Status.JobStatus.JarName)
@@ -376,8 +379,7 @@ func TestSubmittingToRunning(t *testing.T) {
 			assert.Equal(t, app.Spec.ProgramArgs, app.Status.JobStatus.ProgramArgs)
 			assert.Equal(t, v1beta1.FlinkApplicationRunning, application.Status.Phase)
 		}
-
-		updateCount++
+		statusUpdateCount++
 		return nil
 	}
 
@@ -387,7 +389,8 @@ func TestSubmittingToRunning(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, 1, startCount)
-	assert.Equal(t, 4, updateCount)
+	assert.Equal(t, 2, updateCount)
+	assert.Equal(t, 2, statusUpdateCount)
 }
 
 func TestHandleApplicationNotReady(t *testing.T) {
@@ -401,7 +404,7 @@ func TestHandleApplicationNotReady(t *testing.T) {
 		return nil, nil
 	}
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
 		assert.False(t, true)
 		return "", nil
 	}
@@ -465,7 +468,7 @@ func TestRunningToClusterStarting(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationUpdating, application.Status.Phase)
 		updateInvoked = true
@@ -495,8 +498,9 @@ func TestRollingBack(t *testing.T) {
 			ProgramArgs: "--test",
 		},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:      v1beta1.FlinkApplicationRollingBackJob,
-			DeployHash: "old-hash",
+			Phase:         v1beta1.FlinkApplicationRollingBackJob,
+			DeployHash:    "old-hash",
+			SavepointPath: "file:///savepoint",
 			JobStatus: v1beta1.FlinkJobStatus{
 				JarName:     "old-job.jar",
 				Parallelism: 10,
@@ -516,7 +520,7 @@ func TestRollingBack(t *testing.T) {
 
 	startCalled := false
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
 
 		startCalled = true
 		assert.Equal(t, "old-hash", hash)
@@ -525,6 +529,7 @@ func TestRollingBack(t *testing.T) {
 		assert.Equal(t, app.Status.JobStatus.EntryClass, entryClass)
 		assert.Equal(t, app.Status.JobStatus.ProgramArgs, programArgs)
 		assert.Equal(t, app.Status.JobStatus.AllowNonRestoredState, allowNonRestoredState)
+		assert.Equal(t, app.Status.SavepointPath, savepointPath)
 		return jobID, nil
 	}
 
@@ -578,13 +583,20 @@ func TestRollingBack(t *testing.T) {
 		} else if updateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobFinalizer, application.Finalizers[0])
-		} else if updateCount == 2 {
-			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, appHash, application.Status.FailedDeployHash)
-			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
 		}
 
 		updateCount++
+		return nil
+	}
+
+	statusUpdated := false
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+		if !statusUpdated {
+			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, appHash, application.Status.FailedDeployHash)
+			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
+			statusUpdated = true
+		}
 		return nil
 	}
 
@@ -594,7 +606,8 @@ func TestRollingBack(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.True(t, startCalled)
-	assert.Equal(t, 4, updateCount)
+	assert.True(t, statusUpdated)
+	assert.Equal(t, 2, updateCount)
 }
 
 func TestIsApplicationStuck(t *testing.T) {
@@ -688,28 +701,32 @@ func TestDeleteWithSavepoint(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	updateCount := 1
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	updateStatusCount := 0
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationDeleting, application.Status.Phase)
 
-		if updateCount == 1 {
-			assert.Equal(t, triggerID, application.Spec.SavepointInfo.TriggerID)
-		} else if updateCount == 2 {
+		if updateStatusCount == 0 {
+			assert.Equal(t, triggerID, application.Status.SavepointTriggerID)
+		} else if updateStatusCount == 1 {
 			assert.NotNil(t, application.Status.LastSeenError)
-		} else if updateCount == 3 {
-			assert.Equal(t, savepointPath, application.Spec.SavepointInfo.SavepointLocation)
-		} else if updateCount == 4 {
-			assert.Equal(t, 0, len(app.Finalizers))
+		} else if updateStatusCount == 2 {
+			assert.Equal(t, savepointPath, application.Status.SavepointPath)
 		}
 
-		updateCount++
+		updateStatusCount++
+		return nil
+	}
+
+	updated := false
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		assert.Equal(t, 0, len(app.Finalizers))
+		updated = true
 		return nil
 	}
 
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, updateCount)
 
 	savepointStatusCount := 0
 	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
@@ -745,7 +762,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 4, updateCount)
+	assert.Equal(t, 3, updateStatusCount)
 
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (jobs *client.FlinkJobOverview, err error) {
 		return &client.FlinkJobOverview{
@@ -757,7 +774,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 5, updateCount)
+	assert.True(t, updated)
 
 }
 
@@ -771,8 +788,9 @@ func TestDeleteWithSavepointAndFinishedJob(t *testing.T) {
 			DeletionTimestamp: &metav1.Time{Time: time.Now()},
 		},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:      v1beta1.FlinkApplicationDeleting,
-			DeployHash: "deployhash",
+			Phase:         v1beta1.FlinkApplicationDeleting,
+			DeployHash:    "deployhash",
+			SavepointPath: "file:///savepoint",
 			JobStatus: v1beta1.FlinkJobStatus{
 				JobID: jobID,
 			},
@@ -990,7 +1008,7 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 
 	updateErrCount := 0
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		updateErrCount++
 		return nil
 	}
@@ -1056,7 +1074,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	}
 	failFastError := client.GetNonRetryableError(errors.New("blah"), "SubmitJob", "400BadRequest")
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool) (string, error) {
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
 		return "", failFastError
 	}
 
