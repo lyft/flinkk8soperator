@@ -8,23 +8,27 @@ metadata:
     environment: development
 spec:
   image: docker.io/lyft/wordcount-operator-example:{sha}
+  deleteMode: None
   flinkConfig:
     taskmanager.heap.size: 200
+    taskmanager.network.memory.fraction: 0.1
+    taskmanager.network.memory.min: 10m
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints
+    web.upload.dir: /opt/flink
   jobManagerConfig:
     resources:
       requests:
         memory: "200Mi"
-        cpu: "0.2"
+        cpu: "0.1"
     replicas: 1
   taskManagerConfig:
     taskSlots: 2
     resources:
       requests:
         memory: "200Mi"
-        cpu: "0.2"
+        cpu: "0.1"
   flinkVersion: "1.8"
   jarName: "wordcount-operator-example-1.0.0-SNAPSHOT.jar"
   parallelism: 3
