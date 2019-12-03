@@ -49,6 +49,8 @@ type FlinkApplicationSpec struct {
 	QueryPort             *int32              `json:"queryPort,omitempty"`
 	UIPort                *int32              `json:"uiPort,omitempty"`
 	MetricsQueryPort      *int32              `json:"metricsQueryPort,omitempty"`
+	InitContainerImage    string              `json:"initContainerImageRepository"`
+	InitArgs		      []string            `json:ArgsForInitContainer`
 	Volumes               []apiv1.Volume      `json:"volumes,omitempty"`
 	VolumeMounts          []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
 	RestartNonce          string              `json:"restartNonce"`
