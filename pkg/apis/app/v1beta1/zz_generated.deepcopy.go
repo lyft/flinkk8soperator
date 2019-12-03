@@ -157,6 +157,11 @@ func (in *FlinkApplicationSpec) DeepCopyInto(out *FlinkApplicationSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.InitArgs != nil {
+		in, out := &in.InitArgs, &out.InitArgs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
 		*out = make([]v1.Volume, len(*in))
