@@ -1265,7 +1265,7 @@ func TestLastSeenErrTimeIsNil(t *testing.T) {
 }
 
 func TestCheckSavepointStatusFailing(t *testing.T) {
-	oldHash := "old-hash-force-nil"
+	oldHash := "old-hash-fail"
 	maxRetries := int32(1)
 	retryableErr := client.GetRetryableError(errors.New("blah"), "CheckSavepointStatus", "FAILED", 1)
 	app := v1beta1.FlinkApplication{
@@ -1327,7 +1327,6 @@ func TestCheckSavepointStatusFailing(t *testing.T) {
 }
 
 func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
-	oldHash := "old-hash"
 	retryableErr := client.GetRetryableError(errors.New("blah"), "CheckSavepointStatus", "FAILED", 1)
 	app := v1beta1.FlinkApplication{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1342,7 +1341,7 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 		},
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:              v1beta1.FlinkApplicationSavepointing,
-			DeployHash:         oldHash,
+			DeployHash:         "appHash",
 			LastSeenError:      retryableErr.(*v1beta1.FlinkApplicationError),
 			SavepointTriggerID: "trigger",
 		},
@@ -1376,7 +1375,7 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 	app.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
 
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
-		assert.Equal(t, "old-hash", hash)
+		assert.Equal(t, "appHash", hash)
 		return &client.FlinkJobOverview{
 			JobID: "jobID",
 			State: client.Failing,
