@@ -1369,6 +1369,7 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.NotNil(t, err)
 	assert.Equal(t, v1beta1.FlinkApplicationSavepointing, app.Status.Phase)
+	assert.NotNil(t, app.Status.LastSeenError)
 	// Try to force delete the app while it's in a savepointing state (with errors)
 	// We should handle the delete here
 	app.Status.Phase = v1beta1.FlinkApplicationDeleting
@@ -1387,6 +1388,8 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 	}
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
+	assert.Nil(t, app.Status.LastSeenError)
+	assert.Equal(t, int32(0), app.Status.RetryCount)
 	assert.Nil(t, app.GetFinalizers())
 
 }
