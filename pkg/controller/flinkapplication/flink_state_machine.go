@@ -320,14 +320,18 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	// check the savepoints in progress
 	savepointStatusResponse, err := s.flinkController.GetSavepointStatus(ctx, application, application.Status.DeployHash)
 	// Here shouldRollback() is used as a proxy to identify if we have exhausted all retries trying to GetSavepointStatus
-	// The application is NOT actually rolled back  because we're in a spot where there's no application running and we don't
+	// The application is NOT actually rolled back  because we're in a spot where there may be no application running and we don't
 	// have information on the last successful savepoint.
 	// In the event that rollback evaluates to True, we don't return immediately but allow for the remaining steps to proceed as normal.
-	rollback, _ := s.shouldRollback(ctx, application)
+	rollback, reason := s.shouldRollback(ctx, application)
 
 	if err != nil && !rollback {
 		return statusUnchanged, err
 	}
+
+	s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointStatusCheckFailed",
+		fmt.Sprintf("Exhausted retries trying to get status for savepoint for job %s: %v",
+			application.Status.JobStatus.JobID, reason))
 
 	var restorePath string
 	if savepointStatusResponse != nil && savepointStatusResponse.Operation.Location == "" &&
