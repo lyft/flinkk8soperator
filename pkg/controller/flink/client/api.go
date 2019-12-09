@@ -37,6 +37,7 @@ const httpPatch = "PATCH"
 const retryCount = 3
 const httpGetTimeOut = 5 * time.Second
 const defaultTimeOut = 1 * time.Minute
+const checkSavepointStatusRetries = 3
 
 // ProgramInvocationException is thrown when the entry class doesn't exist or throws an exception
 const programInvocationException = "org.apache.flink.client.program.ProgramInvocationException"
@@ -264,17 +265,17 @@ func (c *FlinkJobManagerClient) CheckSavepointStatus(ctx context.Context, url st
 	response, err := c.executeRequest(ctx, httpGet, url, nil)
 	if err != nil {
 		c.metrics.checkSavepointFailureCounter.Inc(ctx)
-		return nil, GetRetryableError(err, v1beta1.CheckSavepointStatus, GlobalFailure, DefaultRetries)
+		return nil, GetRetryableError(err, v1beta1.CheckSavepointStatus, GlobalFailure, checkSavepointStatusRetries)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.checkSavepointFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Check savepoint status failed with response %v", response))
-		return nil, GetRetryableError(err, v1beta1.CheckSavepointStatus, response.Status(), DefaultRetries)
+		return nil, GetRetryableError(err, v1beta1.CheckSavepointStatus, response.Status(), checkSavepointStatusRetries)
 	}
 	var savepointResponse SavepointResponse
 	if err = json.Unmarshal(response.Body(), &savepointResponse); err != nil {
 		logger.Errorf(ctx, "Unable to Unmarshal savepointResponse %v, err: %v", response, err)
-		return nil, GetRetryableError(err, v1beta1.CheckSavepointStatus, JSONUnmarshalError, DefaultRetries)
+		return nil, GetRetryableError(err, v1beta1.CheckSavepointStatus, JSONUnmarshalError, checkSavepointStatusRetries)
 	}
 	c.metrics.cancelJobSuccessCounter.Inc(ctx)
 	return &savepointResponse, nil
