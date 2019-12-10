@@ -1291,13 +1291,7 @@ func TestCheckSavepointStatusFailing(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
-		return &client.SavepointResponse{
-			SavepointStatus: client.SavepointStatusResponse{
-				Status: client.SavePointInvalid,
-			},
-			Operation: client.SavepointOperationResponse{
-				Location: "",
-			}}, retryableErr.(*v1beta1.FlinkApplicationError)
+		return nil, retryableErr.(*v1beta1.FlinkApplicationError)
 	}
 
 	mockFlinkController.FindExternalizedCheckpointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
@@ -1324,6 +1318,8 @@ func TestCheckSavepointStatusFailing(t *testing.T) {
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 	assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, app.Status.Phase)
+	assert.Equal(t, "/tmp/checkpoint", app.Status.SavepointPath)
+	assert.Equal(t, "", app.Status.JobStatus.JobID)
 }
 
 func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
@@ -1351,13 +1347,10 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
-		return &client.SavepointResponse{
-			SavepointStatus: client.SavepointStatusResponse{
-				Status: client.SavePointInvalid,
-			},
-			Operation: client.SavepointOperationResponse{
-				Location: "",
-			}}, retryableErr.(*v1beta1.FlinkApplicationError)
+		return nil, retryableErr.(*v1beta1.FlinkApplicationError)
+	}
+	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (s string, e error) {
+		return "triggerId", nil
 	}
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
 	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {

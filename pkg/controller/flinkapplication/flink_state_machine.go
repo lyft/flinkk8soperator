@@ -336,13 +336,15 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	}
 
 	var restorePath string
-	if savepointStatusResponse != nil && savepointStatusResponse.Operation.Location == "" &&
-		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
+	if rollback || (savepointStatusResponse.Operation.Location == "" &&
+		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress) {
 		// Savepointing failed
 		// TODO: we should probably retry this a few times before failing
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
-			fmt.Sprintf("Failed to take savepoint for job %s: %v",
-				application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
+		if savepointStatusResponse != nil {
+			s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
+				fmt.Sprintf("Failed to take savepoint for job %s: %v",
+					application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
+		}
 
 		// try to find an externalized checkpoint
 		path, err := s.flinkController.FindExternalizedCheckpoint(ctx, application, application.Status.DeployHash)
