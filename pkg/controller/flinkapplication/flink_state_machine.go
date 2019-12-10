@@ -329,9 +329,11 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		return statusUnchanged, err
 	}
 
-	s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointStatusCheckFailed",
-		fmt.Sprintf("Exhausted retries trying to get status for savepoint for job %s: %v",
-			application.Status.JobStatus.JobID, reason))
+	if err != nil && rollback {
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointStatusCheckFailed",
+			fmt.Sprintf("Exhausted retries trying to get status for savepoint for job %s: %v",
+				application.Status.JobStatus.JobID, reason))
+	}
 
 	var restorePath string
 	if savepointStatusResponse != nil && savepointStatusResponse.Operation.Location == "" &&
