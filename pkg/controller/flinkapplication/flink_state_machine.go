@@ -160,7 +160,7 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 		return statusChanged, nil
 	}
 
-	if s.IsTimeToHandlePhase(application) {
+	if s.IsTimeToHandlePhase(application, appPhase) {
 		if !v1beta1.IsRunningPhase(application.Status.Phase) {
 			logger.Infof(ctx, "Handling state for application")
 		}
@@ -193,7 +193,14 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 	return updateApplication || updateLastSeenError, appErr
 }
 
-func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1beta1.FlinkApplication) bool {
+func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1beta1.FlinkApplication, phase v1beta1.FlinkApplicationPhase) bool {
+	if phase == v1beta1.FlinkApplicationDeleting {
+		// reset lastSeenError and retryCount in case the application was failing in its previous phase
+		// We always want a Deleting phase to be handled
+		application.Status.LastSeenError = nil
+		application.Status.RetryCount = 0
+		return true
+	}
 	lastSeenError := application.Status.LastSeenError
 	if application.Status.LastSeenError == nil || !s.retryHandler.IsErrorRetryable(application.Status.LastSeenError) {
 		return true
@@ -312,18 +319,32 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 	// check the savepoints in progress
 	savepointStatusResponse, err := s.flinkController.GetSavepointStatus(ctx, application, application.Status.DeployHash)
-	if err != nil {
+	// Here shouldRollback() is used as a proxy to identify if we have exhausted all retries trying to GetSavepointStatus
+	// The application is NOT actually rolled back  because we're in a spot where there may be no application running and we don't
+	// have information on the last successful savepoint.
+	// In the event that rollback evaluates to True, we don't return immediately but allow for the remaining steps to proceed as normal.
+	rollback, reason := s.shouldRollback(ctx, application)
+
+	if err != nil && !rollback {
 		return statusUnchanged, err
 	}
 
+	if err != nil && rollback {
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointStatusCheckFailed",
+			fmt.Sprintf("Exhausted retries trying to get status for savepoint for job %s: %v",
+				application.Status.JobStatus.JobID, reason))
+	}
+
 	var restorePath string
-	if savepointStatusResponse.Operation.Location == "" &&
-		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
+	if rollback || (savepointStatusResponse.Operation.Location == "" &&
+		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress) {
 		// Savepointing failed
 		// TODO: we should probably retry this a few times before failing
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
-			fmt.Sprintf("Failed to take savepoint for job %s: %v",
-				application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
+		if savepointStatusResponse != nil {
+			s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
+				fmt.Sprintf("Failed to take savepoint for job %s: %v",
+					application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
+		}
 
 		// try to find an externalized checkpoint
 		path, err := s.flinkController.FindExternalizedCheckpoint(ctx, application, application.Status.DeployHash)
@@ -340,7 +361,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 				path, flink.HashForApplication(application)))
 
 		restorePath = path
-	} else if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
+	} else if savepointStatusResponse != nil && savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CanceledJob",
 			fmt.Sprintf("Canceled job with savepoint %s",
 				savepointStatusResponse.Operation.Location))

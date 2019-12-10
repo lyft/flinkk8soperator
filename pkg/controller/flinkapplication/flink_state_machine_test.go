@@ -1263,3 +1263,126 @@ func TestLastSeenErrTimeIsNil(t *testing.T) {
 	assert.Nil(t, err)
 
 }
+
+func TestCheckSavepointStatusFailing(t *testing.T) {
+	oldHash := "old-hash-fail"
+	maxRetries := int32(1)
+	retryableErr := client.GetRetryableError(errors.New("blah"), "CheckSavepointStatus", "FAILED", 1)
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:     "job.jar",
+			Parallelism: 5,
+			EntryClass:  "com.my.Class",
+			ProgramArgs: "--test",
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:              v1beta1.FlinkApplicationSavepointing,
+			DeployHash:         oldHash,
+			LastSeenError:      retryableErr.(*v1beta1.FlinkApplicationError),
+			SavepointTriggerID: "trigger",
+		},
+	}
+	app.Status.LastSeenError.LastErrorUpdateTime = nil
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+		return nil, retryableErr.(*v1beta1.FlinkApplicationError)
+	}
+
+	mockFlinkController.FindExternalizedCheckpointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
+		return "/tmp/checkpoint", nil
+	}
+	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
+	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
+		return true
+	}
+	mockRetryHandler.IsTimeToRetryFunc = func(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
+		return true
+	}
+	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
+		return retryCount < maxRetries
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	// 1 retry left
+	assert.NotNil(t, err)
+	assert.Equal(t, v1beta1.FlinkApplicationSavepointing, app.Status.Phase)
+
+	// No retries left for CheckSavepointStatus
+	// The app should hence try to recover from an externalized checkpoint
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, app.Status.Phase)
+	assert.Equal(t, "/tmp/checkpoint", app.Status.SavepointPath)
+	assert.Equal(t, "", app.Status.JobStatus.JobID)
+}
+
+func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
+	retryableErr := client.GetRetryableError(errors.New("blah"), "CheckSavepointStatus", "FAILED", 1)
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:     "job.jar",
+			Parallelism: 5,
+			EntryClass:  "com.my.Class",
+			ProgramArgs: "--test",
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:              v1beta1.FlinkApplicationSavepointing,
+			DeployHash:         "appHash",
+			LastSeenError:      retryableErr.(*v1beta1.FlinkApplicationError),
+			SavepointTriggerID: "trigger",
+		},
+	}
+	app.Status.LastSeenError.LastErrorUpdateTime = nil
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+		return nil, retryableErr.(*v1beta1.FlinkApplicationError)
+	}
+	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (s string, e error) {
+		return "triggerId", nil
+	}
+	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
+	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
+		return true
+	}
+	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
+		return true
+	}
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.NotNil(t, err)
+	assert.Equal(t, v1beta1.FlinkApplicationSavepointing, app.Status.Phase)
+	assert.NotNil(t, app.Status.LastSeenError)
+	// Try to force delete the app while it's in a savepointing state (with errors)
+	// We should handle the delete here
+	app.Status.Phase = v1beta1.FlinkApplicationDeleting
+	app.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
+
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		assert.Equal(t, "appHash", hash)
+		return &client.FlinkJobOverview{
+			JobID: "jobID",
+			State: client.Failing,
+		}, nil
+	}
+
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
+		return nil
+	}
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Nil(t, app.Status.LastSeenError)
+	assert.Equal(t, int32(0), app.Status.RetryCount)
+	assert.Nil(t, app.GetFinalizers())
+
+}
