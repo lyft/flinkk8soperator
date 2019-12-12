@@ -322,11 +322,17 @@ func (f *Controller) IsClusterReady(ctx context.Context, application *v1beta1.Fl
 }
 
 func (f *Controller) IsServiceReady(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
-	_, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
+	resp, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
 	if err != nil {
 		logger.Infof(ctx, "Error response indicating flink API is not ready to handle request %v", err)
 		return false, err
 	}
+
+	// check that we have enough task slots to run the application
+	if resp.NumberOfTaskSlots < application.Spec.Parallelism {
+		return false, nil
+	}
+
 	return true, nil
 }
 

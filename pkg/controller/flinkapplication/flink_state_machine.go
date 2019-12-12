@@ -270,11 +270,17 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	}
 
 	// Wait for all to be running
-	ready, err := s.flinkController.IsClusterReady(ctx, application)
+	clusterReady, err := s.flinkController.IsClusterReady(ctx, application)
 	if err != nil {
 		return statusUnchanged, err
 	}
-	if !ready {
+
+	serviceReady, err := s.flinkController.IsServiceReady(ctx, application, flink.HashForApplication(application))
+	if err != nil {
+		return statusUnchanged, err
+	}
+
+	if !clusterReady || !serviceReady {
 		return statusUnchanged, nil
 	}
 

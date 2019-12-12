@@ -207,7 +207,9 @@ func TestFlinkIsServiceReady(t *testing.T) {
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
 		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.ClusterOverviewResponse{
-			TaskManagerCount: 3,
+			TaskManagerCount:  3,
+			NumberOfTaskSlots: flinkApp.Spec.Parallelism + 6,
+			SlotsAvailable:    flinkApp.Spec.Parallelism + 6,
 		}, nil
 	}
 	isReady, err := flinkControllerForTest.IsServiceReady(context.Background(), &flinkApp, "hash")
@@ -766,16 +768,16 @@ func TestJobStatusUpdated(t *testing.T) {
 			Vertices: []client.FlinkJobVertex{
 				{
 					Status: "RUNNING",
-					Tasks: map[string]int64 {
-						"SCHEDULED": 4,
-						"FINISHED": 0,
-						"CANCELED": 0,
-						"CANCELING": 0,
-						"DEPLOYING": 1,
-						"RUNNING": 2,
+					Tasks: map[string]int64{
+						"SCHEDULED":   4,
+						"FINISHED":    0,
+						"CANCELED":    0,
+						"CANCELING":   0,
+						"DEPLOYING":   1,
+						"RUNNING":     2,
 						"RECONCILING": 0,
-						"FAILED": 0,
-						"CREATED": 0,
+						"FAILED":      0,
+						"CREATED":     0,
 					},
 				},
 			},
