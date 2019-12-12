@@ -275,10 +275,8 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 		return statusUnchanged, err
 	}
 
-	serviceReady, err := s.flinkController.IsServiceReady(ctx, application, flink.HashForApplication(application))
-	if err != nil {
-		return statusUnchanged, err
-	}
+	// ignore the error, we just care whether it's ready or not
+	serviceReady, _ := s.flinkController.IsServiceReady(ctx, application, flink.HashForApplication(application))
 
 	if !clusterReady || !serviceReady {
 		return statusUnchanged, nil
@@ -519,7 +517,13 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		return statusUnchanged, err
 	}
 
-	if job.State == client.Running {
+	// wait until all vertices have been scheduled and started
+	allVerticesStarted := true
+	for _, v := range job.Vertices {
+		allVerticesStarted = allVerticesStarted && (v.StartTime > 0)
+	}
+
+	if job.State == client.Running && allVerticesStarted {
 		// Update the application status with the running job info
 		app.Status.DeployHash = hash
 		app.Status.SavepointPath = ""
