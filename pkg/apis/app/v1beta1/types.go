@@ -155,6 +155,9 @@ type FlinkJobStatus struct {
 	RestorePath              string       `json:"restorePath,omitempty"`
 	RestoreTime              *metav1.Time `json:"restoreTime,omitempty"`
 	LastFailingTime          *metav1.Time `json:"lastFailingTime,omitempty"`
+
+	RunningTasks int32 `json:"runningTasks,omitempty"`
+	TotalTasks   int32 `json:"totalTasks,omitempty"`
 }
 
 type FlinkApplicationStatus struct {
