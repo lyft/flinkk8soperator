@@ -207,7 +207,9 @@ func TestFlinkIsServiceReady(t *testing.T) {
 	mockJmClient.GetClusterOverviewFunc = func(ctx context.Context, url string) (*client.ClusterOverviewResponse, error) {
 		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		return &client.ClusterOverviewResponse{
-			TaskManagerCount: 3,
+			TaskManagerCount:  3,
+			NumberOfTaskSlots: flinkApp.Spec.Parallelism + 6,
+			SlotsAvailable:    flinkApp.Spec.Parallelism + 6,
 		}, nil
 	}
 	isReady, err := flinkControllerForTest.IsServiceReady(context.Background(), &flinkApp, "hash")
@@ -763,6 +765,22 @@ func TestJobStatusUpdated(t *testing.T) {
 			JobID:     "abc",
 			State:     client.Running,
 			StartTime: startTime,
+			Vertices: []client.FlinkJobVertex{
+				{
+					Status: "RUNNING",
+					Tasks: map[string]int64{
+						"SCHEDULED":   4,
+						"FINISHED":    0,
+						"CANCELED":    0,
+						"CANCELING":   0,
+						"DEPLOYING":   1,
+						"RUNNING":     2,
+						"RECONCILING": 0,
+						"FAILED":      0,
+						"CREATED":     0,
+					},
+				},
+			},
 		}, nil
 	}
 
@@ -794,15 +812,19 @@ func TestJobStatusUpdated(t *testing.T) {
 
 	assert.Equal(t, v1beta1.Running, flinkApp.Status.JobStatus.State)
 	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.StartTime)
-	assert.Equal(t, v1beta1.Green, flinkApp.Status.JobStatus.Health)
+	assert.Equal(t, v1beta1.Yellow, flinkApp.Status.JobStatus.Health)
 
 	assert.Equal(t, int32(0), flinkApp.Status.JobStatus.FailedCheckpointCount)
 	assert.Equal(t, int32(4), flinkApp.Status.JobStatus.CompletedCheckpointCount)
 	assert.Equal(t, int32(1), flinkApp.Status.JobStatus.JobRestartCount)
 	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.RestoreTime)
+
 	assert.Equal(t, "/test/externalpath", flinkApp.Status.JobStatus.RestorePath)
 	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.LastCheckpointTime)
 	assert.Equal(t, "app-name.lyft.xyz/#/jobs/abc", flinkApp.Status.JobStatus.JobOverviewURL)
+
+	assert.Equal(t, int32(2), flinkApp.Status.JobStatus.RunningTasks)
+	assert.Equal(t, int32(7), flinkApp.Status.JobStatus.TotalTasks)
 
 }
 

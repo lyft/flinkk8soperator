@@ -89,6 +89,10 @@ func TestHandleStartingDual(t *testing.T) {
 		return true, nil
 	}
 
+	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (b bool, e error) {
+		return true, nil
+	}
+
 	mockFlinkController.GetCurrentDeploymentsForAppFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
 		fd := testFlinkDeployment(application)
 		fd.Taskmanager.Status.AvailableReplicas = 2
@@ -391,51 +395,6 @@ func TestSubmittingToRunning(t *testing.T) {
 	assert.Equal(t, 1, startCount)
 	assert.Equal(t, 2, updateCount)
 	assert.Equal(t, 2, statusUpdateCount)
-}
-
-func TestHandleApplicationNotReady(t *testing.T) {
-	stateMachineForTest := getTestStateMachine()
-	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
-		return false, nil
-	}
-	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
-		assert.False(t, true)
-		return nil, nil
-	}
-	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
-		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
-		assert.False(t, true)
-		return "", nil
-	}
-
-	app := v1beta1.FlinkApplication{
-		Status: v1beta1.FlinkApplicationStatus{
-			Phase: v1beta1.FlinkApplicationSubmittingJob,
-		},
-	}
-
-	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string) (*v1.Service, error) {
-		return &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-app",
-				Namespace: "flink",
-			},
-			Spec: v1.ServiceSpec{
-				Selector: map[string]string{
-					"flink-app-hash": flink.HashForApplication(&app),
-				},
-			},
-		}, nil
-	}
-
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
-		assert.False(t, true)
-		return nil
-	}
-	err := stateMachineForTest.Handle(context.Background(), &app)
-	assert.Nil(t, err)
 }
 
 func TestHandleApplicationRunning(t *testing.T) {

@@ -322,11 +322,17 @@ func (f *Controller) IsClusterReady(ctx context.Context, application *v1beta1.Fl
 }
 
 func (f *Controller) IsServiceReady(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
-	_, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
+	resp, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
 	if err != nil {
 		logger.Infof(ctx, "Error response indicating flink API is not ready to handle request %v", err)
 		return false, err
 	}
+
+	// check that we have enough task slots to run the application
+	if resp.NumberOfTaskSlots < application.Spec.Parallelism {
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -560,18 +566,39 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1
 		app.Status.JobStatus.RestorePath = checkpoints.Latest.Restored.ExternalPath
 		restoreTime := metav1.NewTime(time.Unix(checkpoints.Latest.Restored.RestoredTimeStamp/1000, 0))
 		app.Status.JobStatus.RestoreTime = &restoreTime
-
 	}
+
+	runningTasks := int32(0)
+	totalTasks := int32(0)
+	verticesInCreated := int32(0)
+
+	for _, v := range jobResponse.Vertices {
+		if v.Status == client.Created {
+			verticesInCreated++
+		}
+
+		for k, v := range v.Tasks {
+			if k == "RUNNING" {
+				runningTasks += int32(v)
+			}
+			totalTasks += int32(v)
+		}
+	}
+
+	app.Status.JobStatus.RunningTasks = runningTasks
+	app.Status.JobStatus.TotalTasks = totalTasks
 
 	// Health Status for job
 	// Job is in FAILING state --> RED
 	// Time since last successful checkpoint > maxCheckpointTime --> YELLOW
 	// Else --> Green
 
-	if app.Status.JobStatus.State == v1beta1.Failing || time.Since(app.Status.JobStatus.LastFailingTime.Time) <
-		failingIntervalThreshold {
+	if app.Status.JobStatus.State == v1beta1.Failing ||
+		time.Since(app.Status.JobStatus.LastFailingTime.Time) < failingIntervalThreshold ||
+		verticesInCreated > 0 {
 		app.Status.JobStatus.Health = v1beta1.Red
-	} else if time.Since(time.Unix(int64(lastCheckpointAgeSeconds), 0)) < maxCheckpointTime {
+	} else if time.Since(time.Unix(int64(lastCheckpointAgeSeconds), 0)) < maxCheckpointTime ||
+		runningTasks < totalTasks {
 		app.Status.JobStatus.Health = v1beta1.Yellow
 	} else {
 		app.Status.JobStatus.Health = v1beta1.Green

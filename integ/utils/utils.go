@@ -141,7 +141,7 @@ func (f *TestUtil) CreateCRD() error {
 func (f *TestUtil) CreateOperator() error {
 	configValue := make(map[string]string)
 	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n  resyncPeriod: 5s\n" +
-		"  baseBackoffDuration: 50ms\n  maxBackoffDuration: 2s\n  maxErrDuration: 40s\n" +
+		"  baseBackoffDuration: 50ms\n  maxBackoffDuration: 2s\n  maxErrDuration: 90s\n" +
 		"logger:\n  formatter:\n    type: text\n"
 
 	configMap := v1.ConfigMap{

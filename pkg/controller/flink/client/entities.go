@@ -89,11 +89,24 @@ type FlinkJob struct {
 	Status JobState `json:"status"`
 }
 
+type FlinkJobVertex struct {
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Parallelism int64                  `json:"parallelism"`
+	Status      JobState               `json:"status"`
+	StartTime   int64                  `json:"start-time"`
+	EndTime     int64                  `json:"end-time"`
+	Duration    int64                  `json:"duration"`
+	Tasks       map[string]int64       `json:"tasks"`
+	Metrics     map[string]interface{} `json:"metrics"`
+}
+
 type FlinkJobOverview struct {
-	JobID     string   `json:"jid"`
-	State     JobState `json:"state"`
-	StartTime int64    `json:"start-time"`
-	EndTime   int64    `json:"end-time"`
+	JobID     string           `json:"jid"`
+	State     JobState         `json:"state"`
+	StartTime int64            `json:"start-time"`
+	EndTime   int64            `json:"end-time"`
+	Vertices  []FlinkJobVertex `json:"vertices"`
 }
 
 type ClusterOverviewResponse struct {
