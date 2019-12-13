@@ -1,4 +1,4 @@
-FROM flink:1.8.2-scala_2.12
+FROM flink:1.9.1-scala_2.12
 
 # Prepare environment
 ENV MAVEN_HOME=/opt/maven

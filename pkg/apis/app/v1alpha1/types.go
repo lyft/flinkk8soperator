@@ -127,15 +127,15 @@ type SavepointInfo struct {
 type FlinkClusterStatus struct {
 	Health               HealthStatus `json:"health,omitempty"`
 	NumberOfTaskManagers int32        `json:"numberOfTaskManagers,omitempty"`
-	HealthyTaskManagers  int32        `json:"healthyTaskManagers,omitepty"`
+	HealthyTaskManagers  int32        `json:"healthyTaskManagers,omitempty"`
 	NumberOfTaskSlots    int32        `json:"numberOfTaskSlots,omitempty"`
 	AvailableTaskSlots   int32        `json:"availableTaskSlots"`
 }
 
 type FlinkJobStatus struct {
-	JobID  string       `json:"jobID,omitEmpty"`
-	Health HealthStatus `json:"health,omitEmpty"`
-	State  JobState     `json:"state,omitEmpty"`
+	JobID  string       `json:"jobID,omitempty"`
+	Health HealthStatus `json:"health,omitempty"`
+	State  JobState     `json:"state,omitempty"`
 
 	JarName               string `json:"jarName"`
 	Parallelism           int32  `json:"parallelism"`
@@ -143,14 +143,14 @@ type FlinkJobStatus struct {
 	ProgramArgs           string `json:"programArgs,omitempty"`
 	AllowNonRestoredState bool   `json:"allowNonRestoredState,omitempty"`
 
-	StartTime                *metav1.Time `json:"startTime,omitEmpty"`
-	JobRestartCount          int32        `json:"jobRestartCount,omitEmpty"`
-	CompletedCheckpointCount int32        `json:"completedCheckpointCount,omitEmpty"`
-	FailedCheckpointCount    int32        `json:"failedCheckpointCount,omitEmpty"`
-	LastCheckpointTime       *metav1.Time `json:"lastCheckpointTime,omitEmpty"`
-	RestorePath              string       `json:"restorePath,omitEmpty"`
-	RestoreTime              *metav1.Time `json:"restoreTime,omitEmpty"`
-	LastFailingTime          *metav1.Time `json:"lastFailingTime,omitEmpty"`
+	StartTime                *metav1.Time `json:"startTime,omitempty"`
+	JobRestartCount          int32        `json:"jobRestartCount,omitempty"`
+	CompletedCheckpointCount int32        `json:"completedCheckpointCount,omitempty"`
+	FailedCheckpointCount    int32        `json:"failedCheckpointCount,omitempty"`
+	LastCheckpointTime       *metav1.Time `json:"lastCheckpointTime,omitempty"`
+	RestorePath              string       `json:"restorePath,omitempty"`
+	RestoreTime              *metav1.Time `json:"restoreTime,omitempty"`
+	LastFailingTime          *metav1.Time `json:"lastFailingTime,omitempty"`
 }
 
 type FlinkApplicationStatus struct {
@@ -160,11 +160,11 @@ type FlinkApplicationStatus struct {
 	Reason           string                `json:"reason,omitempty"`
 	ClusterStatus    FlinkClusterStatus    `json:"clusterStatus,omitempty"`
 	JobStatus        FlinkJobStatus        `json:"jobStatus"`
-	FailedDeployHash string                `json:"failedDeployHash,omitEmpty"`
-	RollbackHash     string                `json:"rollbackHash,omitEmpty"`
+	FailedDeployHash string                `json:"failedDeployHash,omitempty"`
+	RollbackHash     string                `json:"rollbackHash,omitempty"`
 	DeployHash       string                `json:"deployHash"`
-	RetryCount       int32                 `json:"retryCount,omitEmpty"`
-	LastSeenError    FlinkApplicationError `json:"lastSeenError,omitEmpty"`
+	RetryCount       int32                 `json:"retryCount,omitempty"`
+	LastSeenError    FlinkApplicationError `json:"lastSeenError,omitempty"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
