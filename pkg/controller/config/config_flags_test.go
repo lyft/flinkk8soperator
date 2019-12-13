@@ -165,10 +165,10 @@ func TestConfig_SetFlags(t *testing.T) {
 			}
 		})
 	})
-	t.Run("Test_prof-port", func(t *testing.T) {
+	t.Run("Test_profilerPort", func(t *testing.T) {
 		t.Run("DefaultValue", func(t *testing.T) {
 			// Test that default value is set properly
-			if vString, err := cmdFlags.GetString("prof-port"); err == nil {
+			if vString, err := cmdFlags.GetString("profilerPort"); err == nil {
 				assert.Equal(t, string("10254"), vString)
 			} else {
 				assert.FailNow(t, err.Error())
@@ -178,8 +178,8 @@ func TestConfig_SetFlags(t *testing.T) {
 		t.Run("Override", func(t *testing.T) {
 			testValue := "10254"
 
-			cmdFlags.Set("prof-port", testValue)
-			if vString, err := cmdFlags.GetString("prof-port"); err == nil {
+			cmdFlags.Set("profilerPort", testValue)
+			if vString, err := cmdFlags.GetString("profilerPort"); err == nil {
 				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.ProfilerPort)
 
 			} else {
@@ -231,10 +231,10 @@ func TestConfig_SetFlags(t *testing.T) {
 			}
 		})
 	})
-	t.Run("Test_ProxyPort", func(t *testing.T) {
+	t.Run("Test_proxyPort", func(t *testing.T) {
 		t.Run("DefaultValue", func(t *testing.T) {
 			// Test that default value is set properly
-			if vString, err := cmdFlags.GetString("ProxyPort"); err == nil {
+			if vString, err := cmdFlags.GetString("proxyPort"); err == nil {
 				assert.Equal(t, string("8001"), vString)
 			} else {
 				assert.FailNow(t, err.Error())
@@ -244,8 +244,8 @@ func TestConfig_SetFlags(t *testing.T) {
 		t.Run("Override", func(t *testing.T) {
 			testValue := "8001"
 
-			cmdFlags.Set("ProxyPort", testValue)
-			if vString, err := cmdFlags.GetString("ProxyPort"); err == nil {
+			cmdFlags.Set("proxyPort", testValue)
+			if vString, err := cmdFlags.GetString("proxyPort"); err == nil {
 				testDecodeJson_Config(t, fmt.Sprintf("%v", vString), &actual.ProxyPort)
 
 			} else {

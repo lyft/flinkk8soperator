@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-resty/resty"
 	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
 	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
 	"github.com/prometheus/common/log"
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-
-	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
 )
 
 type TestUtil struct {

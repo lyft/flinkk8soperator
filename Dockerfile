@@ -1,4 +1,4 @@
-FROM golang:1.13.0-alpine3.10 as builder
+FROM golang:1.13.4-alpine3.10 as builder
 RUN apk add git openssh-client make curl bash
 
 COPY boilerplate/lyft/golang_test_targets/dep_install.sh /go/src/github.com/lyft/flinkk8soperator/
