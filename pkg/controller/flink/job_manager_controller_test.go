@@ -59,7 +59,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
 	app.Annotations = annotations
-	hash := "3b2fc68e"
+	hash := "c3c0af0b"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -91,7 +91,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 				"taskmanager.numberOfTaskSlots: 16\n\n"+
 				"jobmanager.rpc.address: app-name-"+hash+"\n",
 				common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
-					"OPERATOR_FLINK_CONFIG").Value)
+					"FLINK_PROPERTIES").Value)
 		case 2:
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name, service.Name)
@@ -136,7 +136,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 	app.Spec.FlinkConfig = map[string]interface{}{
 		"high-availability": "zookeeper",
 	}
-	hash := "4a2f1a08"
+	hash := "52623ded"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -169,7 +169,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 				"high-availability.cluster-id: app-name-"+hash+"\n"+
 				"jobmanager.rpc.address: $HOST_IP\n",
 				common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
-					"OPERATOR_FLINK_CONFIG").Value)
+					"FLINK_PROPERTIES").Value)
 		case 2:
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name, service.Name)

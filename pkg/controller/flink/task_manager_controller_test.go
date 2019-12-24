@@ -60,7 +60,7 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 
-	hash := "3b2fc68e"
+	hash := "c3c0af0b"
 
 	app.Annotations = annotations
 	expectedLabels := map[string]string{
@@ -87,7 +87,7 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 			"jobmanager.rpc.address: app-name-"+hash+"\n"+
 			"taskmanager.host: $HOST_IP\n",
 			common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
-				"OPERATOR_FLINK_CONFIG").Value)
+				"FLINK_PROPERTIES").Value)
 
 		return nil
 	}
@@ -107,7 +107,7 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 
-	hash := "4a2f1a08"
+	hash := "52623ded"
 	app.Spec.FlinkConfig = map[string]interface{}{
 		"high-availability": "zookeeper",
 	}
@@ -135,6 +135,11 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 			"taskmanager.numberOfTaskSlots: 16\n\n"+
 			"high-availability.cluster-id: app-name-"+hash+"\n"+
 			"taskmanager.host: $HOST_IP\n",
+			common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
+				"FLINK_PROPERTIES").Value)
+		// backward compatibility: https://github.com/lyft/flinkk8soperator/issues/135
+		assert.Equal(t, common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
+			"FLINK_PROPERTIES").Value,
 			common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
 				"OPERATOR_FLINK_CONFIG").Value)
 

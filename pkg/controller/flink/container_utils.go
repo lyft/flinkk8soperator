@@ -23,7 +23,7 @@ const (
 	AwsMetadataServiceNumAttemptsKey = "AWS_METADATA_SERVICE_NUM_ATTEMPTS"
 	AwsMetadataServiceTimeout        = "5"
 	AwsMetadataServiceNumAttempts    = "20"
-	OperatorFlinkConfig              = "OPERATOR_FLINK_CONFIG"
+	OperatorFlinkConfig              = "FLINK_PROPERTIES"
 	HostName                         = "HOST_NAME"
 	HostIP                           = "HOST_IP"
 	FlinkDeploymentTypeEnv           = "FLINK_DEPLOYMENT_TYPE"
@@ -208,6 +208,8 @@ func InjectOperatorCustomizedConfig(deployment *appsv1.Deployment, app *v1beta1.
 				if deploymentType == FlinkDeploymentTypeTaskmanager {
 					env.Value = fmt.Sprintf("%staskmanager.host: $HOST_IP\n", env.Value)
 				}
+				// backward compatibility: https://github.com/lyft/flinkk8soperator/issues/135
+				newEnv = append(newEnv, v1.EnvVar{Name: "OPERATOR_FLINK_CONFIG", Value: env.Value})
 			}
 			newEnv = append(newEnv, env)
 		}
