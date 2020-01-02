@@ -79,6 +79,11 @@ Then create the operator cluster resources:
 $ kubectl create -f deploy/flinkk8soperator_local.yaml
 ```
 
+Now create the namespace
+```bash
+$ kubectl create -f deploy/namespace.yaml
+```
+
 ## Run an application
 
 ```bash
