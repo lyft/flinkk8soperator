@@ -10,15 +10,16 @@ import (
 )
 
 const (
-	JobManagerDefaultReplicaCount = 1
-	TaskManagerDefaultSlots       = 16
-	RPCDefaultPort                = 6123
-	QueryDefaultPort              = 6124
-	BlobDefaultPort               = 6125
-	UIDefaultPort                 = 8081
-	MetricsQueryDefaultPort       = 50101
-	OffHeapMemoryDefaultFraction  = 0.5
-	HighAvailabilityKey           = "high-availability"
+	JobManagerDefaultReplicaCount  = 1
+	TaskManagerDefaultSlots        = 16
+	RPCDefaultPort                 = 6123
+	QueryDefaultPort               = 6124
+	BlobDefaultPort                = 6125
+	UIDefaultPort                  = 8081
+	MetricsQueryDefaultPort        = 50101
+	OffHeapMemoryDefaultFraction   = 0.5
+	HighAvailabilityKey            = "high-availability"
+	MaxCheckpointRestoreAgeSeconds = 3600
 )
 
 func firstNonNil(x *int32, y int32) int32 {
@@ -65,6 +66,10 @@ func getBlobPort(app *v1beta1.FlinkApplication) int32 {
 
 func getInternalMetricsQueryPort(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.MetricsQueryPort, MetricsQueryDefaultPort)
+}
+
+func getMaxCheckpointRestoreAgeSeconds(app *v1beta1.FlinkApplication) int32 {
+	return firstNonNil(app.Spec.MaxCheckpointRestoreAgeSeconds, MaxCheckpointRestoreAgeSeconds)
 }
 
 func getTaskManagerMemory(application *v1beta1.FlinkApplication) int64 {

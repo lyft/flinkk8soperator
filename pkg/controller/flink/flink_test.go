@@ -920,3 +920,11 @@ func TestGetAndUpdateJobStatusHealth(t *testing.T) {
 	assert.Equal(t, app1.Status.JobStatus.Health, v1beta1.Red)
 
 }
+
+func TestMaxCheckpointRestoreAge(t *testing.T) {
+	// Test invalid checkpoint that cannot be recovered from. Recovery age is 10 minutes
+	assert.True(t, isCheckpointOldToRecover(time.Now().Unix()-700, 600))
+
+	// Test valid checkpoint that can be recovered. Recovery age is 10 minutes
+	assert.False(t, isCheckpointOldToRecover(time.Now().Unix()-100, 600))
+}

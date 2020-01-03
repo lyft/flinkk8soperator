@@ -41,20 +41,21 @@ type FlinkApplicationSpec struct {
 	EntryClass         string                       `json:"entryClass,omitempty"`
 	ProgramArgs        string                       `json:"programArgs,omitempty"`
 	// Deprecated: use SavepointPath instead
-	SavepointInfo         SavepointInfo       `json:"savepointInfo,omitempty"`
-	SavepointPath         string              `json:"savepointPath,omitempty"`
-	DeploymentMode        DeploymentMode      `json:"deploymentMode,omitempty"`
-	RPCPort               *int32              `json:"rpcPort,omitempty"`
-	BlobPort              *int32              `json:"blobPort,omitempty"`
-	QueryPort             *int32              `json:"queryPort,omitempty"`
-	UIPort                *int32              `json:"uiPort,omitempty"`
-	MetricsQueryPort      *int32              `json:"metricsQueryPort,omitempty"`
-	Volumes               []apiv1.Volume      `json:"volumes,omitempty"`
-	VolumeMounts          []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
-	RestartNonce          string              `json:"restartNonce"`
-	DeleteMode            DeleteMode          `json:"deleteMode,omitempty"`
-	AllowNonRestoredState bool                `json:"allowNonRestoredState,omitempty"`
-	ForceRollback         bool                `json:"forceRollback"`
+	SavepointInfo                  SavepointInfo       `json:"savepointInfo,omitempty"`
+	SavepointPath                  string              `json:"savepointPath,omitempty"`
+	DeploymentMode                 DeploymentMode      `json:"deploymentMode,omitempty"`
+	RPCPort                        *int32              `json:"rpcPort,omitempty"`
+	BlobPort                       *int32              `json:"blobPort,omitempty"`
+	QueryPort                      *int32              `json:"queryPort,omitempty"`
+	UIPort                         *int32              `json:"uiPort,omitempty"`
+	MetricsQueryPort               *int32              `json:"metricsQueryPort,omitempty"`
+	Volumes                        []apiv1.Volume      `json:"volumes,omitempty"`
+	VolumeMounts                   []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
+	RestartNonce                   string              `json:"restartNonce"`
+	DeleteMode                     DeleteMode          `json:"deleteMode,omitempty"`
+	AllowNonRestoredState          bool                `json:"allowNonRestoredState,omitempty"`
+	ForceRollback                  bool                `json:"forceRollback"`
+	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
 }
 
 type FlinkConfig map[string]interface{}

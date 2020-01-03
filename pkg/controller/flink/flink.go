@@ -28,9 +28,6 @@ import (
 const proxyURL = "http://localhost:%d/api/v1/namespaces/%s/services/%s:8081/proxy"
 const port = 8081
 
-// Maximum age of an externalized checkpoint that we will attempt to restore
-const maxRestoreCheckpointAge = 24 * time.Hour
-
 // If the last hearbeat from a taskmanager was more than taskManagerHeartbeatThreshold, the task
 // manager is considered unhealthy.
 const taskManagerHeartbeatThreshold = 2 * time.Minute
@@ -457,12 +454,16 @@ func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application
 		return "", nil
 	}
 
-	if time.Since(time.Unix(checkpoint.TriggerTimestamp, 0)) > maxRestoreCheckpointAge {
+	if isCheckpointOldToRecover(checkpoint.TriggerTimestamp, getMaxCheckpointRestoreAgeSeconds(application)) {
 		logger.Info(ctx, "Found checkpoint to restore from, but was too old")
 		return "", nil
 	}
 
 	return checkpoint.ExternalPath, nil
+}
+
+func isCheckpointOldToRecover(checkpointTime int64, maxCheckpointRecoveryAgeSec int32) bool {
+	return time.Since(time.Unix(checkpointTime, 0)) > (time.Duration(maxCheckpointRecoveryAgeSec) * time.Second)
 }
 
 func (f *Controller) LogEvent(ctx context.Context, app *v1beta1.FlinkApplication, eventType string, reason string, message string) {
