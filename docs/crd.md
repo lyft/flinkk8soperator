@@ -114,3 +114,5 @@ Below is the list of fields in the custom resource and their description
     Can be set to true to force rollback a deploy/update. The rollback is **not** performed when the application is in a **RUNNING** phase.
     If an application is successfully rolled back, it is moved to a *DeployFailed* phase. Un-setting or setting `ForceRollback` to `False` will allow updates to progress normally.
     
+  * **maxCheckpointRestoreAgeSeconds** `type:int32`
+    Used to prevent the application from restoring state from a checkpoint who's age (in seconds) is greater than the value set. It defaults to 1 hour (3600 seconds).

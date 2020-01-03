@@ -454,12 +454,16 @@ func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application
 		return "", nil
 	}
 
-	if time.Since(time.Unix(checkpoint.TriggerTimestamp, 0)) > (application.Spec.MaxCheckpointRestoreAgeSec * time.Second) {
+	if isCheckpointOldToRecover(checkpoint.TriggerTimestamp, getMaxCheckpointRestoreAgeSeconds(application)) {
 		logger.Info(ctx, "Found checkpoint to restore from, but was too old")
 		return "", nil
 	}
 
 	return checkpoint.ExternalPath, nil
+}
+
+func isCheckpointOldToRecover(checkpointTime int64, maxCheckpointRecoveryAgeSec int32) bool {
+	return time.Since(time.Unix(checkpointTime, 0)) > (time.Duration(maxCheckpointRecoveryAgeSec) * time.Second)
 }
 
 func (f *Controller) LogEvent(ctx context.Context, app *v1beta1.FlinkApplication, eventType string, reason string, message string) {

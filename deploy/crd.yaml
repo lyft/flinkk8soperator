@@ -91,7 +91,7 @@ spec:
                   type: string
             savepointPath:
               type: string
-            maxCheckpointRestoreAgeSec:
+            maxCheckpointRestoreAgeSeconds:
               type: integer
               minimum: 1
             jobManagerConfig:
