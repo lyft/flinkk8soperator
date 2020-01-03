@@ -115,4 +115,7 @@ Below is the list of fields in the custom resource and their description
     If an application is successfully rolled back, it is moved to a *DeployFailed* phase. Un-setting or setting `ForceRollback` to `False` will allow updates to progress normally.
     
   * **maxCheckpointRestoreAgeSeconds** `type:int32`
-    Used to prevent the application from restoring state from a checkpoint who's age (in seconds) is greater than the value set. It defaults to 1 hour (3600 seconds).
+    Used to prevent the application from restoring state from a checkpoint whose age (in seconds) is greater than the value set. It defaults to 1 hour (3600 seconds). This config
+    is used during the operator update workflow. This default exists only
+    to protect one from accidentally restarting the application using a very old checkpoint (which might put your application
+    under huge load). **Note:** this doesn't affect the flink application's checkpointing mechanism in anyway.
