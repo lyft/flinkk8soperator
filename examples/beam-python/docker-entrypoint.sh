@@ -15,8 +15,8 @@ drop_privs_cmd() {
 }
 
 # Add in extra configs set by the operator
-if [ -n "$OPERATOR_FLINK_CONFIG" ]; then
-    echo "$OPERATOR_FLINK_CONFIG" >> "$FLINK_HOME/conf/flink-conf.yaml"
+if [ -n "$FLINK_PROPERTIES" ]; then
+    echo "$FLINK_PROPERTIES" >> "$FLINK_HOME/conf/flink-conf.yaml"
 fi
 
 envsubst < $FLINK_HOME/conf/flink-conf.yaml > $FLINK_HOME/conf/flink-conf.yaml.tmp

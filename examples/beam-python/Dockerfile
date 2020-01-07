@@ -1,5 +1,5 @@
-FROM flink:1.8.2-scala_2.12 AS flink
-FROM apachebeam/python3.6_sdk:2.16.0
+FROM flink:1.8.3-scala_2.12 AS flink
+FROM apachebeam/python3.6_sdk:2.17.0
 
 # Install dependencies
 RUN set -ex \
@@ -20,8 +20,7 @@ RUN \
   mkdir -p /opt/flink/flink-web-upload \
   && ( \
     cd /opt/flink/flink-web-upload \
-    # https://issues.apache.org/jira/browse/BEAM-8815
-    && curl -f -O https://repository.apache.org/content/groups/snapshots/org/apache/beam/beam-runners-flink-1.8-job-server/2.18.0-SNAPSHOT/beam-runners-flink-1.8-job-server-2.18.0-20191126.072034-34.jar \
+    && curl -f -O https://repository.apache.org/content/groups/public/org/apache/beam/beam-runners-flink-1.8-job-server/2.17.0/beam-runners-flink-1.8-job-server-2.17.0.jar \
     && ln -s beam-runners-flink-1.8-job-server*.jar beam-runner.jar \
     ) \
   && echo 'jobmanager.web.upload.dir: /opt/flink' >> $FLINK_HOME/conf/flink-conf.yaml
