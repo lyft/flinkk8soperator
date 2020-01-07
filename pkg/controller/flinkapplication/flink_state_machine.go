@@ -542,7 +542,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 		// we've failed in our roll back attempt (presumably because something's now wrong with the original cluster)
 		// move immediately to the DeployFailed state so that the user can recover.
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RollbackFailed",
-			fmt.Sprintf("Failed to rollback to origin deployment, manual intervention needed: %s", reason))
+			fmt.Sprintf("Failed to rollback to original deployment, manual intervention needed: %s", reason))
 		return s.deployFailed(ctx, app)
 	}
 

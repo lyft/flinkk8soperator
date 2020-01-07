@@ -157,7 +157,7 @@ func (c *FlinkJobManagerClient) GetClusterOverview(ctx context.Context, url stri
 // Helper method to execute the requests
 func (c *FlinkJobManagerClient) executeRequest(ctx context.Context,
 	method string, url string, payload interface{}) (*resty.Response, error) {
-	client := resty.SetLogger(logger.GetLogWriter(ctx)).SetTimeout(defaultTimeOut)
+	client := resty.New().SetLogger(logger.GetLogWriter(ctx)).SetTimeout(defaultTimeOut)
 
 	var resp *resty.Response
 	var err error
