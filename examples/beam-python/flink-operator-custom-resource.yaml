@@ -1,0 +1,35 @@
+apiVersion: flink.k8s.io/v1beta1
+kind: FlinkApplication
+metadata:
+  name: beam-python-flinkk8soperator-example
+  namespace: flink-operator
+  annotations:
+  labels:
+    environment: development
+spec:
+  #image: docker.io/lyft/flinkk8soperator-example-beam:{sha}
+  image: flinkk8soperator-example-beam
+  flinkConfig:
+    taskmanager.network.memory.fraction: 0.1
+    taskmanager.network.memory.min: 10m
+    state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
+    state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
+    state.savepoints.dir: file:///checkpoints/flink/savepoints
+  jobManagerConfig:
+    resources:
+      requests:
+        memory: "200Mi"
+        cpu: "0.1"
+    replicas: 1
+  taskManagerConfig:
+    taskSlots: 2
+    resources:
+      requests:
+        memory: "200Mi"
+        cpu: "0.1"
+  flinkVersion: "1.8"
+  jarName: "beam-runner.jar"
+  parallelism: 1
+  entryClass: "org.apache.beam.runners.flink.FlinkPortableClientEntryPoint"
+  programArgs: "--driver-cmd \"cd /code/src; exec python -m beam_example.pipeline --job_name=beam-flinkk8soperator-example\""
+  deleteMode: None

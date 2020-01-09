@@ -1,0 +1,4 @@
+# Add your dependencies here
+#
+numpy==1.16.4             # via pyarrow
+apache-beam==2.17.0
