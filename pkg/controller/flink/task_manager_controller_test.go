@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
+	coreV1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -142,6 +143,47 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 			"FLINK_PROPERTIES").Value,
 			common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
 				"OPERATOR_FLINK_CONFIG").Value)
+
+		return nil
+	}
+	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.True(t, newlyCreated)
+}
+
+func TestTaskManagerSecurityContextAssignment(t *testing.T) {
+	testController := getTMControllerForTest()
+	app := getFlinkTestApp()
+	app.Spec.JarName = "test.jar"
+	app.Spec.EntryClass = "com.test.MainClass"
+	app.Spec.ProgramArgs = "--test"
+
+	fsGroup := int64(2000)
+	runAsUser := int64(1000)
+	runAsGroup := int64(3000)
+	runAsNonRoot := bool(true)
+
+	app.Spec.SecurityContext = &coreV1.PodSecurityContext {
+		FSGroup: &fsGroup,
+		RunAsUser: &runAsUser,
+		RunAsGroup: &runAsGroup,
+		RunAsNonRoot: &runAsNonRoot,
+	}
+
+	hash := "c06b960b"
+
+	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		deployment := object.(*v1.Deployment)
+		assert.Equal(t, getTaskManagerName(&app, hash), deployment.Name)
+
+		appSc := app.Spec.SecurityContext
+		depSc := deployment.Spec.Template.Spec.SecurityContext
+
+		assert.Equal(t, *appSc.FSGroup, *depSc.FSGroup)
+		assert.Equal(t, *appSc.RunAsUser, *depSc.RunAsUser)
+		assert.Equal(t, *appSc.RunAsGroup, *depSc.RunAsGroup)
+		assert.Equal(t, *appSc.RunAsNonRoot, *depSc.RunAsNonRoot)
 
 		return nil
 	}

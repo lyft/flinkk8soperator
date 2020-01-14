@@ -197,6 +197,53 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 	assert.True(t, newlyCreated)
 }
 
+func TestJobManagerSecurityContextAssignment(t *testing.T) {
+	err := initTestConfigForIngress()
+	assert.Nil(t, err)
+	testController := getJMControllerForTest()
+	app := getFlinkTestApp()
+	app.Spec.JarName = testJarName
+	app.Spec.EntryClass = testEntryClass
+	app.Spec.ProgramArgs = testProgramArgs
+
+	fsGroup := int64(2000)
+	runAsUser := int64(1000)
+	runAsGroup := int64(3000)
+	runAsNonRoot := bool(true)
+
+	app.Spec.SecurityContext = &coreV1.PodSecurityContext {
+		FSGroup: &fsGroup,
+		RunAsUser: &runAsUser,
+		RunAsGroup: &runAsGroup,
+		RunAsNonRoot: &runAsNonRoot,
+	}
+
+	hash := "c06b960b"
+
+	ctr := 0
+	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		ctr++
+		switch ctr {
+		case 1:
+			deployment := object.(*v1.Deployment)
+			assert.Equal(t, getJobManagerName(&app, hash), deployment.Name)
+
+			appSc := app.Spec.SecurityContext
+			depSc := deployment.Spec.Template.Spec.SecurityContext
+
+			assert.Equal(t, *appSc.FSGroup, *depSc.FSGroup)
+			assert.Equal(t, *appSc.RunAsUser, *depSc.RunAsUser)
+			assert.Equal(t, *appSc.RunAsGroup, *depSc.RunAsGroup)
+			assert.Equal(t, *appSc.RunAsNonRoot, *depSc.RunAsNonRoot)
+		}
+		return nil
+	}
+	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.True(t, newlyCreated)
+}
+
 func TestJobManagerCreateErr(t *testing.T) {
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()

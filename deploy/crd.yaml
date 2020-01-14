@@ -42,6 +42,29 @@ spec:
                     type: string
             serviceAccountName:
               type: string
+            securityContext:
+              type: object
+              properties:
+                fsGroup:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+                runAsGroup:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+                runAsNonRoot:
+                  type: boolean
+                runAsUser:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+                supplementalGroups:
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 1
+                    maximum: 65535
             jarName:
               type: string
             programArgs:
