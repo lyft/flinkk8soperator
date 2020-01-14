@@ -594,18 +594,6 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 // Check if the application is Running.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
 func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
-	job, err := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
-	if err != nil {
-		// TODO: think more about this case
-		return statusUnchanged, err
-	}
-
-	if job == nil {
-		logger.Warnf(ctx, "Could not find active job {}", application.Status.JobStatus.JobID)
-	} else {
-		logger.Debugf(ctx, "Application running with job %v", job.JobID)
-	}
-
 	cur, err := s.flinkController.GetCurrentDeploymentsForApp(ctx, application)
 	if err != nil {
 		return statusUnchanged, err
@@ -618,6 +606,18 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		// TODO: handle single mode
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
 		return statusChanged, nil
+	}
+
+	job, err := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
+	if err != nil {
+		// TODO: think more about this case
+		return statusUnchanged, err
+	}
+
+	if job == nil {
+		logger.Warnf(ctx, "Could not find active job {}", application.Status.JobStatus.JobID)
+	} else {
+		logger.Debugf(ctx, "Application running with job %v", job.JobID)
 	}
 
 	// If there are old resources left-over from a previous version, clean them up
