@@ -53,9 +53,9 @@ func TestGetTaskManagerPodName(t *testing.T) {
 func TestTaskManagerCreateSuccess(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
-	app.Spec.JarName = "test.jar"
-	app.Spec.EntryClass = "com.test.MainClass"
-	app.Spec.ProgramArgs = "--test"
+	app.Spec.JarName = testJarName
+	app.Spec.EntryClass = testEntryClass
+	app.Spec.ProgramArgs = testProgramArgs
 	annotations := map[string]string{
 		"key":                  "annotation",
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
@@ -100,9 +100,9 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 func TestTaskManagerHACreateSuccess(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
-	app.Spec.JarName = "test.jar"
-	app.Spec.EntryClass = "com.test.MainClass"
-	app.Spec.ProgramArgs = "--test"
+	app.Spec.JarName = testJarName
+	app.Spec.EntryClass = testEntryClass
+	app.Spec.ProgramArgs = testProgramArgs
 	annotations := map[string]string{
 		"key":                  "annotation",
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
@@ -154,19 +154,19 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 func TestTaskManagerSecurityContextAssignment(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
-	app.Spec.JarName = "test.jar"
-	app.Spec.EntryClass = "com.test.MainClass"
-	app.Spec.ProgramArgs = "--test"
+	app.Spec.JarName = testJarName
+	app.Spec.EntryClass = testEntryClass
+	app.Spec.ProgramArgs = testProgramArgs
 
 	fsGroup := int64(2000)
 	runAsUser := int64(1000)
 	runAsGroup := int64(3000)
 	runAsNonRoot := bool(true)
 
-	app.Spec.SecurityContext = &coreV1.PodSecurityContext {
-		FSGroup: &fsGroup,
-		RunAsUser: &runAsUser,
-		RunAsGroup: &runAsGroup,
+	app.Spec.SecurityContext = &coreV1.PodSecurityContext{
+		FSGroup:      &fsGroup,
+		RunAsUser:    &runAsUser,
+		RunAsGroup:   &runAsGroup,
 		RunAsNonRoot: &runAsNonRoot,
 	}
 

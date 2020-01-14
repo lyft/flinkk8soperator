@@ -22,10 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-var testJarName = "test.jar"
-var testEntryClass = "com.test.MainClass"
-var testProgramArgs = "--test"
-
 func getJMControllerForTest() JobManagerController {
 	testScope := mockScope.NewTestScope()
 	labeled.SetMetricKeys(common.GetValidLabelNames()...)
@@ -211,10 +207,10 @@ func TestJobManagerSecurityContextAssignment(t *testing.T) {
 	runAsGroup := int64(3000)
 	runAsNonRoot := bool(true)
 
-	app.Spec.SecurityContext = &coreV1.PodSecurityContext {
-		FSGroup: &fsGroup,
-		RunAsUser: &runAsUser,
-		RunAsGroup: &runAsGroup,
+	app.Spec.SecurityContext = &coreV1.PodSecurityContext{
+		FSGroup:      &fsGroup,
+		RunAsUser:    &runAsUser,
+		RunAsGroup:   &runAsGroup,
 		RunAsNonRoot: &runAsNonRoot,
 	}
 
