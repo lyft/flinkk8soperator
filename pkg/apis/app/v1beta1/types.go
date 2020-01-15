@@ -218,6 +218,7 @@ const (
 	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
 	FlinkApplicationSavepointing    FlinkApplicationPhase = "Savepointing"
 	FlinkApplicationDeleting        FlinkApplicationPhase = "Deleting"
+	FlinkApplicationRecovering      FlinkApplicationPhase = "Recovering"
 	FlinkApplicationRollingBackJob  FlinkApplicationPhase = "RollingBackJob"
 	FlinkApplicationDeployFailed    FlinkApplicationPhase = "DeployFailed"
 )
@@ -230,6 +231,7 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationRunning,
 	FlinkApplicationSavepointing,
 	FlinkApplicationDeleting,
+	FlinkApplicationRecovering,
 	FlinkApplicationDeployFailed,
 	FlinkApplicationRollingBackJob,
 }

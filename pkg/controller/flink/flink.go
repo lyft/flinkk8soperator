@@ -456,9 +456,9 @@ func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application
 			checkpointTime = application.Status.JobStatus.LastCheckpointTime.Unix()
 			logger.Warnf(ctx, "Could not query JobManager for latest externalized checkpoint, using" +
 				" last seen checkpoint")
+		} else {
+			return "", err
 		}
-
-		return "", err
 	} else if checkpoint != nil {
 		checkpointPath = checkpoint.ExternalPath
 		checkpointTime = checkpoint.TriggerTimestamp
