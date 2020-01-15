@@ -19,6 +19,12 @@ Below is the list of fields in the custom resource and their description
   * **imagePullSecrets** `type:[]v1.LocalObjectReference`
     Indicates name of Secrets, Kubernetes should get the credentials from.
 
+  * **serviceAccountName** `type:string`
+    Pods created for this Flink application will run with the provided service account (which must already exist in the namespace).
+
+  * **securityContext** `type:v1.PodSecurityContext`
+    This allows you to specify pod-level security attributes which will be applied to both job manager and task manager pods created for this Flink application. More information can be found in the [Kubernetes documentation](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/) or the [API spec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podsecuritycontext-v1-core).
+
   * **taskManagerConfig** `type:TaskManagerConfig required=true`
     Configuration for the Flink task manager
 
