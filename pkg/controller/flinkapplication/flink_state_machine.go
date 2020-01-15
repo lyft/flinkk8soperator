@@ -300,6 +300,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	if rollback, reason := s.shouldRollback(ctx, application); rollback {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
 			fmt.Sprintf("Could not savepoint existing job: %s", reason))
+		application.Status.RetryCount = 0
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
 		return statusChanged, nil
 	}
@@ -326,12 +327,13 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	}
 
 	if savepointStatusResponse.Operation.Location == "" &&
-			savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
+		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
 		// Savepointing failed
 		// TODO: we should probably retry this a few times before failing
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
 			fmt.Sprintf("Failed to take savepoint for job %s: %v",
-					application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
+				application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
+		application.Status.RetryCount = 0
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
 		return statusChanged, nil
 	} else if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
@@ -359,7 +361,7 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 	}
 
 	// TODO: the old job might still be running at this point... we should maybe try to force cancel it
-	//       (but if the JM is unavailable, our options there might be limited...)
+	//       (but if the JM is unavailable, our options there might be limited)
 
 	// try to find an externalized checkpoint
 	path, err := s.flinkController.FindExternalizedCheckpoint(ctx, app, app.Status.DeployHash)
