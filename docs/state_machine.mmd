@@ -18,7 +18,10 @@ ClusterStarting --> Savepointing
 ClusterStarting -- Create fails --> DeployFailed
 
 Savepointing --> SubmittingJob
-Savepointing -- Savepoint fails and no externalized checkpoint --> DeployFailed
+Savepointing -- Savepoint fails --> Recovering
+
+Recovering --> SubmittingJob
+Recovering -- No externalized checkpoint --> RollingBackJob
 
 SubmittingJob --> Running
 SubmittingJob -- job start fails --> RollingBackJob
@@ -28,3 +31,4 @@ end
 linkStyle 5 stroke:#FF0000
 linkStyle 7 stroke:#FF0000
 linkStyle 9 stroke:#FF0000
+linkStyle 11 stroke:#FF0000
