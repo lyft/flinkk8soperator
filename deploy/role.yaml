@@ -64,6 +64,7 @@ rules:
    - flink.k8s.io
    resources:
    - flinkapplications
+   - flinkapplications/status
    - flinkapplications/finalizers
    verbs:
    - get
