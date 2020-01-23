@@ -354,7 +354,7 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 	// and push through if possible
 	if rollback, reason := s.shouldRollback(ctx, app); rollback {
 		// we failed to recover, attempt to rollback
-		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobsSubmissionFailed",
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
 			fmt.Sprintf("Failed to recover with externalized checkpoint: %s", reason))
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
 		return statusChanged, nil
@@ -458,7 +458,7 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	if rollback, reason := s.shouldRollback(ctx, app); rollback {
 		// Something's gone wrong; roll back
-		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobsSubmissionFailed",
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
 			fmt.Sprintf("Failed to submit job: %s", reason))
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
 		return statusChanged, nil
