@@ -590,6 +590,24 @@ func TestFindExternalizedCheckpoint(t *testing.T) {
 	assert.Equal(t, "/tmp/checkpoint", checkpoint)
 }
 
+func TestFindExternalizedCheckpointFromStatus(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	flinkApp := getFlinkTestApp()
+	flinkApp.Status.JobStatus.JobID = "jobid"
+	flinkApp.Status.JobStatus.LastCheckpointPath = "/tmp/checkpoint"
+	checkpointTime := metaV1.Now()
+	flinkApp.Status.JobStatus.LastCheckpointTime = &checkpointTime
+
+	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
+	mockJmClient.GetLatestCheckpointFunc = func(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error) {
+		return nil, errors.New("get checkpoint failed")
+	}
+
+	checkpoint, err := flinkControllerForTest.FindExternalizedCheckpoint(context.Background(), &flinkApp, "hash")
+	assert.Nil(t, err)
+	assert.Equal(t, "/tmp/checkpoint", checkpoint)
+}
+
 func TestClusterStatusUpdated(t *testing.T) {
 	err := initTestConfigForIngress()
 	assert.Nil(t, err)

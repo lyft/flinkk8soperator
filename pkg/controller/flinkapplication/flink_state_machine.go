@@ -176,6 +176,8 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 			updateApplication, appErr = s.handleApplicationRunning(ctx, application)
 		case v1beta1.FlinkApplicationSavepointing:
 			updateApplication, appErr = s.handleApplicationSavepointing(ctx, application)
+		case v1beta1.FlinkApplicationRecovering:
+			updateApplication, appErr = s.handleApplicationRecovering(ctx, application)
 		case v1beta1.FlinkApplicationRollingBackJob:
 			updateApplication, appErr = s.handleRollingBack(ctx, application)
 		case v1beta1.FlinkApplicationDeleting:
@@ -295,19 +297,17 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		return statusChanged, nil
 	}
 
+	if rollback, reason := s.shouldRollback(ctx, application); rollback {
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
+			fmt.Sprintf("Could not savepoint existing job: %s", reason))
+		application.Status.RetryCount = 0
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
+		return statusChanged, nil
+	}
+
 	// we haven't started savepointing yet; do so now
 	// TODO: figure out the idempotence of this
 	if application.Status.SavepointTriggerID == "" {
-		if rollback, reason := s.shouldRollback(ctx, application); rollback {
-			// we were unable to start savepointing for our failure period, so roll back
-			// TODO: we should think about how to handle the case where the cluster has started savepointing, but does
-			//       not finish within some time frame. Currently, we just wait indefinitely for the JM to report its
-			//       status. It's not clear what the right answer is.
-			s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
-				fmt.Sprintf("Could not start savepointing: %s", reason))
-			return s.deployFailed(ctx, application)
-		}
-
 		triggerID, err := s.flinkController.CancelWithSavepoint(ctx, application, application.Status.DeployHash)
 		if err != nil {
 			return statusUnchanged, err
@@ -322,63 +322,65 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 	// check the savepoints in progress
 	savepointStatusResponse, err := s.flinkController.GetSavepointStatus(ctx, application, application.Status.DeployHash)
-	// Here shouldRollback() is used as a proxy to identify if we have exhausted all retries trying to GetSavepointStatus
-	// The application is NOT actually rolled back  because we're in a spot where there may be no application running and we don't
-	// have information on the last successful savepoint.
-	// In the event that rollback evaluates to True, we don't return immediately but allow for the remaining steps to proceed as normal.
-	rollback, reason := s.shouldRollback(ctx, application)
-
-	if err != nil && !rollback {
+	if err != nil {
 		return statusUnchanged, err
 	}
 
-	if err != nil && rollback {
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointStatusCheckFailed",
-			fmt.Sprintf("Exhausted retries trying to get status for savepoint for job %s: %v",
-				application.Status.JobStatus.JobID, reason))
-	}
-
-	var restorePath string
-	if rollback || (savepointStatusResponse.Operation.Location == "" &&
-		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress) {
+	if savepointStatusResponse.Operation.Location == "" &&
+		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
 		// Savepointing failed
 		// TODO: we should probably retry this a few times before failing
-		if savepointStatusResponse != nil {
-			s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
-				fmt.Sprintf("Failed to take savepoint for job %s: %v",
-					application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
-		}
-
-		// try to find an externalized checkpoint
-		path, err := s.flinkController.FindExternalizedCheckpoint(ctx, application, application.Status.DeployHash)
-		if err != nil {
-			logger.Infof(ctx, "error while fetching externalized checkpoint path: %v", err)
-			return s.deployFailed(ctx, application)
-		} else if path == "" {
-			logger.Infof(ctx, "no externalized checkpoint found")
-			return s.deployFailed(ctx, application)
-		}
-
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "RestoringExternalizedCheckpoint",
-			fmt.Sprintf("Restoring from externalized checkpoint %s for deploy %s",
-				path, flink.HashForApplication(application)))
-
-		restorePath = path
-	} else if savepointStatusResponse != nil && savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
+			fmt.Sprintf("Failed to take savepoint for job %s: %v",
+				application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
+		application.Status.RetryCount = 0
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
+		return statusChanged, nil
+	} else if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CanceledJob",
 			fmt.Sprintf("Canceled job with savepoint %s",
 				savepointStatusResponse.Operation.Location))
-		restorePath = savepointStatusResponse.Operation.Location
-	}
-
-	if restorePath != "" {
-		application.Status.SavepointPath = restorePath
+		application.Status.SavepointPath = savepointStatusResponse.Operation.Location
 		application.Status.JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}
 
 	return statusUnchanged, nil
+}
+
+func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
+	// we're in the middle of a deploy, and savepointing has failed in some way... we're going to try to recover
+	// and push through if possible
+	if rollback, reason := s.shouldRollback(ctx, app); rollback {
+		// we failed to recover, attempt to rollback
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
+			fmt.Sprintf("Failed to recover with externalized checkpoint: %s", reason))
+		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
+		return statusChanged, nil
+	}
+
+	// TODO: the old job might still be running at this point... we should maybe try to force cancel it
+	//       (but if the JM is unavailable, our options there might be limited)
+
+	// try to find an externalized checkpoint
+	path, err := s.flinkController.FindExternalizedCheckpoint(ctx, app, app.Status.DeployHash)
+	if err != nil {
+		logger.Infof(ctx, "error while fetching externalized checkpoint path: %v", err)
+		return s.deployFailed(ctx, app)
+	} else if path == "" {
+		logger.Infof(ctx, "no externalized checkpoint found")
+		return s.deployFailed(ctx, app)
+	}
+
+	s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "RestoringExternalizedCheckpoint",
+		fmt.Sprintf("Restoring from externalized checkpoint %s for deploy %s",
+			path, flink.HashForApplication(app)))
+
+	app.Status.SavepointPath = path
+	app.Status.JobStatus.JobID = ""
+	s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJob)
+	return statusChanged, nil
 }
 
 func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.FlinkApplication, hash string,
@@ -456,7 +458,7 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	if rollback, reason := s.shouldRollback(ctx, app); rollback {
 		// Something's gone wrong; roll back
-		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobsSubmissionFailed",
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
 			fmt.Sprintf("Failed to submit job: %s", reason))
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
 		return statusChanged, nil
@@ -594,18 +596,6 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 // Check if the application is Running.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
 func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
-	job, err := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
-	if err != nil {
-		// TODO: think more about this case
-		return statusUnchanged, err
-	}
-
-	if job == nil {
-		logger.Warnf(ctx, "Could not find active job {}", application.Status.JobStatus.JobID)
-	} else {
-		logger.Debugf(ctx, "Application running with job %v", job.JobID)
-	}
-
 	cur, err := s.flinkController.GetCurrentDeploymentsForApp(ctx, application)
 	if err != nil {
 		return statusUnchanged, err
@@ -618,6 +608,18 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		// TODO: handle single mode
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
 		return statusChanged, nil
+	}
+
+	job, err := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
+	if err != nil {
+		// TODO: think more about this case
+		return statusUnchanged, err
+	}
+
+	if job == nil {
+		logger.Warnf(ctx, "Could not find active job {}", application.Status.JobStatus.JobID)
+	} else {
+		logger.Debugf(ctx, "Application running with job %v", job.JobID)
 	}
 
 	// If there are old resources left-over from a previous version, clean them up

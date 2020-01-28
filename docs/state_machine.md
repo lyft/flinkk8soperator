@@ -27,10 +27,14 @@ image, bad configuration, not enough Kubernetes resources, etc.), we transition 
 In the `Savepointing` state, the operator attempts to cancel the existing job with a 
 [savepoint](https://ci.apache.org/projects/flink/flink-docs-release-1.8/ops/state/savepoints.html) (if this is the first
 deploy for the FlinkApplication and there is no existing job, we transition straight to `SubmittingJob`). The operator
-monitors the savepoint process until it succeeds or fails. If savepointing fails, the operator will look for an
-[externalized checkpoint](https://ci.apache.org/projects/flink/flink-docs-release-1.8/ops/state/checkpoints.html#resuming-from-a-retained-checkpoint).
-If none are available, the application transitions to the `DeployFailed` state. Otherwise, it transitions to the
-`SubmittingJob` state.    
+monitors the savepoint process until it succeeds or fails. If savepointing succeeds, we move to the `SubmittingJob` 
+phase. If it fails, we move to the `Recovering` phase to attempt to recover from an externalized checkpoint.  
+
+### Recovering
+If savepointing fails, the operator will look for an
+[externalized checkpoint](https://ci.apache.org/projects/flink/flink-docs-release-1.8/ops/state/checkpoints.html#resuming-from-a-retained-checkpoint)
+and attempt to use that for recovery.  If one is not availble, the application transitions to the `DeployFailed` state. 
+Otherwise, it transitions to the `SubmittingJob` state.
 
 ### SubmittingJob
 In this state, the operator waits until the JobManager is ready, then attempts to submit the Flink job to the cluster. 

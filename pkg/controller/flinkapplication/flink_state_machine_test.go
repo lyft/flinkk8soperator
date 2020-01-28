@@ -222,14 +222,12 @@ func TestHandleApplicationSavepointingFailed(t *testing.T) {
 			SavepointTriggerID: "trigger",
 		},
 	}
-	hash := flink.HashForApplication(&app)
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Empty(t, application.Status.SavepointPath)
-		assert.Equal(t, hash, application.Status.FailedDeployHash)
-		assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
+		assert.Equal(t, v1beta1.FlinkApplicationRecovering, application.Status.Phase)
 		updateInvoked = true
 		return nil
 	}
@@ -244,7 +242,7 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 	app := v1beta1.FlinkApplication{
 		Spec: v1beta1.FlinkApplicationSpec{},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:              v1beta1.FlinkApplicationSavepointing,
+			Phase:              v1beta1.FlinkApplicationRecovering,
 			DeployHash:         "blah",
 			SavepointTriggerID: "trigger",
 		},
@@ -252,13 +250,6 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
-		return &client.SavepointResponse{
-			SavepointStatus: client.SavepointStatusResponse{
-				Status: client.SavePointCompleted,
-			},
-		}, nil
-	}
 
 	mockFlinkController.FindExternalizedCheckpointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
 		return "/tmp/checkpoint", nil
@@ -973,7 +964,7 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	}
 
 	retries := 0
-	for ; app.Status.Phase != v1beta1.FlinkApplicationDeployFailed; retries++ {
+	for ; app.Status.Phase != v1beta1.FlinkApplicationRecovering; retries++ {
 		assert.Equal(t, v1beta1.FlinkApplicationSavepointing, app.Status.Phase)
 		err := stateMachineForTest.Handle(context.Background(), &app)
 
@@ -988,7 +979,7 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	assert.Equal(t, 5, retries)
 	assert.Equal(t, 5, updateErrCount)
 	// Retries should have been exhausted and errors and retry counts reset
-	assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, app.Status.Phase)
+	assert.Equal(t, v1beta1.FlinkApplicationRecovering, app.Status.Phase)
 	assert.Equal(t, int32(0), app.Status.RetryCount)
 	assert.Nil(t, app.Status.LastSeenError)
 }
@@ -1104,6 +1095,14 @@ func TestErrorHandlingInRunningPhase(t *testing.T) {
 
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+
+	mockFlinkController.GetCurrentDeploymentsForAppFunc = func(ctx context.Context, app *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
+		return &common.FlinkDeployment{
+			Jobmanager:  nil,
+			Taskmanager: nil,
+			Hash:        "",
+		}, nil
+	}
 
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		return nil, client.GetNonRetryableError(errors.New("running phase error"), "TestError", "400")
@@ -1276,9 +1275,7 @@ func TestCheckSavepointStatusFailing(t *testing.T) {
 	// The app should hence try to recover from an externalized checkpoint
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
-	assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, app.Status.Phase)
-	assert.Equal(t, "/tmp/checkpoint", app.Status.SavepointPath)
-	assert.Equal(t, "", app.Status.JobStatus.JobID)
+	assert.Equal(t, v1beta1.FlinkApplicationRecovering, app.Status.Phase)
 }
 
 func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {

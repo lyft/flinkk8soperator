@@ -187,17 +187,17 @@ func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url 
 	response, err := c.executeRequest(ctx, httpPost, url, cancelJobRequest)
 	if err != nil {
 		c.metrics.cancelJobFailureCounter.Inc(ctx)
-		return "", GetRetryableError(err, v1beta1.CancelJobWithSavepoint, GlobalFailure, DefaultRetries)
+		return "", GetRetryableError(err, v1beta1.CancelJobWithSavepoint, GlobalFailure, 5)
 	}
 	if response != nil && !response.IsSuccess() {
 		c.metrics.cancelJobFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Cancel job failed with response %v", response))
-		return "", GetRetryableError(err, v1beta1.CancelJobWithSavepoint, response.Status(), DefaultRetries)
+		return "", GetRetryableError(err, v1beta1.CancelJobWithSavepoint, response.Status(), 5)
 	}
 	var cancelJobResponse CancelJobResponse
 	if err = json.Unmarshal(response.Body(), &cancelJobResponse); err != nil {
 		logger.Errorf(ctx, "Unable to Unmarshal cancelJobResponse %v, err: %v", response, err)
-		return "", GetRetryableError(err, v1beta1.CancelJobWithSavepoint, JSONUnmarshalError, DefaultRetries)
+		return "", GetRetryableError(err, v1beta1.CancelJobWithSavepoint, JSONUnmarshalError, 5)
 	}
 	c.metrics.cancelJobSuccessCounter.Inc(ctx)
 	return cancelJobResponse.TriggerID, nil

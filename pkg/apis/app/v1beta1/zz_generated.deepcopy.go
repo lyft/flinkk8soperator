@@ -171,6 +171,11 @@ func (in *FlinkApplicationSpec) DeepCopyInto(out *FlinkApplicationSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.MaxCheckpointRestoreAgeSeconds != nil {
+		in, out := &in.MaxCheckpointRestoreAgeSeconds, &out.MaxCheckpointRestoreAgeSeconds
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 
@@ -238,16 +243,16 @@ func (in *FlinkJobStatus) DeepCopyInto(out *FlinkJobStatus) {
 		in, out := &in.StartTime, &out.StartTime
 		*out = (*in).DeepCopy()
 	}
-	if in.LastCheckpointTime != nil {
-		in, out := &in.LastCheckpointTime, &out.LastCheckpointTime
-		*out = (*in).DeepCopy()
-	}
 	if in.RestoreTime != nil {
 		in, out := &in.RestoreTime, &out.RestoreTime
 		*out = (*in).DeepCopy()
 	}
 	if in.LastFailingTime != nil {
 		in, out := &in.LastFailingTime, &out.LastFailingTime
+		*out = (*in).DeepCopy()
+	}
+	if in.LastCheckpointTime != nil {
+		in, out := &in.LastCheckpointTime, &out.LastCheckpointTime
 		*out = (*in).DeepCopy()
 	}
 	return

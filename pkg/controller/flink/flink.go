@@ -447,19 +447,31 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 
 func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
 	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, getURLFromApp(application, hash), application.Status.JobStatus.JobID)
+	var checkpointPath string
+	var checkpointTime int64
 	if err != nil {
-		return "", err
-	}
-	if checkpoint == nil {
+		// we failed to query the JM, try to pull it out of the resource
+		if application.Status.JobStatus.LastCheckpointPath != "" && application.Status.JobStatus.LastCheckpointTime != nil {
+			checkpointPath = application.Status.JobStatus.LastCheckpointPath
+			checkpointTime = application.Status.JobStatus.LastCheckpointTime.Unix()
+			logger.Warnf(ctx, "Could not query JobManager for latest externalized checkpoint, using"+
+				" last seen checkpoint")
+		} else {
+			return "", err
+		}
+	} else if checkpoint != nil {
+		checkpointPath = checkpoint.ExternalPath
+		checkpointTime = checkpoint.TriggerTimestamp
+	} else {
 		return "", nil
 	}
 
-	if isCheckpointOldToRecover(checkpoint.TriggerTimestamp, getMaxCheckpointRestoreAgeSeconds(application)) {
+	if isCheckpointOldToRecover(checkpointTime, getMaxCheckpointRestoreAgeSeconds(application)) {
 		logger.Info(ctx, "Found checkpoint to restore from, but was too old")
 		return "", nil
 	}
 
-	return checkpoint.ExternalPath, nil
+	return checkpointPath, nil
 }
 
 func isCheckpointOldToRecover(checkpointTime int64, maxCheckpointRecoveryAgeSec int32) bool {
@@ -560,6 +572,7 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1
 	if latestCheckpoint != nil {
 		lastCheckpointTimeMillis := metav1.NewTime(time.Unix(latestCheckpoint.LatestAckTimestamp/1000, 0))
 		app.Status.JobStatus.LastCheckpointTime = &lastCheckpointTimeMillis
+		app.Status.JobStatus.LastCheckpointPath = latestCheckpoint.ExternalPath
 		lastCheckpointAgeSeconds = app.Status.JobStatus.LastCheckpointTime.Second()
 	}
 
