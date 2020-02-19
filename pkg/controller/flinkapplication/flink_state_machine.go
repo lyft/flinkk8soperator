@@ -290,9 +290,10 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 }
 
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	application.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
 	// we've already savepointed (or this is our first deploy), continue on
 	if application.Status.SavepointPath != "" || application.Status.DeployHash == "" {
-		application.Status.JobStatus.JobID = ""
+		application.Status.AppStatus[0].JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}
@@ -314,7 +315,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		}
 
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CancellingJob",
-			fmt.Sprintf("Cancelling job %s with a final savepoint", application.Status.JobStatus.JobID))
+			fmt.Sprintf("Cancelling job %s with a final savepoint", application.Status.AppStatus[0].JobStatus.JobID))
 
 		application.Status.SavepointTriggerID = triggerID
 		return statusChanged, nil
@@ -332,7 +333,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		// TODO: we should probably retry this a few times before failing
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
 			fmt.Sprintf("Failed to take savepoint for job %s: %v",
-				application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
+				application.Status.AppStatus[0].JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
 		application.Status.RetryCount = 0
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
 		return statusChanged, nil
@@ -341,7 +342,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 			fmt.Sprintf("Canceled job with savepoint %s",
 				savepointStatusResponse.Operation.Location))
 		application.Status.SavepointPath = savepointStatusResponse.Operation.Location
-		application.Status.JobStatus.JobID = ""
+		application.Status.AppStatus[0].JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}
@@ -352,6 +353,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	// we're in the middle of a deploy, and savepointing has failed in some way... we're going to try to recover
 	// and push through if possible
+	app.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
 	if rollback, reason := s.shouldRollback(ctx, app); rollback {
 		// we failed to recover, attempt to rollback
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
@@ -378,7 +380,7 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 			path, flink.HashForApplication(app)))
 
 	app.Status.SavepointPath = path
-	app.Status.JobStatus.JobID = ""
+	app.Status.AppStatus[0].JobStatus.JobID = ""
 	s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJob)
 	return statusChanged, nil
 }
@@ -393,8 +395,8 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.
 	}
 
 	// Check if the job id has already been set on our application
-	if app.Status.JobStatus.JobID != "" {
-		return app.Status.JobStatus.JobID, nil
+	if app.Status.AppStatus[0].JobStatus.JobID != "" {
+		return app.Status.AppStatus[0].JobStatus.JobID, nil
 	}
 
 	// Check that there are no jobs running before starting the job
@@ -456,6 +458,10 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 }
 
 func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
+	if len(app.Status.AppStatus) == 0 {
+		app.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
+	}
+
 	if rollback, reason := s.shouldRollback(ctx, app); rollback {
 		// Something's gone wrong; roll back
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
@@ -477,7 +483,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		logger.Errorf(ctx, "Updating cluster status failed with error: %v", clusterErr)
 	}
 
-	if app.Status.JobStatus.JobID == "" {
+	if app.Status.AppStatus[0].JobStatus.JobID == "" {
 		savepointPath := ""
 		if app.Status.DeployHash == "" {
 			// this is the first deploy, use the user-provided savepoint
@@ -499,7 +505,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		}
 
 		if appJobID != "" {
-			app.Status.JobStatus.JobID = appJobID
+			app.Status.AppStatus[0].JobStatus.JobID = appJobID
 			return statusChanged, nil
 		}
 
@@ -524,11 +530,11 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		app.Status.DeployHash = hash
 		app.Status.SavepointPath = ""
 		app.Status.SavepointTriggerID = ""
-		app.Status.JobStatus.JarName = app.Spec.JarName
-		app.Status.JobStatus.Parallelism = app.Spec.Parallelism
-		app.Status.JobStatus.EntryClass = app.Spec.EntryClass
-		app.Status.JobStatus.ProgramArgs = app.Spec.ProgramArgs
-		app.Status.JobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
+		app.Status.AppStatus[0].JobStatus.JarName = app.Spec.JarName
+		app.Status.AppStatus[0].JobStatus.Parallelism = app.Spec.Parallelism
+		app.Status.AppStatus[0].JobStatus.EntryClass = app.Spec.EntryClass
+		app.Status.AppStatus[0].JobStatus.ProgramArgs = app.Spec.ProgramArgs
+		app.Status.AppStatus[0].JobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
 
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRunning)
 		return statusChanged, nil
@@ -571,9 +577,9 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 
 	// submit the old job
 	jobID, err := s.submitJobIfNeeded(ctx, app, app.Status.DeployHash,
-		app.Status.JobStatus.JarName, app.Status.JobStatus.Parallelism,
-		app.Status.JobStatus.EntryClass, app.Status.JobStatus.ProgramArgs,
-		app.Status.JobStatus.AllowNonRestoredState,
+		app.Status.AppStatus[0].JobStatus.JarName, app.Status.AppStatus[0].JobStatus.Parallelism,
+		app.Status.AppStatus[0].JobStatus.EntryClass, app.Status.AppStatus[0].JobStatus.ProgramArgs,
+		app.Status.AppStatus[0].JobStatus.AllowNonRestoredState,
 		app.Status.SavepointPath)
 
 	// set rollbackHash
@@ -583,7 +589,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 	}
 
 	if jobID != "" {
-		app.Status.JobStatus.JobID = jobID
+		app.Status.AppStatus[0].JobStatus.JobID = jobID
 		app.Status.SavepointPath = ""
 		app.Status.SavepointTriggerID = ""
 		// move to the deploy failed state
@@ -596,6 +602,9 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 // Check if the application is Running.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
 func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	if len(application.Status.AppStatus) == 0 {
+		application.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
+	}
 	cur, err := s.flinkController.GetCurrentDeploymentsForApp(ctx, application)
 	if err != nil {
 		return statusUnchanged, err
@@ -617,7 +626,7 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	}
 
 	if job == nil {
-		logger.Warnf(ctx, "Could not find active job {}", application.Status.JobStatus.JobID)
+		logger.Warnf(ctx, "Could not find active job {}", application.Status.AppStatus[0].JobStatus.JobID)
 	} else {
 		logger.Debugf(ctx, "Application running with job %v", job.JobID)
 	}

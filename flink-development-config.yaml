@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-development-config
+data:
+  APPLICATION_ENV: development
+  JOB_MANAGER_HEAP_MB: "200"
+  TASK_MANAGER_SLOTS: "2"
+  TASK_MANAGER_HEAP_MB: "200"

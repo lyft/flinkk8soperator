@@ -429,7 +429,7 @@ func (f *TestUtil) WaitForAllTasksRunning(name string) error {
 		return err
 	}
 
-	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.JobStatus.JobID)
+	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.AppStatus[0].JobStatus.JobID)
 	for {
 		res, err := f.FlinkAPIGet(flinkApp, endpoint)
 		if err != nil {

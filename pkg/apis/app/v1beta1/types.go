@@ -165,12 +165,11 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase              FlinkApplicationPhase  `json:"phase"`
-	StartedAt          *metav1.Time           `json:"startedAt,omitempty"`
-	LastUpdatedAt      *metav1.Time           `json:"lastUpdatedAt,omitempty"`
-	Reason             string                 `json:"reason,omitempty"`
-	ClusterStatus      FlinkClusterStatus     `json:"clusterStatus,omitempty"`
-	JobStatus          FlinkJobStatus         `json:"jobStatus"`
+	Phase              FlinkApplicationPhase `json:"phase"`
+	StartedAt          *metav1.Time          `json:"startedAt,omitempty"`
+	LastUpdatedAt      *metav1.Time          `json:"lastUpdatedAt,omitempty"`
+	Reason             string                `json:"reason,omitempty"`
+	AppStatus          []FlinkSubApplicationStatus `json:"appStatus,omitempty"`
 	FailedDeployHash   string                 `json:"failedDeployHash,omitempty"`
 	RollbackHash       string                 `json:"rollbackHash,omitempty"`
 	DeployHash         string                 `json:"deployHash"`
@@ -178,6 +177,19 @@ type FlinkApplicationStatus struct {
 	SavepointPath      string                 `json:"savepointPath,omitempty"`
 	RetryCount         int32                  `json:"retryCount,omitempty"`
 	LastSeenError      *FlinkApplicationError `json:"lastSeenError,omitempty"`
+}
+
+type FlinkApplicationVersion string
+
+const (
+	BlueFlinkApplication  FlinkApplicationVersion = "Blue"
+	GreenFlinkApplication FlinkApplicationVersion = "Green"
+)
+
+type FlinkSubApplicationStatus struct {
+	Version       FlinkApplicationVersion
+	ClusterStatus FlinkClusterStatus
+	JobStatus     FlinkJobStatus
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
@@ -244,8 +256,9 @@ func IsRunningPhase(phase FlinkApplicationPhase) bool {
 type DeploymentMode string
 
 const (
-	DeploymentModeSingle DeploymentMode = "Single"
-	DeploymentModeDual   DeploymentMode = "Dual"
+	DeploymentModeSingle    DeploymentMode = "Single"
+	DeploymentModeDual      DeploymentMode = "Dual"
+	DeploymentModeBlueGreen DeploymentMode = "BlueGreen"
 )
 
 type DeleteMode string
@@ -254,6 +267,13 @@ const (
 	DeleteModeSavepoint   DeleteMode = "Savepoint"
 	DeleteModeForceCancel DeleteMode = "ForceCancel"
 	DeleteModeNone        DeleteMode = "None"
+)
+
+type SavepointMode string
+
+const (
+	SavepointModeSavepointOnly      SavepointMode = "Savepoint"
+	SavepointModeSavepointAndCancel SavepointMode = "SavepointAndCancel"
 )
 
 type HealthStatus string

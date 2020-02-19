@@ -28,12 +28,12 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1be
 	// check that it really updated
 	newApp, err := s.Util.GetFlinkApplication(name)
 	c.Assert(err, IsNil)
-	c.Assert(newApp.Status.JobStatus.JobID, Not(Equals), app.Status.JobStatus.JobID)
+	c.Assert(newApp.Status.AppStatus[0].JobStatus.JobID, Not(Equals), app.Status.AppStatus[0].JobStatus.JobID)
 
 	log.Info("New job started successfully")
 
 	// check that we savepointed and restored correctly
-	endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.JobStatus.JobID)
+	endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.AppStatus[0].JobStatus.JobID)
 	res, err := s.Util.FlinkAPIGet(newApp, endpoint)
 	c.Assert(err, IsNil)
 
@@ -140,13 +140,13 @@ func (s *IntegSuite) TestSimple(c *C) {
 		c.Assert(s.Util.WaitForAllTasksRunning(newApp.Name), IsNil)
 
 		// the job id should have changed
-		jobID := newApp.Status.JobStatus.JobID
+		jobID := newApp.Status.AppStatus[0].JobStatus.JobID
 		newApp, err = s.Util.GetFlinkApplication(newApp.Name)
 		c.Assert(err, IsNil)
-		c.Assert(newApp.Status.JobStatus.JobID, Not(Equals), jobID)
+		c.Assert(newApp.Status.AppStatus[0].JobStatus.JobID, Not(Equals), jobID)
 
 		// we should have restored from our savepoint
-		endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.JobStatus.JobID)
+		endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.AppStatus[0].JobStatus.JobID)
 		res, err := s.Util.FlinkAPIGet(newApp, endpoint)
 		c.Assert(err, IsNil)
 
@@ -191,7 +191,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 		log.Info("User cancelled deploy. Job is in deploy failed, waiting for tasks to start")
 
 		// but the job should still be running
-		c.Assert(newApp.Status.JobStatus.State, Equals, v1beta1.Running)
+		c.Assert(newApp.Status.AppStatus[0].JobStatus.State, Equals, v1beta1.Running)
 		log.Info("Attempting to roll forward with fix")
 
 		// Fixing update
@@ -225,7 +225,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 		jobList := jobMap["jobs"].([]interface{})
 		for _, j := range jobList {
 			job := j.(map[string]interface{})
-			if job["id"] == app.Status.JobStatus.JobID {
+			if job["id"] == app.Status.AppStatus[0].JobStatus.JobID {
 				return job
 			}
 		}
@@ -284,7 +284,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	app, err := s.Util.GetFlinkApplication(config.Name)
 	c.Assert(err, IsNil)
 
-	endpoint := fmt.Sprintf("jobs/%s/checkpoints", app.Status.JobStatus.JobID)
+	endpoint := fmt.Sprintf("jobs/%s/checkpoints", app.Status.AppStatus[0].JobStatus.JobID)
 	for {
 		res, err := s.Util.FlinkAPIGet(app, endpoint)
 		c.Assert(err, IsNil)
@@ -324,7 +324,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 		// wait until the new job is launched
 		newApp, err := s.Util.GetFlinkApplication(config.Name)
 		c.Assert(err, IsNil)
-		if newApp.Status.JobStatus.JobID != app.Status.JobStatus.JobID {
+		if newApp.Status.AppStatus[0].JobStatus.JobID != app.Status.AppStatus[0].JobStatus.JobID {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)

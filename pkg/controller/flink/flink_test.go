@@ -66,7 +66,13 @@ func getFlinkTestApp() v1beta1.FlinkApplication {
 	app.Spec.Parallelism = 8
 	app.Name = testAppName
 	app.Namespace = testNamespace
-	app.Status.JobStatus.JobID = testJobID
+	statuses := append(app.Status.AppStatus, v1beta1.FlinkSubApplicationStatus{
+		JobStatus: v1beta1.FlinkJobStatus{
+			JobID: testJobID,
+		},
+	})
+	app.Status.AppStatus = statuses
+	//app.Status.AppStatus[0].JobStatus.JobID = testJobID
 	app.Spec.Image = testImage
 	app.Spec.FlinkVersion = testFlinkVersion
 
@@ -573,7 +579,7 @@ func TestGetJobsForApplicationErr(t *testing.T) {
 func TestFindExternalizedCheckpoint(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Status.JobStatus.JobID = "jobid"
+	flinkApp.Status.AppStatus[0].JobStatus.JobID = "jobid"
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetLatestCheckpointFunc = func(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error) {
@@ -593,10 +599,10 @@ func TestFindExternalizedCheckpoint(t *testing.T) {
 func TestFindExternalizedCheckpointFromStatus(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Status.JobStatus.JobID = "jobid"
-	flinkApp.Status.JobStatus.LastCheckpointPath = "/tmp/checkpoint"
+	flinkApp.Status.AppStatus[0].JobStatus.JobID = "jobid"
+	flinkApp.Status.AppStatus[0].JobStatus.LastCheckpointPath = "/tmp/checkpoint"
 	checkpointTime := metaV1.Now()
-	flinkApp.Status.JobStatus.LastCheckpointTime = &checkpointTime
+	flinkApp.Status.AppStatus[0].JobStatus.LastCheckpointTime = &checkpointTime
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetLatestCheckpointFunc = func(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error) {
@@ -662,22 +668,22 @@ func TestClusterStatusUpdated(t *testing.T) {
 
 	_, err = flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
-	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
-	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
-	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.HealthyTaskManagers)
-	assert.Equal(t, v1beta1.Green, flinkApp.Status.ClusterStatus.Health)
-	assert.Equal(t, "app-name.lyft.xyz/#/overview", flinkApp.Status.ClusterStatus.ClusterOverviewURL)
+	assert.Equal(t, int32(1), flinkApp.Status.AppStatus[0].ClusterStatus.NumberOfTaskSlots)
+	assert.Equal(t, int32(0), flinkApp.Status.AppStatus[0].ClusterStatus.AvailableTaskSlots)
+	assert.Equal(t, int32(1), flinkApp.Status.AppStatus[0].ClusterStatus.HealthyTaskManagers)
+	assert.Equal(t, v1beta1.Green, flinkApp.Status.AppStatus[0].ClusterStatus.Health)
+	assert.Equal(t, "app-name.lyft.xyz/#/overview", flinkApp.Status.AppStatus[0].ClusterStatus.ClusterOverviewURL)
 
 }
 
 func TestNoClusterStatusChange(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Status.ClusterStatus.NumberOfTaskSlots = int32(1)
-	flinkApp.Status.ClusterStatus.AvailableTaskSlots = int32(0)
-	flinkApp.Status.ClusterStatus.HealthyTaskManagers = int32(1)
-	flinkApp.Status.ClusterStatus.Health = v1beta1.Green
-	flinkApp.Status.ClusterStatus.NumberOfTaskManagers = int32(1)
+	flinkApp.Status.AppStatus[0].ClusterStatus.NumberOfTaskSlots = int32(1)
+	flinkApp.Status.AppStatus[0].ClusterStatus.AvailableTaskSlots = int32(0)
+	flinkApp.Status.AppStatus[0].ClusterStatus.HealthyTaskManagers = int32(1)
+	flinkApp.Status.AppStatus[0].ClusterStatus.Health = v1beta1.Green
+	flinkApp.Status.AppStatus[0].ClusterStatus.NumberOfTaskManagers = int32(1)
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
 		tmDeployment := FetchTaskMangerDeploymentCreateObj(&flinkApp, testAppHash)
@@ -766,10 +772,10 @@ func TestHealthyTaskmanagers(t *testing.T) {
 
 	_, err := flinkControllerForTest.CompareAndUpdateClusterStatus(context.Background(), &flinkApp, hash)
 	assert.Nil(t, err)
-	assert.Equal(t, int32(1), flinkApp.Status.ClusterStatus.NumberOfTaskSlots)
-	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.AvailableTaskSlots)
-	assert.Equal(t, int32(0), flinkApp.Status.ClusterStatus.HealthyTaskManagers)
-	assert.Equal(t, v1beta1.Yellow, flinkApp.Status.ClusterStatus.Health)
+	assert.Equal(t, int32(1), flinkApp.Status.AppStatus[0].ClusterStatus.NumberOfTaskSlots)
+	assert.Equal(t, int32(0), flinkApp.Status.AppStatus[0].ClusterStatus.AvailableTaskSlots)
+	assert.Equal(t, int32(0), flinkApp.Status.AppStatus[0].ClusterStatus.HealthyTaskManagers)
+	assert.Equal(t, v1beta1.Yellow, flinkApp.Status.AppStatus[0].ClusterStatus.Health)
 
 }
 
@@ -826,26 +832,26 @@ func TestJobStatusUpdated(t *testing.T) {
 		}, nil
 	}
 
-	flinkApp.Status.JobStatus.JobID = "abc"
+	flinkApp.Status.AppStatus[0].JobStatus.JobID = "abc"
 	expectedTime := metaV1.NewTime(time.Unix(startTime/1000, 0))
 	_, err = flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 
-	assert.Equal(t, v1beta1.Running, flinkApp.Status.JobStatus.State)
-	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.StartTime)
-	assert.Equal(t, v1beta1.Yellow, flinkApp.Status.JobStatus.Health)
+	assert.Equal(t, v1beta1.Running, flinkApp.Status.AppStatus[0].JobStatus.State)
+	assert.Equal(t, &expectedTime, flinkApp.Status.AppStatus[0].JobStatus.StartTime)
+	assert.Equal(t, v1beta1.Yellow, flinkApp.Status.AppStatus[0].JobStatus.Health)
 
-	assert.Equal(t, int32(0), flinkApp.Status.JobStatus.FailedCheckpointCount)
-	assert.Equal(t, int32(4), flinkApp.Status.JobStatus.CompletedCheckpointCount)
-	assert.Equal(t, int32(1), flinkApp.Status.JobStatus.JobRestartCount)
-	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.RestoreTime)
+	assert.Equal(t, int32(0), flinkApp.Status.AppStatus[0].JobStatus.FailedCheckpointCount)
+	assert.Equal(t, int32(4), flinkApp.Status.AppStatus[0].JobStatus.CompletedCheckpointCount)
+	assert.Equal(t, int32(1), flinkApp.Status.AppStatus[0].JobStatus.JobRestartCount)
+	assert.Equal(t, &expectedTime, flinkApp.Status.AppStatus[0].JobStatus.RestoreTime)
 
-	assert.Equal(t, "/test/externalpath", flinkApp.Status.JobStatus.RestorePath)
-	assert.Equal(t, &expectedTime, flinkApp.Status.JobStatus.LastCheckpointTime)
-	assert.Equal(t, "app-name.lyft.xyz/#/jobs/abc", flinkApp.Status.JobStatus.JobOverviewURL)
+	assert.Equal(t, "/test/externalpath", flinkApp.Status.AppStatus[0].JobStatus.RestorePath)
+	assert.Equal(t, &expectedTime, flinkApp.Status.AppStatus[0].JobStatus.LastCheckpointTime)
+	assert.Equal(t, "app-name.lyft.xyz/#/jobs/abc", flinkApp.Status.AppStatus[0].JobStatus.JobOverviewURL)
 
-	assert.Equal(t, int32(2), flinkApp.Status.JobStatus.RunningTasks)
-	assert.Equal(t, int32(7), flinkApp.Status.JobStatus.TotalTasks)
+	assert.Equal(t, int32(2), flinkApp.Status.AppStatus[0].JobStatus.RunningTasks)
+	assert.Equal(t, int32(7), flinkApp.Status.AppStatus[0].JobStatus.TotalTasks)
 
 }
 
@@ -860,16 +866,16 @@ func TestNoJobStatusChange(t *testing.T) {
 	app1 := getFlinkTestApp()
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 
-	app1.Status.JobStatus.State = v1beta1.Running
-	app1.Status.JobStatus.StartTime = &metaTime
-	app1.Status.JobStatus.LastCheckpointTime = &metaTime
-	app1.Status.JobStatus.CompletedCheckpointCount = int32(4)
-	app1.Status.JobStatus.JobRestartCount = int32(1)
-	app1.Status.JobStatus.FailedCheckpointCount = int32(0)
-	app1.Status.JobStatus.Health = v1beta1.Green
-	app1.Status.JobStatus.RestoreTime = &metaTime
-	app1.Status.JobStatus.RestorePath = "/test/externalpath"
-	app1.Status.JobStatus.JobOverviewURL = ""
+	app1.Status.AppStatus[0].JobStatus.State = v1beta1.Running
+	app1.Status.AppStatus[0].JobStatus.StartTime = &metaTime
+	app1.Status.AppStatus[0].JobStatus.LastCheckpointTime = &metaTime
+	app1.Status.AppStatus[0].JobStatus.CompletedCheckpointCount = int32(4)
+	app1.Status.AppStatus[0].JobStatus.JobRestartCount = int32(1)
+	app1.Status.AppStatus[0].JobStatus.FailedCheckpointCount = int32(0)
+	app1.Status.AppStatus[0].JobStatus.Health = v1beta1.Green
+	app1.Status.AppStatus[0].JobStatus.RestoreTime = &metaTime
+	app1.Status.AppStatus[0].JobStatus.RestorePath = "/test/externalpath"
+	app1.Status.AppStatus[0].JobStatus.JobOverviewURL = ""
 
 	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, url, "http://app-name-hash.ns:8081")
@@ -912,8 +918,8 @@ func TestGetAndUpdateJobStatusHealth(t *testing.T) {
 	app1 := getFlinkTestApp()
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 
-	app1.Status.JobStatus.State = v1beta1.Failing
-	app1.Status.JobStatus.LastFailingTime = &lastFailedTime
+	app1.Status.AppStatus[0].JobStatus.State = v1beta1.Failing
+	app1.Status.AppStatus[0].JobStatus.LastFailingTime = &lastFailedTime
 
 	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, url, "http://app-name-hash.ns:8081")
@@ -938,7 +944,7 @@ func TestGetAndUpdateJobStatusHealth(t *testing.T) {
 	assert.Nil(t, err)
 	// Job is in a RUNNING state but was in a FAILING state in the last 1 minute, so we expect
 	// JobStatus.Health to be Red
-	assert.Equal(t, app1.Status.JobStatus.Health, v1beta1.Red)
+	assert.Equal(t, app1.Status.AppStatus[0].JobStatus.Health, v1beta1.Red)
 
 }
 
