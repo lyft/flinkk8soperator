@@ -460,6 +460,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		// Something's gone wrong; roll back
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
 			fmt.Sprintf("Failed to submit job: %s", reason))
+		app.Status.JobStatus.JobID = ""
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
 		return statusChanged, nil
 	}
