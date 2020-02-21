@@ -153,6 +153,8 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 	updateApplication := false
 	updateLastSeenError := false
 	appPhase := application.Status.Phase
+	// initialize application status array if it's not yet been initialized
+	initializeAppStatusIfEmpty(application)
 
 	if !application.ObjectMeta.DeletionTimestamp.IsZero() && appPhase != v1beta1.FlinkApplicationDeleting {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationDeleting)
@@ -270,7 +272,6 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 				"Flink cluster failed to become available: %s", reason))
 		return s.deployFailed(ctx, application)
 	}
-
 	// Wait for all to be running
 	clusterReady, err := s.flinkController.IsClusterReady(ctx, application)
 	if err != nil || !clusterReady {
@@ -289,8 +290,18 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	return statusChanged, nil
 }
 
+func initializeAppStatusIfEmpty(application *v1beta1.FlinkApplication) {
+	// initialize the app status array to include 2 statuses in case of blue green deploys
+	if len(application.Status.AppStatus) == 0 {
+		if application.Spec.DeploymentMode == v1beta1.DeploymentModeBlueGreen {
+			application.Status.AppStatus = make([]v1beta1.FlinkApplicationVersionStatus, 2)
+		} else {
+			application.Status.AppStatus = make([]v1beta1.FlinkApplicationVersionStatus, 1)
+		}
+	}
+}
+
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
-	application.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
 	// we've already savepointed (or this is our first deploy), continue on
 	if application.Status.SavepointPath != "" || application.Status.DeployHash == "" {
 		application.Status.AppStatus[0].JobStatus.JobID = ""
@@ -353,7 +364,6 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	// we're in the middle of a deploy, and savepointing has failed in some way... we're going to try to recover
 	// and push through if possible
-	app.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
 	if rollback, reason := s.shouldRollback(ctx, app); rollback {
 		// we failed to recover, attempt to rollback
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
@@ -459,7 +469,7 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 
 func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	if len(app.Status.AppStatus) == 0 {
-		app.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
+		app.Status.AppStatus = make([]v1beta1.FlinkApplicationVersionStatus, 2)
 	}
 
 	if rollback, reason := s.shouldRollback(ctx, app); rollback {
@@ -603,7 +613,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
 func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	if len(application.Status.AppStatus) == 0 {
-		application.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
+		application.Status.AppStatus = make([]v1beta1.FlinkApplicationVersionStatus, 2)
 	}
 	cur, err := s.flinkController.GetCurrentDeploymentsForApp(ctx, application)
 	if err != nil {

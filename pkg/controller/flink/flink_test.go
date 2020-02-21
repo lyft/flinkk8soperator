@@ -66,7 +66,7 @@ func getFlinkTestApp() v1beta1.FlinkApplication {
 	app.Spec.Parallelism = 8
 	app.Name = testAppName
 	app.Namespace = testNamespace
-	statuses := append(app.Status.AppStatus, v1beta1.FlinkSubApplicationStatus{
+	statuses := append(app.Status.AppStatus, v1beta1.FlinkApplicationVersionStatus{
 		JobStatus: v1beta1.FlinkJobStatus{
 			JobID: testJobID,
 		},

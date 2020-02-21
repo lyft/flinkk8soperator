@@ -165,18 +165,18 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase              FlinkApplicationPhase `json:"phase"`
-	StartedAt          *metav1.Time          `json:"startedAt,omitempty"`
-	LastUpdatedAt      *metav1.Time          `json:"lastUpdatedAt,omitempty"`
-	Reason             string                `json:"reason,omitempty"`
-	AppStatus          []FlinkSubApplicationStatus `json:"appStatus,omitempty"`
-	FailedDeployHash   string                 `json:"failedDeployHash,omitempty"`
-	RollbackHash       string                 `json:"rollbackHash,omitempty"`
-	DeployHash         string                 `json:"deployHash"`
-	SavepointTriggerID string                 `json:"savepointTriggerId,omitempty"`
-	SavepointPath      string                 `json:"savepointPath,omitempty"`
-	RetryCount         int32                  `json:"retryCount,omitempty"`
-	LastSeenError      *FlinkApplicationError `json:"lastSeenError,omitempty"`
+	Phase              FlinkApplicationPhase           `json:"phase"`
+	StartedAt          *metav1.Time                    `json:"startedAt,omitempty"`
+	LastUpdatedAt      *metav1.Time                    `json:"lastUpdatedAt,omitempty"`
+	Reason             string                          `json:"reason,omitempty"`
+	AppStatus          []FlinkApplicationVersionStatus `json:"appStatus,omitempty"`
+	FailedDeployHash   string                          `json:"failedDeployHash,omitempty"`
+	RollbackHash       string                          `json:"rollbackHash,omitempty"`
+	DeployHash         string                          `json:"deployHash"`
+	SavepointTriggerID string                          `json:"savepointTriggerId,omitempty"`
+	SavepointPath      string                          `json:"savepointPath,omitempty"`
+	RetryCount         int32                           `json:"retryCount,omitempty"`
+	LastSeenError      *FlinkApplicationError          `json:"lastSeenError,omitempty"`
 }
 
 type FlinkApplicationVersion string
@@ -186,7 +186,7 @@ const (
 	GreenFlinkApplication FlinkApplicationVersion = "Green"
 )
 
-type FlinkSubApplicationStatus struct {
+type FlinkApplicationVersionStatus struct {
 	Version       FlinkApplicationVersion
 	ClusterStatus FlinkClusterStatus
 	JobStatus     FlinkJobStatus
@@ -234,6 +234,8 @@ const (
 	FlinkApplicationRecovering      FlinkApplicationPhase = "Recovering"
 	FlinkApplicationRollingBackJob  FlinkApplicationPhase = "RollingBackJob"
 	FlinkApplicationDeployFailed    FlinkApplicationPhase = "DeployFailed"
+	FlinkApplicationDualRunning     FlinkApplicationPhase = "DualRunning"
+	FlinkApplicationTeardown        FlinkApplicationPhase = "Teardown"
 )
 
 var FlinkApplicationPhases = []FlinkApplicationPhase{
@@ -247,6 +249,8 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationRecovering,
 	FlinkApplicationDeployFailed,
 	FlinkApplicationRollingBackJob,
+	FlinkApplicationDualRunning,
+	FlinkApplicationTeardown,
 }
 
 func IsRunningPhase(phase FlinkApplicationPhase) bool {

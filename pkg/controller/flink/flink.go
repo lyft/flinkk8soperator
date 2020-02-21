@@ -488,7 +488,7 @@ func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, applicat
 	// Error retrieving cluster / taskmanagers overview (after startup/readiness) --> Red
 	// If there is an error this loop will return with Health set to Red
 	if len(application.Status.AppStatus) == 0 {
-		application.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
+		application.Status.AppStatus = make([]v1beta1.FlinkApplicationVersionStatus, 2)
 	}
 	oldClusterStatus := application.Status.AppStatus[0].ClusterStatus
 	application.Status.AppStatus[0].ClusterStatus.Health = v1beta1.Red
@@ -544,7 +544,7 @@ func getHealthyTaskManagerCount(response *client.TaskManagersResponse) int32 {
 func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (bool, error) {
 	// Initialize the last failing time to beginning of time if it's never been set
 	if len(app.Status.AppStatus) == 0 {
-		app.Status.AppStatus = make([]v1beta1.FlinkSubApplicationStatus, 2)
+		app.Status.AppStatus = make([]v1beta1.FlinkApplicationVersionStatus, 2)
 	}
 	if app.Status.AppStatus[0].JobStatus.LastFailingTime == nil {
 		initTime := metav1.NewTime(time.Time{})

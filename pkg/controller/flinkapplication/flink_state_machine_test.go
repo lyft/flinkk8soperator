@@ -268,7 +268,7 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func 	TestSubmittingToRunning(t *testing.T) {
+func TestSubmittingToRunning(t *testing.T) {
 	jobID := "j1"
 
 	app := v1beta1.FlinkApplication{
@@ -451,15 +451,15 @@ func TestRollingBack(t *testing.T) {
 			Phase:         v1beta1.FlinkApplicationRollingBackJob,
 			DeployHash:    "old-hash",
 			SavepointPath: "file:///savepoint",
-			AppStatus: []v1beta1.FlinkSubApplicationStatus{
-				v1beta1.FlinkSubApplicationStatus {
-					JobStatus:v1beta1.FlinkJobStatus{
+			AppStatus: []v1beta1.FlinkApplicationVersionStatus{
+				v1beta1.FlinkApplicationVersionStatus{
+					JobStatus: v1beta1.FlinkJobStatus{
 						JarName:     "old-job.jar",
 						Parallelism: 10,
 						EntryClass:  "com.my.OldClass",
 						ProgramArgs: "--no-test",
 					},
-			},
+				},
 			},
 		},
 	}
@@ -633,9 +633,9 @@ func TestDeleteWithSavepoint(t *testing.T) {
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:      v1beta1.FlinkApplicationDeleting,
 			DeployHash: "deployhash",
-			AppStatus: []v1beta1.FlinkSubApplicationStatus{
-				v1beta1.FlinkSubApplicationStatus{
-					JobStatus:     v1beta1.FlinkJobStatus{
+			AppStatus: []v1beta1.FlinkApplicationVersionStatus{
+				v1beta1.FlinkApplicationVersionStatus{
+					JobStatus: v1beta1.FlinkJobStatus{
 						JobID: jobID,
 					},
 				},
@@ -749,14 +749,13 @@ func TestDeleteWithSavepointAndFinishedJob(t *testing.T) {
 			Phase:         v1beta1.FlinkApplicationDeleting,
 			DeployHash:    "deployhash",
 			SavepointPath: "file:///savepoint",
-			AppStatus: []v1beta1.FlinkSubApplicationStatus{
-				v1beta1.FlinkSubApplicationStatus{
+			AppStatus: []v1beta1.FlinkApplicationVersionStatus{
+				v1beta1.FlinkApplicationVersionStatus{
 					JobStatus: v1beta1.FlinkJobStatus{
 						JobID: jobID,
 					},
 				},
 			},
-
 		},
 	}
 
@@ -801,8 +800,8 @@ func TestDeleteWithForceCancel(t *testing.T) {
 		},
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase: v1beta1.FlinkApplicationDeleting,
-			AppStatus: []v1beta1.FlinkSubApplicationStatus{
-				v1beta1.FlinkSubApplicationStatus{
+			AppStatus: []v1beta1.FlinkApplicationVersionStatus{
+				v1beta1.FlinkApplicationVersionStatus{
 					JobStatus: v1beta1.FlinkJobStatus{
 						JobID: jobID,
 					},
