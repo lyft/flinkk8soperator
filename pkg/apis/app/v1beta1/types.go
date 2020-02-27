@@ -170,7 +170,6 @@ type FlinkApplicationStatus struct {
 	LastUpdatedAt           *metav1.Time                    `json:"lastUpdatedAt,omitempty"`
 	Reason                  string                          `json:"reason,omitempty"`
 	DesiredApplicationCount int32                           `json:"desiredApplicationCount,omitempty"`
-	RunningJobs             int32                           `json:"runningJobs,omitempty"`
 	DeployVersion           string                          `json:"deployVersion,omitempty"`
 	UpdatingVersion         string                          `json:"updatingVersion,omitempty"`
 	ApplicationStatus       []FlinkApplicationVersionStatus `json:"appStatus,omitempty"`

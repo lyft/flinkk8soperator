@@ -28,6 +28,7 @@ type GetLatestClusterStatusFunc func(ctx context.Context, app *v1beta1.FlinkAppl
 type GetLatestJobStatusFunc func(ctx context.Context, app *v1beta1.FlinkApplication) v1beta1.FlinkJobStatus
 type GetLatestJobIDFunc func(ctx context.Context, app *v1beta1.FlinkApplication) string
 type UpdateLatestJobIDFunc func(ctx context.Context, app *v1beta1.FlinkApplication, jobID string)
+type UpdateLatestJobStatusFunc func(ctx context.Context, app *v1beta1.FlinkApplication, jobStatus v1beta1.FlinkJobStatus)
 
 type FlinkController struct {
 	CreateClusterFunc                 CreateClusterFunc
@@ -49,6 +50,7 @@ type FlinkController struct {
 	GetLatestJobStatusFunc            GetLatestJobStatusFunc
 	GetLatestJobIDFunc                GetLatestJobIDFunc
 	UpdateLatestJobIDFunc             UpdateLatestJobIDFunc
+	UpdateLatestJobStatusFunc         UpdateLatestJobStatusFunc
 }
 
 func (m *FlinkController) GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
@@ -197,12 +199,19 @@ func (m *FlinkController) UpdateLatestJobID(ctx context.Context, application *v1
 	application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus.JobID = jobID
 }
 
-func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
-	desiredCount := app.Status.DesiredApplicationCount
-	runningJobs := app.Status.RunningJobs
-	if runningJobs != desiredCount {
-		return runningJobs
+func (m *FlinkController) UpdateLatestJobStatus(ctx context.Context, application *v1beta1.FlinkApplication, jobStatus v1beta1.FlinkJobStatus) {
+	if m.UpdateLatestJobStatusFunc != nil {
+		m.UpdateLatestJobStatusFunc(ctx, application, jobStatus)
 	}
 
-	return runningJobs - 1
+	application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus = jobStatus
+}
+
+func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
+	desiredCount := app.Status.DesiredApplicationCount
+	if v1beta1.IsRunningPhase(app.Status.Phase) {
+		return 0
+	}
+
+	return desiredCount - 1
 }

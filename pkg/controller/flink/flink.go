@@ -105,6 +105,9 @@ type ControllerInterface interface {
 
 	// Updates the jobID on the latest jobStatus
 	UpdateLatestJobID(ctx context.Context, app *v1beta1.FlinkApplication, jobID string)
+
+	// Update jobStatus on the latest ApplicationStatus
+	UpdateLatestJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, jobStatus v1beta1.FlinkJobStatus)
 }
 
 func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
@@ -143,6 +146,10 @@ type Controller struct {
 	flinkClient   client.FlinkAPIInterface
 	metrics       *controllerMetrics
 	eventRecorder record.EventRecorder
+}
+
+func (f *Controller) UpdateLatestJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, jobStatus v1beta1.FlinkJobStatus) {
+	app.Status.ApplicationStatus[getCurrentStatusIndex(app)].JobStatus = jobStatus
 }
 
 func (f *Controller) GetLatestJobID(ctx context.Context, application *v1beta1.FlinkApplication) string {
@@ -572,18 +579,15 @@ func getHealthyTaskManagerCount(response *client.TaskManagersResponse) int32 {
 }
 
 func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
-	desiredCount := app.Status.DesiredApplicationCount
-	runningJobs := app.Status.RunningJobs
-	// We're still trying to bring up jobs to match desired count
-	// so the current status will append
-	// to the existing array
-	if runningJobs != desiredCount && !v1beta1.IsRunningPhase(app.Status.Phase) {
-		return runningJobs
+	// In the Running phase, we always have only 1 job
+	if v1beta1.IsRunningPhase(app.Status.Phase) {
+		return 0
 	}
 
-	// We've spun up required number of jobs, so the status points to the last
-	// appended value.
-	return runningJobs - indexOffset
+	// In every other state, we either have
+	// Dual mode --> One Application status object
+	// BlueGreen mode --> Two Application status objects
+	return app.Status.DesiredApplicationCount - indexOffset
 }
 
 func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (bool, error) {

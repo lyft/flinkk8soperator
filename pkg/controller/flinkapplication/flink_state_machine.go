@@ -356,7 +356,6 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 				savepointStatusResponse.Operation.Location))
 		application.Status.SavepointPath = savepointStatusResponse.Operation.Location
 		s.flinkController.UpdateLatestJobID(ctx, application, "")
-		application.Status.RunningJobs = application.Status.RunningJobs - 1
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}
@@ -394,7 +393,6 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 
 	app.Status.SavepointPath = path
 	s.flinkController.UpdateLatestJobID(ctx, app, "")
-	app.Status.RunningJobs = getRunningJobs(app)
 	s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJob)
 	return statusChanged, nil
 }
@@ -540,27 +538,18 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		app.Status.DeployHash = hash
 		app.Status.SavepointPath = ""
 		app.Status.SavepointTriggerID = ""
-		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.JarName = app.Spec.JarName
-		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.Parallelism = app.Spec.Parallelism
-		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.EntryClass = app.Spec.EntryClass
-		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.ProgramArgs = app.Spec.ProgramArgs
-		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
-		app.Status.RunningJobs = getRunningJobs(app)
+		jobStatus := s.flinkController.GetLatestJobStatus(ctx, app)
+		jobStatus.JarName = app.Spec.JarName
+		jobStatus.Parallelism = app.Spec.Parallelism
+		jobStatus.EntryClass = app.Spec.EntryClass
+		jobStatus.ProgramArgs = app.Spec.ProgramArgs
+		jobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
+		s.flinkController.UpdateLatestJobStatus(ctx, app, jobStatus)
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRunning)
 		return statusChanged, nil
 	}
 
 	return statusUnchanged, nil
-}
-
-func getRunningJobs(app *v1beta1.FlinkApplication) int32 {
-	runningJobs := 0
-	for _, status := range app.Status.ApplicationStatus {
-		if status.JobStatus.JobID != "" {
-			runningJobs++
-		}
-	}
-	return int32(runningJobs)
 }
 
 // Something has gone wrong during the update, post job-cancellation (and cluster tear-down in single mode). We need
