@@ -298,7 +298,6 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
 			fmt.Sprintf("Could not savepoint existing job: %s", reason))
 		application.Status.RetryCount = 0
-		application.Status.JobStatus.JobID = ""
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
 		return statusChanged, nil
 	}
