@@ -5,7 +5,7 @@ cache:
   directories:
     - $GOPATH/pkg/dep
 go:
-  - "1.12"
+  - "1.14"
 services:
   - docker
 jobs:
