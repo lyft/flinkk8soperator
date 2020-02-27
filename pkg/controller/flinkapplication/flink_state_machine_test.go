@@ -1075,6 +1075,39 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	assert.Nil(t, app.Status.LastSeenError)
 }
 
+func TestRollbackAfterJobSubmission(t *testing.T) {
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:     "job.jar",
+			Parallelism: 5,
+			EntryClass:  "com.my.Class",
+			ProgramArgs: "--test",
+
+			// force a rollback
+			ForceRollback: true,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:      v1beta1.FlinkApplicationSubmittingJob,
+			DeployHash: "old-hash-retry-err",
+			JobStatus: v1beta1.FlinkJobStatus{
+				JobID: "jobid",
+			},
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+
+	stateMachineForTest.Handle(context.Background(), &app)
+
+	assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, app.Status.Phase)
+	assert.Equal(t, "", app.Status.JobStatus.JobID)
+}
+
+
 func TestErrorHandlingInRunningPhase(t *testing.T) {
 	app := v1beta1.FlinkApplication{
 		ObjectMeta: metav1.ObjectMeta{
