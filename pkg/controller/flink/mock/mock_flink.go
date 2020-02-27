@@ -24,6 +24,11 @@ type GetCurrentDeploymentsForAppFunc func(ctx context.Context, application *v1be
 type FindExternalizedCheckpointFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error)
 type CompareAndUpdateClusterStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error)
 type CompareAndUpdateJobStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error)
+type GetLatestClusterStatusFunc func(ctx context.Context, app *v1beta1.FlinkApplication) v1beta1.FlinkClusterStatus
+type GetLatestJobStatusFunc func(ctx context.Context, app *v1beta1.FlinkApplication) v1beta1.FlinkJobStatus
+type GetLatestJobIDFunc func(ctx context.Context, app *v1beta1.FlinkApplication) string
+type UpdateLatestJobIDFunc func(ctx context.Context, app *v1beta1.FlinkApplication, jobID string)
+type GetDeployedJobIDFunc func(ctx context.Context, application *v1beta1.FlinkApplication) string
 
 type FlinkController struct {
 	CreateClusterFunc                 CreateClusterFunc
@@ -41,6 +46,11 @@ type FlinkController struct {
 	Events                            []corev1.Event
 	CompareAndUpdateClusterStatusFunc CompareAndUpdateClusterStatusFunc
 	CompareAndUpdateJobStatusFunc     CompareAndUpdateJobStatusFunc
+	GetLatestClusterStatusFunc        GetLatestClusterStatusFunc
+	GetLatestJobStatusFunc            GetLatestJobStatusFunc
+	GetLatestJobIDFunc                GetLatestJobIDFunc
+	UpdateLatestJobIDFunc             UpdateLatestJobIDFunc
+	GetDeployedJobIDFunc              GetDeployedJobIDFunc
 }
 
 func (m *FlinkController) GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
@@ -155,4 +165,54 @@ func (m *FlinkController) CompareAndUpdateJobStatus(ctx context.Context, app *v1
 	}
 
 	return false, nil
+}
+
+func (m *FlinkController) GetLatestClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkClusterStatus {
+	if m.GetLatestClusterStatusFunc != nil {
+		return m.GetLatestClusterStatusFunc(ctx, application)
+	}
+
+	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].ClusterStatus
+}
+
+func (m *FlinkController) GetLatestJobStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkJobStatus {
+	if m.GetLatestClusterStatusFunc != nil {
+		return m.GetLatestJobStatusFunc(ctx, application)
+	}
+
+	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus
+}
+
+func (m *FlinkController) GetLatestJobID(ctx context.Context, application *v1beta1.FlinkApplication) string {
+	if m.GetLatestClusterStatusFunc != nil {
+		return m.GetLatestJobIDFunc(ctx, application)
+	}
+
+	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus.JobID
+}
+
+func (m *FlinkController) GetDeployedJobID(ctx context.Context, application *v1beta1.FlinkApplication) string {
+	if m.GetLatestClusterStatusFunc != nil {
+		return m.GetDeployedJobIDFunc(ctx, application)
+	}
+
+	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus.JobID
+}
+
+func (m *FlinkController) UpdateLatestJobID(ctx context.Context, application *v1beta1.FlinkApplication, jobID string) {
+	if m.UpdateLatestJobIDFunc != nil {
+		m.UpdateLatestJobIDFunc(ctx, application, jobID)
+	}
+
+	application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus.JobID = jobID
+}
+
+func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
+	desiredCount := app.Status.DesiredApplicationCount
+	runningJobs := app.Status.RunningJobs
+	if runningJobs != desiredCount {
+		return runningJobs
+	}
+
+	return runningJobs - 1
 }

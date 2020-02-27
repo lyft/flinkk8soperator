@@ -412,26 +412,30 @@ spec:
       type: string
       description: The current state machine phase for this FlinkApplication
       JSONPath: .status.phase
+    - name: Application Version
+      type: string
+      description: The version of the Flink cluster
+      JSONPath: .status.appStatus[*].clusterStatus.health
     - name: Cluster Health
       type: string
       description: The health of the Flink cluster
-      JSONPath: .status.clusterStatus.health
+      JSONPath: .status.appStatus[*].clusterStatus.health
     - name: Job Health
       type: string
       description: The health of the Flink job
-      JSONPath: .status.jobStatus.health
+      JSONPath: .status.appStatus[*].jobStatus.health
     - name: Healthy TMs
       type: string
-      JSONPath: ".status.clusterStatus.healthyTaskManagers"
+      JSONPath: .status.appStatus[*].clusterStatus.healthyTaskManagers
       priority: 1
     - name: Total TMs
       type: string
-      JSONPath: ".status.clusterStatus.numberOfTaskManagers"
+      JSONPath: .status.appStatus[*].clusterStatus.numberOfTaskManagers
       priority: 1
     - name: Job Restarts
       type: integer
       description: Number of times the job has restarted
-      JSONPath: .status.jobStatus.jobRestartCount
+      JSONPath: .status.appStatus[*].jobStatus.jobRestartCount
     - name: Age
       type: date
       JSONPath: .metadata.creationTimestamp
