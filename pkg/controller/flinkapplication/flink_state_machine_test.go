@@ -364,14 +364,15 @@ func TestSubmittingToRunning(t *testing.T) {
 	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		if statusUpdateCount == 0 {
 			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, jobID, application.Status.ApplicationStatus[0].JobStatus.JobID)
+			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
 		} else if statusUpdateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, appHash, application.Status.DeployHash)
-			assert.Equal(t, app.Spec.JarName, app.Status.ApplicationStatus[0].JobStatus.JarName)
-			assert.Equal(t, app.Spec.Parallelism, app.Status.ApplicationStatus[0].JobStatus.Parallelism)
-			assert.Equal(t, app.Spec.EntryClass, app.Status.ApplicationStatus[0].JobStatus.EntryClass)
-			assert.Equal(t, app.Spec.ProgramArgs, app.Status.ApplicationStatus[0].JobStatus.ProgramArgs)
+			jobStatus := mockFlinkController.GetLatestJobStatus(ctx, application)
+			assert.Equal(t, app.Spec.JarName, jobStatus.JarName)
+			assert.Equal(t, app.Spec.Parallelism, jobStatus.Parallelism)
+			assert.Equal(t, app.Spec.EntryClass, jobStatus.EntryClass)
+			assert.Equal(t, app.Spec.ProgramArgs, jobStatus.ProgramArgs)
 			assert.Equal(t, v1beta1.FlinkApplicationRunning, application.Status.Phase)
 		}
 		statusUpdateCount++
@@ -478,11 +479,12 @@ func TestRollingBack(t *testing.T) {
 
 		startCalled = true
 		assert.Equal(t, "old-hash", hash)
-		assert.Equal(t, app.Status.ApplicationStatus[0].JobStatus.JarName, jarName)
-		assert.Equal(t, app.Status.ApplicationStatus[0].JobStatus.Parallelism, parallelism)
-		assert.Equal(t, app.Status.ApplicationStatus[0].JobStatus.EntryClass, entryClass)
-		assert.Equal(t, app.Status.ApplicationStatus[0].JobStatus.ProgramArgs, programArgs)
-		assert.Equal(t, app.Status.ApplicationStatus[0].JobStatus.AllowNonRestoredState, allowNonRestoredState)
+		jobStatus := mockFlinkController.GetLatestJobStatus(ctx, application)
+		assert.Equal(t, jobStatus.JarName, jarName)
+		assert.Equal(t, jobStatus.Parallelism, parallelism)
+		assert.Equal(t, jobStatus.EntryClass, entryClass)
+		assert.Equal(t, jobStatus.ProgramArgs, programArgs)
+		assert.Equal(t, jobStatus.AllowNonRestoredState, allowNonRestoredState)
 		assert.Equal(t, app.Status.SavepointPath, savepointPath)
 		return jobID, nil
 	}

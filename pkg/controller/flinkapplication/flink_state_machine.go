@@ -356,6 +356,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 				savepointStatusResponse.Operation.Location))
 		application.Status.SavepointPath = savepointStatusResponse.Operation.Location
 		s.flinkController.UpdateLatestJobID(ctx, application, "")
+		application.Status.RunningJobs = application.Status.RunningJobs - 1
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}

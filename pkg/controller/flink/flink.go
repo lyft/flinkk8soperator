@@ -173,7 +173,7 @@ func getClusterOverviewURL(app *v1beta1.FlinkApplication) string {
 func getJobOverviewURL(app *v1beta1.FlinkApplication) string {
 	externalURL := getExternalURLFromApp(app)
 	if externalURL != "" {
-		return fmt.Sprintf(externalURL+client.WebUIAnchor+client.GetJobsOverviewURL, app.Status.ApplicationStatus[0].JobStatus.JobID)
+		return fmt.Sprintf(externalURL+client.WebUIAnchor+client.GetJobsOverviewURL, app.Status.ApplicationStatus[getCurrentStatusIndex(app)].JobStatus.JobID)
 	}
 	return ""
 }
@@ -229,7 +229,7 @@ func (f *Controller) GetJobForApplication(ctx context.Context, application *v1be
 		return nil, nil
 	}
 
-	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(application, hash), application.Status.ApplicationStatus[0].JobStatus.JobID)
+	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(application, hash), f.GetLatestJobID(ctx, application))
 	if err != nil {
 		return nil, err
 	}
@@ -467,14 +467,15 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 }
 
 func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
-	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, getURLFromApp(application, hash), application.Status.ApplicationStatus[0].JobStatus.JobID)
+	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, getURLFromApp(application, hash), f.GetLatestJobID(ctx, application))
 	var checkpointPath string
 	var checkpointTime int64
 	if err != nil {
+		jobStatus := f.GetLatestJobStatus(ctx, application)
 		// we failed to query the JM, try to pull it out of the resource
-		if application.Status.ApplicationStatus[0].JobStatus.LastCheckpointPath != "" && application.Status.ApplicationStatus[0].JobStatus.LastCheckpointTime != nil {
-			checkpointPath = application.Status.ApplicationStatus[0].JobStatus.LastCheckpointPath
-			checkpointTime = application.Status.ApplicationStatus[0].JobStatus.LastCheckpointTime.Unix()
+		if jobStatus.LastCheckpointPath != "" && jobStatus.LastCheckpointTime != nil {
+			checkpointPath = jobStatus.LastCheckpointPath
+			checkpointTime = jobStatus.LastCheckpointTime.Unix()
 			logger.Warnf(ctx, "Could not query JobManager for latest externalized checkpoint, using"+
 				" last seen checkpoint")
 		} else {
@@ -544,7 +545,7 @@ func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, applicat
 		application.Status.ApplicationStatus[currIndex].ClusterStatus.Health = v1beta1.Yellow
 	}
 
-	return !apiequality.Semantic.DeepEqual(oldClusterStatus, application.Status.ApplicationStatus[0].ClusterStatus), nil
+	return !apiequality.Semantic.DeepEqual(oldClusterStatus, application.Status.ApplicationStatus[currIndex].ClusterStatus), nil
 }
 
 func (f *Controller) GetLatestClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkClusterStatus {
@@ -594,11 +595,11 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1
 
 	oldJobStatus := app.Status.ApplicationStatus[currIndex].JobStatus
 	app.Status.ApplicationStatus[currIndex].JobStatus.JobID = oldJobStatus.JobID
-	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(app, hash), app.Status.ApplicationStatus[0].JobStatus.JobID)
+	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(app, hash), f.GetLatestJobID(ctx, app))
 	if err != nil {
 		return false, err
 	}
-	checkpoints, err := f.flinkClient.GetCheckpointCounts(ctx, getURLFromApp(app, hash), app.Status.ApplicationStatus[0].JobStatus.JobID)
+	checkpoints, err := f.flinkClient.GetCheckpointCounts(ctx, getURLFromApp(app, hash), f.GetLatestJobID(ctx, app))
 	if err != nil {
 		return false, err
 	}
