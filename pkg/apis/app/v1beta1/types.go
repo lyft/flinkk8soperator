@@ -277,13 +277,6 @@ const (
 	DeleteModeNone        DeleteMode = "None"
 )
 
-type SavepointMode string
-
-const (
-	SavepointModeSavepointOnly      SavepointMode = "Savepoint"
-	SavepointModeSavepointAndCancel SavepointMode = "SavepointAndCancel"
-)
-
 type HealthStatus string
 
 const (

@@ -482,3 +482,18 @@ func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplicat
 		time.Sleep(500 * time.Millisecond)
 	}
 }
+
+func (f *TestUtil) GetCurrentStatusIndex(app *flinkapp.FlinkApplication) int32 {
+	desiredCount := app.Status.DesiredApplicationCount
+	runningJobs := app.Status.RunningJobs
+	// We're still trying to bring up jobs to match desired count
+	// so the current status will append
+	// to the existing array
+	if runningJobs != desiredCount && app.Status.Phase != "Running" {
+		return runningJobs
+	}
+
+	// We've spun up required number of jobs, so the status points to the last
+	// appended value.
+	return runningJobs - 1
+}

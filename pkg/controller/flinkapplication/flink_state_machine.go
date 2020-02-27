@@ -347,7 +347,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		// TODO: we should probably retry this a few times before failing
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
 			fmt.Sprintf("Failed to take savepoint for job %s: %v",
-				s.flinkController.GetDeployedJobID(ctx, application), savepointStatusResponse.Operation.FailureCause))
+				s.flinkController.GetLatestJobID(ctx, application), savepointStatusResponse.Operation.FailureCause))
 		application.Status.RetryCount = 0
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
 		return statusChanged, nil

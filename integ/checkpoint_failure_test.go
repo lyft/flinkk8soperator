@@ -45,9 +45,9 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	// And the job should not have been updated
 	newApp, err := s.Util.GetFlinkApplication(config.Name)
 	c.Assert(err, IsNil)
-	c.Assert(newApp.Status.ApplicationStatus[0].JobStatus.JobID, Equals, app.Status.ApplicationStatus[0].JobStatus.JobID)
+	c.Assert(newApp.Status.ApplicationStatus[s.Util.GetCurrentStatusIndex(newApp)].JobStatus.JobID, Equals, app.Status.ApplicationStatus[s.Util.GetCurrentStatusIndex(app)].JobStatus.JobID)
 
-	endpoint := fmt.Sprintf("jobs/%s", app.Status.ApplicationStatus[0].JobStatus.JobID)
+	endpoint := fmt.Sprintf("jobs/%s", app.Status.ApplicationStatus[s.Util.GetCurrentStatusIndex(app)].JobStatus.JobID)
 	_, err = s.Util.FlinkAPIGet(app, endpoint)
 	c.Assert(err, IsNil)
 

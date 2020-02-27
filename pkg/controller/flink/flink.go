@@ -94,14 +94,17 @@ type ControllerInterface interface {
 	// Returns true if there is a change in JobStatus
 	CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (bool, error)
 
+	// Gets the last updated cluster status
 	GetLatestClusterStatus(ctx context.Context, app *v1beta1.FlinkApplication) v1beta1.FlinkClusterStatus
 
+	// Gets the last updated job status
 	GetLatestJobStatus(ctx context.Context, app *v1beta1.FlinkApplication) v1beta1.FlinkJobStatus
 
+	// Gets the last updated job ID
 	GetLatestJobID(ctx context.Context, app *v1beta1.FlinkApplication) string
 
+	// Updates the jobID on the latest jobStatus
 	UpdateLatestJobID(ctx context.Context, app *v1beta1.FlinkApplication, jobID string)
-	GetDeployedJobID(ctx context.Context, application *v1beta1.FlinkApplication) string
 }
 
 func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
@@ -142,12 +145,8 @@ type Controller struct {
 	eventRecorder record.EventRecorder
 }
 
-func (f *Controller) GetDeployedJobID(ctx context.Context, application *v1beta1.FlinkApplication) string {
+func (f *Controller) GetLatestJobID(ctx context.Context, application *v1beta1.FlinkApplication) string {
 	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus.JobID
-}
-
-func (f *Controller) GetLatestJobID(ctx context.Context, app *v1beta1.FlinkApplication) string {
-	return f.GetDeployedJobID(ctx, app)
 }
 
 func (f *Controller) UpdateLatestJobID(ctx context.Context, app *v1beta1.FlinkApplication, jobID string) {
@@ -577,7 +576,7 @@ func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
 	// We're still trying to bring up jobs to match desired count
 	// so the current status will append
 	// to the existing array
-	if runningJobs != desiredCount && !v1beta1.IsRunningPhase(app.Status.Phase){
+	if runningJobs != desiredCount && !v1beta1.IsRunningPhase(app.Status.Phase) {
 		return runningJobs
 	}
 
