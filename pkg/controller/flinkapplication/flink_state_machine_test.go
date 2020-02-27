@@ -1101,12 +1101,12 @@ func TestRollbackAfterJobSubmission(t *testing.T) {
 
 	stateMachineForTest := getTestStateMachine()
 
-	stateMachineForTest.Handle(context.Background(), &app)
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
 
 	assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, app.Status.Phase)
 	assert.Equal(t, "", app.Status.JobStatus.JobID)
 }
-
 
 func TestErrorHandlingInRunningPhase(t *testing.T) {
 	app := v1beta1.FlinkApplication{
