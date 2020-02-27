@@ -394,6 +394,7 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 
 	app.Status.SavepointPath = path
 	s.flinkController.UpdateLatestJobID(ctx, app, "")
+	app.Status.RunningJobs = getRunningJobs(app)
 	s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJob)
 	return statusChanged, nil
 }
