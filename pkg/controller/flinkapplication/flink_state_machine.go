@@ -539,12 +539,12 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		app.Status.DeployHash = hash
 		app.Status.SavepointPath = ""
 		app.Status.SavepointTriggerID = ""
-		app.Status.RunningJobs = getRunningJobs(app)
 		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.JarName = app.Spec.JarName
 		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.Parallelism = app.Spec.Parallelism
 		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.EntryClass = app.Spec.EntryClass
 		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.ProgramArgs = app.Spec.ProgramArgs
 		app.Status.ApplicationStatus[app.Status.RunningJobs].JobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
+		app.Status.RunningJobs = getRunningJobs(app)
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRunning)
 		return statusChanged, nil
 	}
@@ -555,7 +555,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 func getRunningJobs(app *v1beta1.FlinkApplication) int32 {
 	runningJobs := 0
 	for _, status := range app.Status.ApplicationStatus {
-		if status.JobStatus.State == v1beta1.Running {
+		if status.JobStatus.JobID != "" {
 			runningJobs++
 		}
 	}
