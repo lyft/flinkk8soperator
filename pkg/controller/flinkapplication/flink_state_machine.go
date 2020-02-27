@@ -242,7 +242,6 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
 		return statusUnchanged, err
 	}
-	application.Status.DesiredApplicationCount = application.Status.DesiredApplicationCount + 1
 	s.updateApplicationPhase(application, v1beta1.FlinkApplicationClusterStarting)
 	return statusChanged, nil
 }
