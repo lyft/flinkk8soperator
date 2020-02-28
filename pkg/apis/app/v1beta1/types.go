@@ -260,6 +260,10 @@ func IsRunningPhase(phase FlinkApplicationPhase) bool {
 	return phase == FlinkApplicationRunning || phase == FlinkApplicationDeployFailed
 }
 
+func IsBlueGreenDeploymentMode(mode DeploymentMode) bool {
+	return mode == DeploymentModeBlueGreen
+}
+
 type DeploymentMode string
 
 const (

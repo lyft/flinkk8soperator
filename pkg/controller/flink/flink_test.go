@@ -39,6 +39,7 @@ const testFlinkVersion = "1.7"
 const testJarName = "test.jar"
 const testEntryClass = "com.test.MainClass"
 const testProgramArgs = "--test"
+const testVersion = "version"
 
 func getTestFlinkController() Controller {
 	testScope := mockScope.NewTestScope()

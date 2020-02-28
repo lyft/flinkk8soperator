@@ -415,7 +415,7 @@ spec:
     - name: Application Version
       type: string
       description: The version of the Flink cluster
-      JSONPath: .status.appStatus[*].clusterStatus.health
+      JSONPath: .status.appStatus[*].version
     - name: Cluster Health
       type: string
       description: The health of the Flink cluster

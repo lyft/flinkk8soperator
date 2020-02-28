@@ -148,18 +148,6 @@ type Controller struct {
 	eventRecorder record.EventRecorder
 }
 
-func (f *Controller) UpdateLatestJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, jobStatus v1beta1.FlinkJobStatus) {
-	app.Status.ApplicationStatus[getCurrentStatusIndex(app)].JobStatus = jobStatus
-}
-
-func (f *Controller) GetLatestJobID(ctx context.Context, application *v1beta1.FlinkApplication) string {
-	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus.JobID
-}
-
-func (f *Controller) UpdateLatestJobID(ctx context.Context, app *v1beta1.FlinkApplication, jobID string) {
-	app.Status.ApplicationStatus[getCurrentStatusIndex(app)].JobStatus.JobID = jobID
-}
-
 func getURLFromApp(application *v1beta1.FlinkApplication, hash string) string {
 	service := VersionedJobManagerServiceName(application, hash)
 	cfg := controllerConfig.GetConfig()
@@ -555,16 +543,6 @@ func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, applicat
 	return !apiequality.Semantic.DeepEqual(oldClusterStatus, application.Status.ApplicationStatus[currIndex].ClusterStatus), nil
 }
 
-func (f *Controller) GetLatestClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkClusterStatus {
-	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].ClusterStatus
-
-}
-
-func (f *Controller) GetLatestJobStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkJobStatus {
-	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus
-
-}
-
 func getHealthyTaskManagerCount(response *client.TaskManagersResponse) int32 {
 	healthyTMCount := 0
 	for index := range response.TaskManagers {
@@ -576,18 +554,6 @@ func getHealthyTaskManagerCount(response *client.TaskManagersResponse) int32 {
 
 	return int32(healthyTMCount)
 
-}
-
-func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
-	// In the Running phase, we always have only 1 job
-	if v1beta1.IsRunningPhase(app.Status.Phase) {
-		return 0
-	}
-
-	// In every other state, we either have
-	// Dual mode --> One Application status object
-	// BlueGreen mode --> Two Application status objects
-	return app.Status.DesiredApplicationCount - indexOffset
 }
 
 func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (bool, error) {
@@ -674,6 +640,39 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1
 		currTime := metav1.Now()
 		app.Status.ApplicationStatus[currIndex].JobStatus.LastFailingTime = &currTime
 	}
-
 	return !apiequality.Semantic.DeepEqual(oldJobStatus, app.Status.ApplicationStatus[currIndex].JobStatus), err
+}
+
+func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
+	// In the Running phase, we always have only 1 job
+	if v1beta1.IsRunningPhase(app.Status.Phase) {
+		return 0
+	}
+
+	// In every other state, we either have
+	// Dual mode --> One Application status object
+	// BlueGreen mode --> Two Application status objects
+	return app.Status.DesiredApplicationCount - indexOffset
+}
+
+func (f *Controller) GetLatestClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkClusterStatus {
+	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].ClusterStatus
+
+}
+
+func (f *Controller) GetLatestJobStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkJobStatus {
+	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus
+
+}
+
+func (f *Controller) UpdateLatestJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, jobStatus v1beta1.FlinkJobStatus) {
+	app.Status.ApplicationStatus[getCurrentStatusIndex(app)].JobStatus = jobStatus
+}
+
+func (f *Controller) GetLatestJobID(ctx context.Context, application *v1beta1.FlinkApplication) string {
+	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus.JobID
+}
+
+func (f *Controller) UpdateLatestJobID(ctx context.Context, app *v1beta1.FlinkApplication, jobID string) {
+	app.Status.ApplicationStatus[getCurrentStatusIndex(app)].JobStatus.JobID = jobID
 }
