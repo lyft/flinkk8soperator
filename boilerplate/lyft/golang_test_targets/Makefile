@@ -1,6 +1,6 @@
 .PHONY: lint
 lint: #lints the package for common code smells
-	which golangci-lint || sh boilerplate/lyft/golang_test_targets/golangci-lint.sh -b $$GOPATH/bin v1.23.6
+	which golangci-lint || sh boilerplate/lyft/golang_test_targets/golangci-lint.sh -b $$GOPATH/bin v1.23.7
 	golangci-lint run --timeout 5m
 
 # If code is failing goimports linter, this will fix.
