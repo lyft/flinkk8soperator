@@ -50,12 +50,19 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 	app.Spec.JarName = testJarName
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
+	app.Spec.JobManagerConfig.Tolerations = []coreV1.Toleration{{
+		Key:      "key",
+		Operator: "Equal",
+		Value:    "Value",
+		Effect:   "NoSchedule",
+	}}
+
 	annotations := map[string]string{
 		"key":                  "annotation",
 		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
 	app.Annotations = annotations
-	hash := "c3c0af0b"
+	hash := "5e7c7283"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -75,6 +82,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 			assert.Equal(t, expectedLabels, deployment.Labels)
+			assert.Equal(t, app.Spec.JobManagerConfig.Tolerations, deployment.Spec.Template.Spec.Tolerations)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
 			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
