@@ -51,10 +51,10 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
 	app.Spec.JobManagerConfig.Tolerations = []coreV1.Toleration{{
-		Key:               "key",
-		Operator:          "Equal",
-		Value:             "Value",
-		Effect:            "NoSchedule",
+		Key:      "key",
+		Operator: "Equal",
+		Value:    "Value",
+		Effect:   "NoSchedule",
 	}}
 
 	annotations := map[string]string{

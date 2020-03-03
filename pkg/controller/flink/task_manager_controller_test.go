@@ -57,12 +57,12 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
 	app.Spec.TaskManagerConfig.Tolerations = []coreV1.Toleration{{
-		Key:               "key",
-		Operator:          "Equal",
-		Value:             "Value",
-		Effect:            "NoSchedule",
+		Key:      "key",
+		Operator: "Equal",
+		Value:    "Value",
+		Effect:   "NoSchedule",
 	}}
-	
+
 	annotations := map[string]string{
 		"key":                  "annotation",
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
