@@ -78,8 +78,8 @@ type ControllerInterface interface {
 	// Deletes all old resources (deployments and services) for the app
 	DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.FlinkApplication) error
 
-	// Attempts to find an externalized checkpoint for the job. This can be used to recover an application that is not
-	// able to savepoint for some reason.
+	// Attempts to find an externalized checkpoint for the job. This can be used to recover an application that failed
+	// during cancel
 	FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error)
 
 	// Logs an event to the FlinkApplication resource and to the operator log

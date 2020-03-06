@@ -14,11 +14,11 @@ Running --> Updating
 Updating --> ClusterStarting
 DeployFailed --> Updating
 
-ClusterStarting --> Savepointing
+ClusterStarting --> Cancelling
 ClusterStarting -- Create fails --> DeployFailed
 
-Savepointing --> SubmittingJob
-Savepointing -- Savepoint fails --> Recovering
+Cancelling --> SubmittingJob
+Cancelling -- Cancel fails --> Recovering
 
 Recovering --> SubmittingJob
 Recovering -- No externalized checkpoint --> RollingBackJob
