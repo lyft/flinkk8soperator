@@ -285,6 +285,15 @@ func TestHandleApplicationCancelWithSavepointingFailed(t *testing.T) {
 
 func TestHandleApplicationCancelWithoutSavepointingFailed(t *testing.T) {
 	updateInvoked := false
+	app := v1beta1.FlinkApplication{
+		Spec: v1beta1.FlinkApplicationSpec{
+			SavepointDisabled: true,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:      v1beta1.FlinkApplicationCancelling,
+			DeployHash: "blah",
+		},
+	}
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (s string, err error) {
@@ -296,15 +305,6 @@ func TestHandleApplicationCancelWithoutSavepointingFailed(t *testing.T) {
 	retryableErr := client.GetRetryableError(errors.New("blah"), "ForceCancelJob", "FAILED", 4)
 	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
 		return retryableErr
-	}
-	app := v1beta1.FlinkApplication{
-		Spec: v1beta1.FlinkApplicationSpec{
-			SavepointDisabled: true,
-		},
-		Status: v1beta1.FlinkApplicationStatus{
-			Phase:              v1beta1.FlinkApplicationCancelling,
-			DeployHash:         "blah",
-		},
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
