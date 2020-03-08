@@ -8,7 +8,7 @@ import (
 
 	"context"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/pkg/errors"
@@ -31,7 +31,7 @@ func getTMControllerForTest() TaskManagerController {
 }
 
 func TestComputeTaskManagerReplicas(t *testing.T) {
-	app := v1beta1.FlinkApplication{}
+	app := v1beta2.FlinkApplication{}
 	taskSlots := int32(4)
 	app.Spec.TaskManagerConfig.TaskSlots = &taskSlots
 	app.Spec.Parallelism = 9
@@ -52,7 +52,7 @@ func TestGetTaskManagerPodName(t *testing.T) {
 
 func TestGetTaskManagerPodNameWithVersion(t *testing.T) {
 	app := getFlinkTestApp()
-	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = v1beta2.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	assert.Equal(t, "app-name-"+testAppHash+"-tm-"+testVersion+"-pod", getTaskManagerPodName(&app, testAppHash))
 }
@@ -229,7 +229,7 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.JarName = testJarName
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
-	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = v1beta2.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
 		"key":                       "annotation",

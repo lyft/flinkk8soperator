@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
@@ -29,7 +29,7 @@ const (
 )
 
 type TaskManagerControllerInterface interface {
-	CreateIfNotExist(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error)
+	CreateIfNotExist(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error)
 }
 
 func NewTaskManagerController(k8sCluster k8.ClusterInterface, config config.RuntimeConfig) TaskManagerControllerInterface {
@@ -71,7 +71,7 @@ var TaskManagerDefaultResources = coreV1.ResourceRequirements{
 	},
 }
 
-func (t *TaskManagerController) CreateIfNotExist(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+func (t *TaskManagerController) CreateIfNotExist(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
 	hash := HashForApplication(application)
 
 	taskManagerDeployment := FetchTaskMangerDeploymentCreateObj(application, hash)
@@ -91,7 +91,7 @@ func (t *TaskManagerController) CreateIfNotExist(ctx context.Context, applicatio
 	return false, nil
 }
 
-func GetTaskManagerPorts(app *v1beta1.FlinkApplication) []coreV1.ContainerPort {
+func GetTaskManagerPorts(app *v1beta2.FlinkApplication) []coreV1.ContainerPort {
 	return []coreV1.ContainerPort{
 		{
 			Name:          FlinkRPCPortName,
@@ -112,7 +112,7 @@ func GetTaskManagerPorts(app *v1beta1.FlinkApplication) []coreV1.ContainerPort {
 	}
 }
 
-func FetchTaskManagerContainerObj(application *v1beta1.FlinkApplication) *coreV1.Container {
+func FetchTaskManagerContainerObj(application *v1beta2.FlinkApplication) *coreV1.Container {
 	tmConfig := application.Spec.TaskManagerConfig
 	ports := GetTaskManagerPorts(application)
 	resources := tmConfig.Resources
@@ -141,21 +141,21 @@ func FetchTaskManagerContainerObj(application *v1beta1.FlinkApplication) *coreV1
 	}
 }
 
-func getTaskManagerPodName(application *v1beta1.FlinkApplication, hash string) string {
+func getTaskManagerPodName(application *v1beta2.FlinkApplication, hash string) string {
 	applicationName := application.Name
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta2.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
 		applicationVersion := application.Status.UpdatingVersion
 		return fmt.Sprintf(TaskManagerVersionPodNameFormat, applicationName, hash, applicationVersion)
 	}
 	return fmt.Sprintf(TaskManagerPodNameFormat, applicationName, hash)
 }
 
-func getTaskManagerName(application *v1beta1.FlinkApplication, hash string) string {
+func getTaskManagerName(application *v1beta2.FlinkApplication, hash string) string {
 	applicationName := application.Name
 	return fmt.Sprintf(TaskManagerNameFormat, applicationName, hash)
 }
 
-func computeTaskManagerReplicas(application *v1beta1.FlinkApplication) int32 {
+func computeTaskManagerReplicas(application *v1beta2.FlinkApplication) int32 {
 	slots := getTaskmanagerSlots(application)
 	parallelism := application.Spec.Parallelism
 	return int32(math.Ceil(float64(parallelism) / float64(slots)))
@@ -169,7 +169,7 @@ func DeploymentIsTaskmanager(deployment *v1.Deployment) bool {
 // made very carefully. Any new version v' that causes DeploymentsEqual(v(x), v'(x)) to be false
 // will cause redeployments for all applications, and should be considered a breaking change that
 // requires a new version of the CRD.
-func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
+func taskmanagerTemplate(app *v1beta2.FlinkApplication) *v1.Deployment {
 	labels := getCommonAppLabels(app)
 	labels = common.CopyMap(labels, app.Labels)
 	labels[FlinkDeploymentType] = FlinkDeploymentTypeTaskmanager
@@ -231,7 +231,7 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 	return deployment
 }
 
-func FetchTaskMangerDeploymentCreateObj(app *v1beta1.FlinkApplication, hash string) *v1.Deployment {
+func FetchTaskMangerDeploymentCreateObj(app *v1beta2.FlinkApplication, hash string) *v1.Deployment {
 	template := taskmanagerTemplate(app.DeepCopy())
 
 	template.Name = getTaskManagerName(app, hash)
@@ -245,7 +245,7 @@ func FetchTaskMangerDeploymentCreateObj(app *v1beta1.FlinkApplication, hash stri
 	return template
 }
 
-func TaskManagerDeploymentMatches(deployment *v1.Deployment, application *v1beta1.FlinkApplication, hash string) bool {
+func TaskManagerDeploymentMatches(deployment *v1.Deployment, application *v1beta2.FlinkApplication, hash string) bool {
 	deploymentName := getTaskManagerName(application, hash)
 	return deployment.Name == deploymentName
 }

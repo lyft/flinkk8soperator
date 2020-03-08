@@ -4,8 +4,8 @@ package fake
 
 import (
 	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
-	flinkv1beta1 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
-	fakeflinkv1beta1 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1/fake"
+	flinkv1beta2 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta2"
+	fakeflinkv1beta2 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -55,7 +55,7 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// FlinkV1beta1 retrieves the FlinkV1beta1Client
-func (c *Clientset) FlinkV1beta1() flinkv1beta1.FlinkV1beta1Interface {
-	return &fakeflinkv1beta1.FakeFlinkV1beta1{Fake: &c.Fake}
+// FlinkV1beta2 retrieves the FlinkV1beta2Client
+func (c *Clientset) FlinkV1beta2() flinkv1beta2.FlinkV1beta2Interface {
+	return &fakeflinkv1beta2.FakeFlinkV1beta2{Fake: &c.Fake}
 }

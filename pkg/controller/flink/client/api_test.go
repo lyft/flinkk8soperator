@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
 
 	"github.com/jarcoal/httpmock"
 	mockScope "github.com/lyft/flytestdlib/promutils"
@@ -359,7 +359,7 @@ func TestSubmitStartupFail(t *testing.T) {
 		Parallelism: 10,
 	})
 	assert.Nil(t, resp)
-	flinkAppError, _ := err.(*v1beta1.FlinkApplicationError)
+	flinkAppError, _ := err.(*v1beta2.FlinkApplicationError)
 	assert.True(t, flinkAppError.IsFailFast)
 
 	assert.EqualError(t, err, "SubmitJob call failed with status 500 and message '"+
@@ -379,7 +379,7 @@ func TestIncompatibleSavepointFail(t *testing.T) {
 		Parallelism: 10,
 	})
 	assert.Nil(t, resp)
-	flinkAppError, _ := err.(*v1beta1.FlinkApplicationError)
+	flinkAppError, _ := err.(*v1beta2.FlinkApplicationError)
 	assert.True(t, flinkAppError.IsFailFast)
 
 	assert.EqualError(t, err, "SubmitJob call failed with status 500 and message '"+

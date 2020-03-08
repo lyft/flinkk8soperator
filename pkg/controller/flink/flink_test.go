@@ -11,7 +11,7 @@ import (
 
 	"time"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	clientMock "github.com/lyft/flinkk8soperator/pkg/controller/flink/client/mock"
@@ -57,18 +57,18 @@ func getTestFlinkController() Controller {
 	}
 }
 
-func getFlinkTestApp() v1beta1.FlinkApplication {
-	app := v1beta1.FlinkApplication{
+func getFlinkTestApp() v1beta2.FlinkApplication {
+	app := v1beta2.FlinkApplication{
 		TypeMeta: metaV1.TypeMeta{
-			Kind:       v1beta1.FlinkApplicationKind,
-			APIVersion: v1beta1.SchemeGroupVersion.String(),
+			Kind:       v1beta2.FlinkApplicationKind,
+			APIVersion: v1beta2.SchemeGroupVersion.String(),
 		},
 	}
 	app.Spec.Parallelism = 8
 	app.Name = testAppName
 	app.Namespace = testNamespace
-	statuses := append(app.Status.ApplicationStatus, v1beta1.FlinkApplicationVersionStatus{
-		JobStatus: v1beta1.FlinkJobStatus{
+	statuses := append(app.Status.ApplicationStatus, v1beta2.FlinkApplicationVersionStatus{
+		JobStatus: v1beta2.FlinkJobStatus{
 			JobID: testJobID,
 		},
 	})
@@ -156,7 +156,7 @@ func TestFlinkApplicationChanged(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func testJobPropTriggersChange(t *testing.T, changeFun func(application *v1beta1.FlinkApplication)) {
+func testJobPropTriggersChange(t *testing.T, changeFun func(application *v1beta2.FlinkApplication)) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
 
@@ -191,19 +191,19 @@ func testJobPropTriggersChange(t *testing.T, changeFun func(application *v1beta1
 }
 
 func TestFlinkApplicationChangedJobProps(t *testing.T) {
-	testJobPropTriggersChange(t, func(app *v1beta1.FlinkApplication) {
+	testJobPropTriggersChange(t, func(app *v1beta2.FlinkApplication) {
 		app.Spec.Parallelism = 3
 	})
 
-	testJobPropTriggersChange(t, func(app *v1beta1.FlinkApplication) {
+	testJobPropTriggersChange(t, func(app *v1beta2.FlinkApplication) {
 		app.Spec.JarName = "another.jar"
 	})
 
-	testJobPropTriggersChange(t, func(app *v1beta1.FlinkApplication) {
+	testJobPropTriggersChange(t, func(app *v1beta2.FlinkApplication) {
 		app.Spec.ProgramArgs = "--test-change"
 	})
 
-	testJobPropTriggersChange(t, func(app *v1beta1.FlinkApplication) {
+	testJobPropTriggersChange(t, func(app *v1beta2.FlinkApplication) {
 		app.Spec.EntryClass = "com.another.Class"
 	})
 }
@@ -389,10 +389,10 @@ func TestCreateCluster(t *testing.T) {
 	mockJobManager := flinkControllerForTest.jobManager.(*mock.JobManagerController)
 	mockTaskManager := flinkControllerForTest.taskManager.(*mock.TaskManagerController)
 
-	mockJobManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	mockJobManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
 		return true, nil
 	}
-	mockTaskManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	mockTaskManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
 		return true, nil
 	}
 	err := flinkControllerForTest.CreateCluster(context.Background(), &flinkApp)
@@ -405,10 +405,10 @@ func TestCreateClusterJmErr(t *testing.T) {
 	mockJobManager := flinkControllerForTest.jobManager.(*mock.JobManagerController)
 	mockTaskManager := flinkControllerForTest.taskManager.(*mock.TaskManagerController)
 
-	mockJobManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	mockJobManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
 		return false, errors.New("jm failed")
 	}
-	mockTaskManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	mockTaskManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
 		assert.False(t, true)
 		return false, nil
 	}
@@ -422,10 +422,10 @@ func TestCreateClusterTmErr(t *testing.T) {
 	mockJobManager := flinkControllerForTest.jobManager.(*mock.JobManagerController)
 	mockTaskManager := flinkControllerForTest.taskManager.(*mock.TaskManagerController)
 
-	mockJobManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	mockJobManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
 		return true, nil
 	}
-	mockTaskManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	mockTaskManager.CreateIfNotExistFunc = func(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
 		return false, errors.New("tm failed")
 	}
 	err := flinkControllerForTest.CreateCluster(context.Background(), &flinkApp)
@@ -671,7 +671,7 @@ func TestClusterStatusUpdated(t *testing.T) {
 	assert.Equal(t, int32(1), flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.NumberOfTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.AvailableTaskSlots)
 	assert.Equal(t, int32(1), flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.HealthyTaskManagers)
-	assert.Equal(t, v1beta1.Green, flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.Health)
+	assert.Equal(t, v1beta2.Green, flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.Health)
 	assert.Equal(t, "app-name.lyft.xyz/#/overview", flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.ClusterOverviewURL)
 
 }
@@ -682,7 +682,7 @@ func TestNoClusterStatusChange(t *testing.T) {
 	flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.NumberOfTaskSlots = int32(1)
 	flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.AvailableTaskSlots = int32(0)
 	flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.HealthyTaskManagers = int32(1)
-	flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.Health = v1beta1.Green
+	flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.Health = v1beta2.Green
 	flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.NumberOfTaskManagers = int32(1)
 	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
@@ -775,7 +775,7 @@ func TestHealthyTaskmanagers(t *testing.T) {
 	assert.Equal(t, int32(1), flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.NumberOfTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.AvailableTaskSlots)
 	assert.Equal(t, int32(0), flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.HealthyTaskManagers)
-	assert.Equal(t, v1beta1.Yellow, flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.Health)
+	assert.Equal(t, v1beta2.Yellow, flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].ClusterStatus.Health)
 
 }
 
@@ -837,9 +837,9 @@ func TestJobStatusUpdated(t *testing.T) {
 	_, err = flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &flinkApp, "hash")
 	assert.Nil(t, err)
 
-	assert.Equal(t, v1beta1.Running, flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].JobStatus.State)
+	assert.Equal(t, v1beta2.Running, flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].JobStatus.State)
 	assert.Equal(t, &expectedTime, flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].JobStatus.StartTime)
-	assert.Equal(t, v1beta1.Yellow, flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].JobStatus.Health)
+	assert.Equal(t, v1beta2.Yellow, flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].JobStatus.Health)
 
 	assert.Equal(t, int32(0), flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].JobStatus.FailedCheckpointCount)
 	assert.Equal(t, int32(4), flinkApp.Status.ApplicationStatus[getCurrentStatusIndex(&flinkApp)].JobStatus.CompletedCheckpointCount)
@@ -866,13 +866,13 @@ func TestNoJobStatusChange(t *testing.T) {
 	app1 := getFlinkTestApp()
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 
-	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.State = v1beta1.Running
+	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.State = v1beta2.Running
 	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.StartTime = &metaTime
 	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.LastCheckpointTime = &metaTime
 	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.CompletedCheckpointCount = int32(4)
 	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.JobRestartCount = int32(1)
 	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.FailedCheckpointCount = int32(0)
-	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.Health = v1beta1.Green
+	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.Health = v1beta2.Green
 	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.RestoreTime = &metaTime
 	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.RestorePath = "/test/externalpath"
 	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.JobOverviewURL = ""
@@ -918,7 +918,7 @@ func TestGetAndUpdateJobStatusHealth(t *testing.T) {
 	app1 := getFlinkTestApp()
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 
-	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.State = v1beta1.Failing
+	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.State = v1beta2.Failing
 	app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.LastFailingTime = &lastFailedTime
 
 	mockJmClient.GetJobOverviewFunc = func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error) {
@@ -944,7 +944,7 @@ func TestGetAndUpdateJobStatusHealth(t *testing.T) {
 	assert.Nil(t, err)
 	// Job is in a RUNNING state but was in a FAILING state in the last 1 minute, so we expect
 	// JobStatus.Health to be Red
-	assert.Equal(t, app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.Health, v1beta1.Red)
+	assert.Equal(t, app1.Status.ApplicationStatus[getCurrentStatusIndex(&app1)].JobStatus.Health, v1beta2.Red)
 
 }
 

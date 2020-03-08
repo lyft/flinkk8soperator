@@ -3,7 +3,7 @@ package flink
 import (
 	"testing"
 
-	v1beta12 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	v1beta22 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 
@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/extensions/v1beta2"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -46,7 +46,7 @@ func TestGetJobManagerPodName(t *testing.T) {
 
 func TestGetJobManagerPodNameWithVersion(t *testing.T) {
 	app := getFlinkTestApp()
-	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = v1beta22.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	assert.Equal(t, "app-name-"+testAppHash+"-jm-"+testVersion+"-pod", getJobManagerPodName(&app, testAppHash))
 }
@@ -86,7 +86,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, expectedLabels, deployment.Labels)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
-			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "flink.k8s.io/v1beta2", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
 			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+
@@ -112,7 +112,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			labels := map[string]string{
 				"flink-app": "app-name",
 			}
-			ingress := object.(*v1beta1.Ingress)
+			ingress := object.(*v1beta2.Ingress)
 			assert.Equal(t, app.Name, ingress.Name)
 			assert.Equal(t, app.Namespace, ingress.Namespace)
 			assert.Equal(t, labels, ingress.Labels)
@@ -163,7 +163,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 			assert.Equal(t, expectedLabels, deployment.Labels)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
-			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "flink.k8s.io/v1beta2", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
 			assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1572864k\n"+
@@ -190,7 +190,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 			labels := map[string]string{
 				"flink-app": "app-name",
 			}
-			ingress := object.(*v1beta1.Ingress)
+			ingress := object.(*v1beta2.Ingress)
 			assert.Equal(t, app.Name, ingress.Name)
 			assert.Equal(t, app.Namespace, ingress.Namespace)
 			assert.Equal(t, labels, ingress.Labels)
@@ -305,7 +305,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.JarName = testJarName
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
-	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = v1beta22.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
 		"key":                       "annotation",
@@ -335,7 +335,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 			assert.Equal(t, expectedLabels, deployment.Labels)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
-			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "flink.k8s.io/v1beta2", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
 			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+
@@ -363,7 +363,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 			labels := map[string]string{
 				"flink-app": "app-name",
 			}
-			ingress := object.(*v1beta1.Ingress)
+			ingress := object.(*v1beta2.Ingress)
 			assert.Equal(t, app.Name, ingress.Name)
 			assert.Equal(t, app.Namespace, ingress.Namespace)
 			assert.Equal(t, labels, ingress.Labels)

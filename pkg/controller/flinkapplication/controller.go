@@ -6,7 +6,7 @@ import (
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
@@ -87,11 +87,11 @@ func (r *ReconcileFlinkApplication) Reconcile(request reconcile.Request) (reconc
 	ctx = contextutils.WithNamespace(ctx, request.Namespace)
 	ctx = contextutils.WithAppName(ctx, request.Name)
 	typeMeta := metaV1.TypeMeta{
-		Kind:       v1beta1.FlinkApplicationKind,
-		APIVersion: v1beta1.SchemeGroupVersion.String(),
+		Kind:       v1beta2.FlinkApplicationKind,
+		APIVersion: v1beta2.SchemeGroupVersion.String(),
 	}
 	// Fetch the FlinkApplication instance
-	instance := &v1beta1.FlinkApplication{
+	instance := &v1beta2.FlinkApplication{
 		TypeMeta: typeMeta,
 	}
 
@@ -140,7 +140,7 @@ func Add(ctx context.Context, mgr manager.Manager, cfg config.RuntimeConfig) err
 		return err
 	}
 
-	if err = c.Watch(&source.Kind{Type: &v1beta1.FlinkApplication{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err = c.Watch(&source.Kind{Type: &v1beta2.FlinkApplication{}}, &handler.EnqueueRequestForObject{}); err != nil {
 		return err
 	}
 
@@ -157,8 +157,8 @@ func Add(ctx context.Context, mgr manager.Manager, cfg config.RuntimeConfig) err
 
 func isOwnedByFlinkApplication(ownerReferences []metaV1.OwnerReference) bool {
 	for _, ownerReference := range ownerReferences {
-		if ownerReference.APIVersion == v1beta1.SchemeGroupVersion.String() &&
-			ownerReference.Kind == v1beta1.FlinkApplicationKind {
+		if ownerReference.APIVersion == v1beta2.SchemeGroupVersion.String() &&
+			ownerReference.Kind == v1beta2.FlinkApplicationKind {
 			return true
 		}
 	}
