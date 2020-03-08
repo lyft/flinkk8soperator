@@ -13,13 +13,13 @@ import (
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-resty/resty"
-	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
 	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
-	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
+	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta2"
 	"github.com/prometheus/common/log"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta2"
 	apiextensionsClientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,7 +122,7 @@ func (f *TestUtil) CreateCRD() error {
 		return err
 	}
 
-	crd := v1beta1.CustomResourceDefinition{}
+	crd := v1beta2.CustomResourceDefinition{}
 	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&crd)
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func (f *TestUtil) CreateCRD() error {
 
 	crd.Namespace = f.Namespace.Name
 
-	_, err = f.APIExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
+	_, err = f.APIExtensionsClient.Apiextensionsv1beta2().CustomResourceDefinitions().Create(&crd)
 	if err != nil {
 		return err
 	}
@@ -348,7 +348,7 @@ func (f *TestUtil) ReadFlinkApplication(path string) (*flinkapp.FlinkApplication
 }
 
 func (f *TestUtil) FlinkApps() client.FlinkApplicationInterface {
-	return f.FlinkApplicationClient.FlinkV1beta1().FlinkApplications(f.Namespace.Name)
+	return f.FlinkApplicationClient.Flinkv1beta2().FlinkApplications(f.Namespace.Name)
 }
 
 func (f *TestUtil) CreateFlinkApplication(application *flinkapp.FlinkApplication) error {

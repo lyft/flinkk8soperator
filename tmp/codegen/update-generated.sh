@@ -10,3 +10,4 @@ github.com/lyft/flinkk8soperator/pkg/client \
 github.com/lyft/flinkk8soperator/pkg/apis \
 app:v1beta2 \
 --go-header-file "./tmp/codegen/boilerplate.go.txt"
+
