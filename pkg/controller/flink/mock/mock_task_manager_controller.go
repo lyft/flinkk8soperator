@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
 )
 
