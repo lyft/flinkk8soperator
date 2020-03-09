@@ -135,6 +135,22 @@ spec:
                   properties:
                     additionalProperties:
                       type: string
+                tolerations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      effect:
+                        type: string
+                      key:
+                        type: string
+                      operator:
+                        type: string
+                      tolerationSeconds:
+                        type: integer
+                        format: int64
+                      value:
+                        type: string
                 envConfig:
                   type: object
                   properties:
@@ -262,6 +278,23 @@ spec:
                   properties:
                     additionalProperties:
                       type: string
+                tolerations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      effect:
+                        type: string
+                      key:
+                        type: string
+                      operator:
+                        type: string
+
+                      tolerationSeconds:
+                        type: integer
+                        format: int64
+                      value:
+                        type: string
                 envConfig:
                   type: object
                   properties:

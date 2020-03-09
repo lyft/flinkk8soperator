@@ -47,6 +47,9 @@ Below is the list of fields in the custom resource and their description
     * **nodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the task manager
 
+    * **tolerations** `type:[]v1.Toleration`
+      Array of [node tolerations](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#toleration-v1-core) for the taskmanager pods
+
   * **jobManagerConfig** `type:JobManagerConfig`
     Configuration for the Flink job manager
 
@@ -68,6 +71,9 @@ Below is the list of fields in the custom resource and their description
     * **nodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the job manager
 
+    * **tolerations** `[]v1.Toleration`
+      Array of [node tolerations](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#toleration-v1-core) for the jobmanager pods
+
   * **jarName** `type:string required=true`
     Name of the jar file to be run. The application image needs to ensure that the jar file is present at the right location, as
     the operator uses the Web API to submit jobs.
@@ -82,10 +88,10 @@ Below is the list of fields in the custom resource and their description
     External configuration parameters to be passed as arguments to the job like input and output sources, etc
 
   * **savepointPath** `type:string`
-    If specified, the application state will be restored from this savepoint    
+    If specified, the application state will be restored from this savepoint
 
   * **allowNonRestoredState** `type:boolean`
-    Skips savepoint operator state that cannot be mapped to the new program version  
+    Skips savepoint operator state that cannot be mapped to the new program version
 
   * **flinkVersion** `type:string required=true`
     The version of Flink to be managed. This version must match the version in the image.
@@ -115,11 +121,11 @@ Below is the list of fields in the custom resource and their description
 
   * **volumeMounts** `type:[]v1.VolumeMount`
     Describes a mounting of a Volume within a container.
-    
+
   * **forceRollback** `type:bool`
     Can be set to true to force rollback a deploy/update. The rollback is **not** performed when the application is in a **RUNNING** phase.
     If an application is successfully rolled back, it is moved to a *DeployFailed* phase. Un-setting or setting `ForceRollback` to `False` will allow updates to progress normally.
-    
+
   * **maxCheckpointRestoreAgeSeconds** `type:int32`
     Used to prevent the application from restoring state from a checkpoint whose age (in seconds) is greater than the value set. It defaults to 1 hour (3600 seconds). This config
     is used during the operator update workflow. This default exists only
