@@ -3,6 +3,7 @@
 package fake
 
 import (
+	flinkv1beta1 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	flinkv1beta2 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -15,6 +16,7 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 var parameterCodec = runtime.NewParameterCodec(scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
+	flinkv1beta1.AddToScheme,
 	flinkv1beta2.AddToScheme,
 }
 

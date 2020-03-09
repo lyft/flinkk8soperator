@@ -7,7 +7,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
-	"k8s.io/api/extensions/v1beta2"
+	"k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -22,7 +22,7 @@ func GetFlinkUIIngressURL(jobName string) string {
 	return ReplaceJobURL(config.GetConfig().FlinkIngressURLFormat, jobName)
 }
 
-func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta2.Ingress {
+func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.Ingress {
 	podLabels := common.DuplicateMap(app.Labels)
 	podLabels = common.CopyMap(podLabels, k8.GetAppLabel(app.Name))
 
@@ -35,7 +35,7 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta2.In
 		},
 	}
 
-	backend := v1beta2.IngressBackend{
+	backend := v1beta1.IngressBackend{
 		ServiceName: app.Name,
 		ServicePort: intstr.IntOrString{
 			Type:   intstr.Int,
@@ -43,22 +43,22 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta2.In
 		},
 	}
 
-	ingressSpec := v1beta2.IngressSpec{
-		Rules: []v1beta2.IngressRule{{
+	ingressSpec := v1beta1.IngressSpec{
+		Rules: []v1beta1.IngressRule{{
 			Host: GetFlinkUIIngressURL(app.Name),
-			IngressRuleValue: v1beta2.IngressRuleValue{
-				HTTP: &v1beta2.HTTPIngressRuleValue{
-					Paths: []v1beta2.HTTPIngressPath{{
+			IngressRuleValue: v1beta1.IngressRuleValue{
+				HTTP: &v1beta1.HTTPIngressRuleValue{
+					Paths: []v1beta1.HTTPIngressPath{{
 						Backend: backend,
 					}},
 				},
 			},
 		}},
 	}
-	return &v1beta2.Ingress{
+	return &v1beta1.Ingress{
 		ObjectMeta: ingressMeta,
 		TypeMeta: v1.TypeMeta{
-			APIVersion: v1beta2.SchemeGroupVersion.String(),
+			APIVersion: v1beta1.SchemeGroupVersion.String(),
 			Kind:       k8.Ingress,
 		},
 		Spec: ingressSpec,
