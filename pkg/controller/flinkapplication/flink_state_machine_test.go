@@ -1095,12 +1095,12 @@ func TestRollbackWithFailFastError(t *testing.T) {
 }
 
 func TestRollbackAfterJobSubmission(t *testing.T) {
-	app := v1beta1.FlinkApplication{
+	app := v1beta2.FlinkApplication{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-app",
 			Namespace: "flink",
 		},
-		Spec: v1beta1.FlinkApplicationSpec{
+		Spec: v1beta2.FlinkApplicationSpec{
 			JarName:     "job.jar",
 			Parallelism: 5,
 			EntryClass:  "com.my.Class",
@@ -1109,22 +1109,26 @@ func TestRollbackAfterJobSubmission(t *testing.T) {
 			// force a rollback
 			ForceRollback: true,
 		},
-		Status: v1beta1.FlinkApplicationStatus{
-			Phase:      v1beta1.FlinkApplicationSubmittingJob,
+		Status: v1beta2.FlinkApplicationStatus{
+			Phase:      v1beta2.FlinkApplicationSubmittingJob,
 			DeployHash: "old-hash-retry-err",
-			JobStatus: v1beta1.FlinkJobStatus{
-				JobID: "jobid",
+			ApplicationStatus: []v1beta2.FlinkApplicationVersionStatus{
+				{
+					JobStatus: v1beta2.FlinkJobStatus{
+						JobID: "jobid",
+					},
+				},
 			},
 		},
 	}
 
 	stateMachineForTest := getTestStateMachine()
-
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 
-	assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, app.Status.Phase)
-	assert.Equal(t, "", app.Status.JobStatus.JobID)
+	assert.Equal(t, v1beta2.FlinkApplicationRollingBackJob, app.Status.Phase)
+	assert.Equal(t, "", mockFlinkController.GetLatestJobID(context.Background(), &app))
 }
 
 func TestErrorHandlingInRunningPhase(t *testing.T) {

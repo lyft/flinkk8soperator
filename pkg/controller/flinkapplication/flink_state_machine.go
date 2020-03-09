@@ -477,6 +477,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		// Something's gone wrong; roll back
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
 			fmt.Sprintf("Failed to submit job: %s", reason))
+		s.flinkController.UpdateLatestJobID(ctx, app, "")
 		s.updateApplicationPhase(app, v1beta2.FlinkApplicationRollingBackJob)
 		return statusChanged, nil
 	}
@@ -528,6 +529,9 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	job, err := s.flinkController.GetJobForApplication(ctx, app, hash)
 	if err != nil {
 		return statusUnchanged, err
+	}
+	if job == nil {
+		return statusUnchanged, errors.Errorf("Could not find job %s", s.flinkController.GetLatestJobID(ctx, app))
 	}
 
 	// wait until all vertices have been scheduled and started
