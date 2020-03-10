@@ -173,6 +173,9 @@ type FlinkApplicationStatus struct {
 	DesiredApplicationCount int32                           `json:"desiredApplicationCount,omitempty"`
 	DeployVersion           string                          `json:"deployVersion,omitempty"`
 	UpdatingVersion         string                          `json:"updatingVersion,omitempty"`
+	// To ensure backward compatibility allow repeat ClusterStatus and JobStatus
+	ClusterStatus           FlinkClusterStatus              `json:"clusterStatus,omitempty"`
+	JobStatus               FlinkJobStatus                  `json:"jobStatus,omitempty"`
 	ApplicationStatus       []FlinkApplicationVersionStatus `json:"appStatus,omitempty"`
 	FailedDeployHash        string                          `json:"failedDeployHash,omitempty"`
 	RollbackHash            string                          `json:"rollbackHash,omitempty"`
@@ -262,6 +265,10 @@ func IsRunningPhase(phase FlinkApplicationPhase) bool {
 }
 
 func IsBlueGreenDeploymentMode(mode DeploymentMode) bool {
+	// Backaward compatibility between v1beta1 and v1beta2
+	if mode == DeploymentModeDual {
+		return false
+	}
 	return mode == DeploymentModeBlueGreen
 }
 

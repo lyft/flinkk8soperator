@@ -108,6 +108,9 @@ type ControllerInterface interface {
 
 	// Update jobStatus on the latest ApplicationStatus
 	UpdateLatestJobStatus(ctx context.Context, app *v1beta2.FlinkApplication, jobStatus v1beta2.FlinkJobStatus)
+
+	// Update clusterStatus on the latest ApplicationStatus
+	UpdateLatestClusterStatus(ctx context.Context, app *v1beta2.FlinkApplication, jobStatus v1beta2.FlinkClusterStatus)
 }
 
 func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
@@ -667,6 +670,10 @@ func (f *Controller) GetLatestJobStatus(ctx context.Context, application *v1beta
 
 func (f *Controller) UpdateLatestJobStatus(ctx context.Context, app *v1beta2.FlinkApplication, jobStatus v1beta2.FlinkJobStatus) {
 	app.Status.ApplicationStatus[getCurrentStatusIndex(app)].JobStatus = jobStatus
+}
+
+func (f *Controller) UpdateLatestClusterStatus(ctx context.Context, app *v1beta2.FlinkApplication, clusterStatus v1beta2.FlinkClusterStatus) {
+	app.Status.ApplicationStatus[getCurrentStatusIndex(app)].ClusterStatus = clusterStatus
 }
 
 func (f *Controller) GetLatestJobID(ctx context.Context, application *v1beta2.FlinkApplication) string {

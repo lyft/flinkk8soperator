@@ -154,7 +154,7 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta2.Fli
 	updateLastSeenError := false
 	appPhase := application.Status.Phase
 	// initialize application status array if it's not yet been initialized
-	initializeAppStatusIfEmpty(application)
+	s.initializeAppStatusIfEmpty(ctx, application)
 
 	if !application.ObjectMeta.DeletionTimestamp.IsZero() && appPhase != v1beta2.FlinkApplicationDeleting {
 		s.updateApplicationPhase(application, v1beta2.FlinkApplicationDeleting)
@@ -287,7 +287,7 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	return statusChanged, nil
 }
 
-func initializeAppStatusIfEmpty(application *v1beta2.FlinkApplication) {
+func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, application *v1beta2.FlinkApplication) {
 	// initialize the app status array to include 2 status elements in case of blue green deploys
 	// else use a one element array
 	if application.Spec.DeploymentMode == v1beta2.DeploymentModeBlueGreen {
@@ -298,6 +298,16 @@ func initializeAppStatusIfEmpty(application *v1beta2.FlinkApplication) {
 
 	if len(application.Status.ApplicationStatus) == 0 {
 		application.Status.ApplicationStatus = make([]v1beta2.FlinkApplicationVersionStatus, application.Status.DesiredApplicationCount)
+	}
+
+	// If we're reading a v1beta1 app, populate the first element of the status array from
+	// the top-level jobStatus and clusteStatus
+	if application.Status.JobStatus != (v1beta2.FlinkJobStatus{}) {
+		s.flinkController.UpdateLatestJobStatus(ctx, application, application.Status.JobStatus)
+	}
+
+	if application.Status.ClusterStatus != (v1beta2.FlinkClusterStatus{}) {
+		s.flinkController.UpdateLatestClusterStatus(ctx, application, application.Status.ClusterStatus)
 	}
 }
 

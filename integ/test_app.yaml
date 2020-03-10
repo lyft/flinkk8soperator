@@ -1,4 +1,4 @@
-apiVersion: flink.k8s.io/v1beta2
+apiVersion: flink.k8s.io/v1beta1
 kind: FlinkApplication
 metadata:
   name: operator-test-app
