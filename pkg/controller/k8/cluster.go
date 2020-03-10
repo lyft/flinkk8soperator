@@ -60,6 +60,7 @@ func newK8ClusterMetrics(scope promutils.Scope) *k8ClusterMetrics {
 		updateSuccess:          labeled.NewCounter("update_success", "K8 object updated successfully", k8ClusterScope),
 		updateFailure:          labeled.NewCounter("update_failure", "K8 object update failed", k8ClusterScope),
 		updateConflicts:        labeled.NewCounter("update_conflict", "K8 object update failed due to a conflict", k8ClusterScope),
+		updateInvalidVersion:   labeled.NewCounter("update_invalide_version", "K8 object update failed due to an invalid version", k8ClusterScope),
 		deleteSuccess:          labeled.NewCounter("delete_success", "K8 object deleted successfully", k8ClusterScope),
 		deleteFailure:          labeled.NewCounter("delete_failure", "K8 object deletion failed", k8ClusterScope),
 		getDeploymentCacheHit:  labeled.NewCounter("get_deployment_cache_hit", "Deployment fetched from cache", k8ClusterScope),
@@ -218,11 +219,11 @@ func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error
 			// TODO Remove this block when we upgrade to k8s 1.15
 			logger.Warn(ctx, "Status sub-resource update failed, attempting to update the entire resource instead")
 			k.metrics.updateInvalidVersion.Inc(ctx)
-			err = k.client.Update(ctx, object)
-			if err != nil {
-				logger.Errorf(ctx, "K8s object update failed %v", err)
+			updateErr := k.client.Update(ctx, object)
+			if updateErr != nil {
+				logger.Errorf(ctx, "K8s object update failed %v", updateErr)
 				k.metrics.updateFailure.Inc(ctx)
-				return err
+				return updateErr
 			}
 		}
 		if errors.IsConflict(err) {
