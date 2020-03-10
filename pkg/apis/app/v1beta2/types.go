@@ -172,7 +172,7 @@ type FlinkApplicationStatus struct {
 	Reason          string                `json:"reason,omitempty"`
 	DeployVersion   string                `json:"deployVersion,omitempty"`
 	UpdatingVersion string                `json:"updatingVersion,omitempty"`
-	// To ensure backward compatibility allow repeat ClusterStatus and JobStatus
+	// To ensure backward compatibility, repeat ClusterStatus and JobStatus
 	ClusterStatus      FlinkClusterStatus              `json:"clusterStatus,omitempty"`
 	JobStatus          FlinkJobStatus                  `json:"jobStatus,omitempty"`
 	VersionStatuses    []FlinkApplicationVersionStatus `json:"appStatus,omitempty"`

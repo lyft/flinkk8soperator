@@ -213,11 +213,17 @@ func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error
 			// apiVersion: Invalid value: "flink.k8s.io/v1beta1": must be flink.k8s.io/v1beta2
 			// app_name=operator-test-app ns=default phase=Running src="cluster.go:209"
 			// This should only ever be encountered once (per application)
-			// when a new CRD version is deployed
+			// when a new CRD version is deployed and an older version of the application exists
+			// As a workaround, we try to update the entire resource instead of only the status
 			// TODO Remove this block when we upgrade to k8s 1.15
 			logger.Warn(ctx, "Status sub-resource update failed, attempting to update the entire resource instead")
 			k.metrics.updateInvalidVersion.Inc(ctx)
-			return k.client.Update(ctx, object)
+			err = k.client.Update(ctx, object)
+			if err != nil {
+				logger.Errorf(ctx, "K8s object update failed %v", err)
+				k.metrics.updateFailure.Inc(ctx)
+				return err
+			}
 		}
 		if errors.IsConflict(err) {
 			logger.Warnf(ctx, "Conflict while updating status")
