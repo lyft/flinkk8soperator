@@ -126,7 +126,6 @@ func TestHandleNewOrCreateWithSavepointDisabled(t *testing.T) {
 	assert.True(t, updateInvoked)
 }
 
-
 func TestHandleApplicationCancel(t *testing.T) {
 	app := v1beta1.FlinkApplication{
 		Spec: v1beta1.FlinkApplicationSpec{
@@ -170,8 +169,8 @@ func TestHandleApplicationCancelFailedWithMaxRetries(t *testing.T) {
 			SavepointDisabled: true,
 		},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:      v1beta1.FlinkApplicationCancelling,
-			DeployHash: "old-hash",
+			Phase:         v1beta1.FlinkApplicationCancelling,
+			DeployHash:    "old-hash",
 			LastSeenError: retryableErr.(*v1beta1.FlinkApplicationError),
 		},
 	}
