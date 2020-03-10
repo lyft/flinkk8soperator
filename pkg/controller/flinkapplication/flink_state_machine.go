@@ -531,6 +531,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		}
 
 		if appJobID != "" {
+			logger.Infof(ctx, "Updated job ID %v", appJobID)
 			s.flinkController.UpdateLatestJobID(ctx, app, appJobID)
 			return statusChanged, nil
 		}

@@ -368,6 +368,7 @@ func (c *FlinkJobManagerClient) GetCheckpointCounts(ctx context.Context, url str
 
 func (c *FlinkJobManagerClient) GetJobOverview(ctx context.Context, url string, jobID string) (*FlinkJobOverview, error) {
 	endpoint := fmt.Sprintf(url+GetJobsOverviewURL, jobID)
+	logger.Infof(ctx, "GetJobOverview endpoint %v", endpoint)
 	response, err := c.executeRequest(ctx, httpGet, endpoint, nil)
 	if err != nil {
 		return nil, GetRetryableError(err, v1beta2.GetJobOverview, GlobalFailure, DefaultRetries)
