@@ -175,7 +175,7 @@ type FlinkApplicationStatus struct {
 	// To ensure backward compatibility, repeat ClusterStatus and JobStatus
 	ClusterStatus      FlinkClusterStatus              `json:"clusterStatus,omitempty"`
 	JobStatus          FlinkJobStatus                  `json:"jobStatus,omitempty"`
-	VersionStatuses    []FlinkApplicationVersionStatus `json:"appStatus,omitempty"`
+	VersionStatuses    []FlinkApplicationVersionStatus `json:"versionStatuses,omitempty"`
 	FailedDeployHash   string                          `json:"failedDeployHash,omitempty"`
 	RollbackHash       string                          `json:"rollbackHash,omitempty"`
 	DeployHash         string                          `json:"deployHash"`
