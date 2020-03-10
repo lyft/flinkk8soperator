@@ -185,7 +185,7 @@ func (m *FlinkController) GetLatestJobStatus(ctx context.Context, application *v
 	return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus
 }
 
-func (m *FlinkController) GetLatestJobID(ctx context.Context, application *v1beta2.FlinkApplication) string {
+func (m *FlinkController) GetLatestJobID(app *v1beta2.FlinkApplication) string {
 	if m.GetLatestClusterStatusFunc != nil {
 		return m.GetLatestJobIDFunc(ctx, application)
 	}

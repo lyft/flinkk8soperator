@@ -201,7 +201,6 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) err
 
 func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error {
 	objectCopy := object.DeepCopyObject()
-	logger.Debugf(ctx, "Version %s", objectCopy.GetObjectKind().GroupVersionKind().Version)
 	err := k.client.Status().Update(ctx, objectCopy)
 	if err != nil {
 		if errors.IsInvalid(err) {

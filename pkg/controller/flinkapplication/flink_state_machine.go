@@ -492,6 +492,8 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	// switch the service to point to the new jobmanager
+	// Clear job ID before this
+	s.flinkController.UpdateLatestJobID(ctx, app, "")
 	hash := flink.HashForApplication(app)
 	err := s.updateGenericService(ctx, app, hash)
 	if err != nil {

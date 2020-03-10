@@ -239,16 +239,16 @@ func (f *Controller) GetJobForApplication(ctx context.Context, application *v1be
 
 // The operator for now assumes and is intended to run single application per Flink Cluster.
 // Once we move to run multiple applications, this has to be removed/updated
-func (f *Controller) getJobIDForApplication(application *v1beta2.FlinkApplication) (string, error) {
-	if application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID != "" {
-		return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID, nil
+func (f *Controller) getJobIDForApplication(ctx context.Context, application *v1beta2.FlinkApplication) (string, error) {
+	if f.GetLatestJobID(ctx, application) != "" {
+		return f.GetLatestJobID(ctx, application), nil
 	}
 
 	return "", errors.New("active job id not available")
 }
 
 func (f *Controller) CancelWithSavepoint(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (string, error) {
-	jobID, err := f.getJobIDForApplication(application)
+	jobID, err := f.getJobIDForApplication(ctx, application)
 	if err != nil {
 		return "", err
 	}
@@ -256,7 +256,7 @@ func (f *Controller) CancelWithSavepoint(ctx context.Context, application *v1bet
 }
 
 func (f *Controller) ForceCancel(ctx context.Context, application *v1beta2.FlinkApplication, hash string) error {
-	jobID, err := f.getJobIDForApplication(application)
+	jobID, err := f.getJobIDForApplication(ctx, application)
 	if err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func (f *Controller) StartFlinkJob(ctx context.Context, application *v1beta2.Fli
 }
 
 func (f *Controller) GetSavepointStatus(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (*client.SavepointResponse, error) {
-	jobID, err := f.getJobIDForApplication(application)
+	jobID, err := f.getJobIDForApplication(ctx, application)
 	if err != nil {
 		return nil, err
 	}
@@ -680,10 +680,6 @@ func (f *Controller) UpdateLatestClusterStatus(ctx context.Context, app *v1beta2
 
 func (f *Controller) GetLatestJobID(ctx context.Context, application *v1beta2.FlinkApplication) string {
 	jobId := application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID
-	// TODO Remove when all applications have moved to v1beta2
-	if jobId == "" && application.Status.JobStatus != (v1beta2.FlinkJobStatus{}) {
-		jobId = application.Status.JobStatus.JobID
-	}
 	return jobId
 }
 
