@@ -303,10 +303,12 @@ func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, appl
 	// the top-level jobStatus and clusterStatus
 	if application.Status.JobStatus != (v1beta2.FlinkJobStatus{}) {
 		s.flinkController.UpdateLatestJobStatus(ctx, application, application.Status.JobStatus)
+		application.Status.JobStatus = v1beta2.FlinkJobStatus{}
 	}
 
 	if application.Status.ClusterStatus != (v1beta2.FlinkClusterStatus{}) {
 		s.flinkController.UpdateLatestClusterStatus(ctx, application, application.Status.ClusterStatus)
+		application.Status.ClusterStatus = v1beta2.FlinkClusterStatus{}
 	}
 }
 
