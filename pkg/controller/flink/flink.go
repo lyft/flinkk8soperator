@@ -677,7 +677,12 @@ func (f *Controller) UpdateLatestClusterStatus(ctx context.Context, app *v1beta2
 }
 
 func (f *Controller) GetLatestJobID(ctx context.Context, application *v1beta2.FlinkApplication) string {
-	return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID
+	jobId := application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID
+	// TODO Remove when all applications have moved to v1beta2
+	if jobId == "" && application.Status.JobStatus != (v1beta2.FlinkJobStatus{}) {
+		jobId = application.Status.JobStatus.JobID
+	}
+	return jobId
 }
 
 func (f *Controller) UpdateLatestJobID(ctx context.Context, app *v1beta2.FlinkApplication, jobID string) {
