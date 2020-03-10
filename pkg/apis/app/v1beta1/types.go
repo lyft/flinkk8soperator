@@ -220,6 +220,7 @@ const (
 	FlinkApplicationClusterStarting FlinkApplicationPhase = "ClusterStarting"
 	FlinkApplicationSubmittingJob   FlinkApplicationPhase = "SubmittingJob"
 	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
+	FlinkApplicationSavepointing    FlinkApplicationPhase = "Savepointing"
 	FlinkApplicationCancelling      FlinkApplicationPhase = "Cancelling"
 	FlinkApplicationDeleting        FlinkApplicationPhase = "Deleting"
 	FlinkApplicationRecovering      FlinkApplicationPhase = "Recovering"
@@ -233,6 +234,7 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationClusterStarting,
 	FlinkApplicationSubmittingJob,
 	FlinkApplicationRunning,
+	FlinkApplicationSavepointing,
 	FlinkApplicationCancelling,
 	FlinkApplicationDeleting,
 	FlinkApplicationRecovering,

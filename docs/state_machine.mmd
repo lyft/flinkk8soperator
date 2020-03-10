@@ -14,11 +14,13 @@ Running --> Updating
 Updating --> ClusterStarting
 DeployFailed --> Updating
 
-ClusterStarting --> Cancelling
+ClusterStarting -- savepoint disabled --> Cancelling
+ClusterStarting -- savepoint enabled --> Savepointing
 ClusterStarting -- Create fails --> DeployFailed
 
-Cancelling --> SubmittingJob
-Cancelling -- Cancel fails --> Recovering
+Cancelling   --> SubmittingJob
+Savepointing --> SubmittingJob
+Savepointing -- Savepoint fails --> Recovering
 
 Recovering --> SubmittingJob
 Recovering -- No externalized checkpoint --> RollingBackJob
@@ -28,7 +30,9 @@ SubmittingJob -- job start fails --> RollingBackJob
 RollingBackJob --> DeployFailed
 end
 
-linkStyle 5 stroke:#FF0000
-linkStyle 7 stroke:#FF0000
+linkStyle 4 stroke:#303030
+linkStyle 5 stroke:#303030
+linkStyle 6 stroke:#FF0000
 linkStyle 9 stroke:#FF0000
 linkStyle 11 stroke:#FF0000
+linkStyle 13 stroke:#FF0000

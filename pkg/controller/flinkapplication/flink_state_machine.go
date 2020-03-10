@@ -176,6 +176,8 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 			updateApplication, appErr = s.handleApplicationRunning(ctx, application)
 		case v1beta1.FlinkApplicationCancelling:
 			updateApplication, appErr = s.handleApplicationCancelling(ctx, application)
+		case v1beta1.FlinkApplicationSavepointing:
+			updateApplication, appErr = s.handleApplicationSavepointing(ctx, application)
 		case v1beta1.FlinkApplicationRecovering:
 			updateApplication, appErr = s.handleApplicationRecovering(ctx, application)
 		case v1beta1.FlinkApplicationRollingBackJob:
@@ -283,11 +285,15 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
 	// TODO: in single mode move to submitting job
-	s.updateApplicationPhase(application, v1beta1.FlinkApplicationCancelling)
+	if application.Spec.SavepointDisabled {
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationCancelling)
+	} else {
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSavepointing)
+	}
 	return statusChanged, nil
 }
 
-func (s *FlinkStateMachine) handleApplicationCancelling(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
 	if application.Status.SavepointPath != "" || application.Status.DeployHash == "" {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
@@ -295,20 +301,10 @@ func (s *FlinkStateMachine) handleApplicationCancelling(ctx context.Context, app
 	}
 
 	if rollback, reason := s.shouldRollback(ctx, application); rollback {
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "CancelFailed",
-			fmt.Sprintf("Could not cancel existing job: %s", reason))
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
+			fmt.Sprintf("Could not savepoint existing job: %s", reason))
 		application.Status.RetryCount = 0
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
-		return statusChanged, nil
-	}
-
-	if application.Spec.SavepointDisabled {
-		err := s.flinkController.ForceCancel(ctx, application, application.Status.DeployHash)
-		if err != nil {
-			return statusUnchanged, err
-		}
-		application.Status.JobStatus.JobID = ""
-		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}
 
@@ -337,7 +333,7 @@ func (s *FlinkStateMachine) handleApplicationCancelling(ctx context.Context, app
 		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
 		// Savepointing failed
 		// TODO: we should probably retry this a few times before failing
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "CancelFailed",
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
 			fmt.Sprintf("Failed to take savepoint for job %s: %v",
 				application.Status.JobStatus.JobID, savepointStatusResponse.Operation.FailureCause))
 		application.Status.RetryCount = 0
@@ -354,6 +350,34 @@ func (s *FlinkStateMachine) handleApplicationCancelling(ctx context.Context, app
 	}
 
 	return statusUnchanged, nil
+}
+
+func (s *FlinkStateMachine) handleApplicationCancelling(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+
+	// this is the first deploy
+	if application.Status.DeployHash == "" {
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
+		return statusChanged, nil
+	}
+
+	if rollback, reason := s.shouldRollback(ctx, application); rollback {
+		// it's rare to come here despite the retries. let's head to submitting.
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "CancelFailed",
+			fmt.Sprintf("Could not cancel existing job: %s", reason))
+		application.Status.RetryCount = 0
+		application.Status.JobStatus.JobID = ""
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
+		return statusChanged, nil
+	}
+
+	err := s.flinkController.ForceCancel(ctx, application, application.Status.DeployHash)
+	if err != nil {
+		return statusUnchanged, err
+	}
+
+	application.Status.JobStatus.JobID = ""
+	s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
+	return statusChanged, nil
 }
 
 func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
@@ -491,7 +515,18 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	if app.Status.JobStatus.JobID == "" {
-		savepointPath := getSavepointPath(app)
+		savepointPath := ""
+		if app.Status.DeployHash == "" {
+			// this is the first deploy, use the user-provided savepoint
+			savepointPath = app.Spec.SavepointPath
+			if savepointPath == "" {
+				//nolint // fall back to the old config for backwards-compatibility
+				savepointPath = app.Spec.SavepointInfo.SavepointLocation
+			}
+		} else {
+			// otherwise use the savepoint created by the operator
+			savepointPath = app.Status.SavepointPath
+		}
 
 		appJobID, err := s.submitJobIfNeeded(ctx, app, hash,
 			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs,
@@ -540,24 +575,6 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	return statusUnchanged, nil
-}
-
-func getSavepointPath(app *v1beta1.FlinkApplication) string {
-	savepointPath := ""
-	if app.Status.DeployHash == "" {
-		// this is the first deploy
-		if !app.Spec.SavepointDisabled {
-			savepointPath = app.Spec.SavepointPath
-			if savepointPath == "" {
-				//nolint // fall back to the old config for backwards-compatibility
-				savepointPath = app.Spec.SavepointInfo.SavepointLocation
-			}
-		}
-	} else {
-		// otherwise use the savepoint created by the operator
-		savepointPath = app.Status.SavepointPath
-	}
-	return savepointPath
 }
 
 // Something has gone wrong during the update, post job-cancellation (and cluster tear-down in single mode). We need

@@ -21,7 +21,7 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1be
 	app, err := s.Util.Update(name, updateFn)
 	c.Assert(err, IsNil)
 
-	c.Assert(s.Util.WaitForPhase(name, v1beta1.FlinkApplicationCancelling, failurePhase), IsNil)
+	c.Assert(s.Util.WaitForPhase(name, v1beta1.FlinkApplicationSavepointing, failurePhase), IsNil)
 	c.Assert(s.Util.WaitForPhase(name, v1beta1.FlinkApplicationRunning, failurePhase), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(name), IsNil)
 
@@ -130,7 +130,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 
 		c.Assert(err, IsNil)
 
-		c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta1.FlinkApplicationCancelling, ""), IsNil)
+		c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta1.FlinkApplicationSavepointing, ""), IsNil)
 		// we should end up in the DeployFailed phase
 		c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta1.FlinkApplicationDeployFailed, ""), IsNil)
 
