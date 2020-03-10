@@ -223,7 +223,7 @@ func (f *Controller) GetJobsForApplication(ctx context.Context, application *v1b
 }
 
 func (f *Controller) GetJobForApplication(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
-	if application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID == "" {
+	if f.GetLatestJobID(ctx, application) == "" {
 		return nil, nil
 	}
 
@@ -570,7 +570,7 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta2
 	app.Status.VersionStatuses[currIndex].JobStatus.JobID = oldJobStatus.JobID
 	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(app, hash), f.GetLatestJobID(ctx, app))
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("Error in Job Status Update!!!",err)
 	}
 	checkpoints, err := f.flinkClient.GetCheckpointCounts(ctx, getURLFromApp(app, hash), f.GetLatestJobID(ctx, app))
 	if err != nil {
