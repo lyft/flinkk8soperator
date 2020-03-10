@@ -218,7 +218,7 @@ func (m *FlinkController) UpdateLatestClusterStatus(ctx context.Context, applica
 }
 
 func getCurrentStatusIndex(app *v1beta2.FlinkApplication) int32 {
-	desiredCount := app.Status.DesiredApplicationCount
+	desiredCount := v1beta2.GetMaxRunningJobs(app.Spec.DeploymentMode)
 	if v1beta2.IsRunningPhase(app.Status.Phase) {
 		return 0
 	}

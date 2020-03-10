@@ -290,18 +290,17 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, application *v1beta2.FlinkApplication) {
 	// initialize the app status array to include 2 status elements in case of blue green deploys
 	// else use a one element array
+	arraySize := 1
 	if application.Spec.DeploymentMode == v1beta2.DeploymentModeBlueGreen {
-		application.Status.DesiredApplicationCount = 2
-	} else {
-		application.Status.DesiredApplicationCount = 1
+		arraySize = 2
 	}
 
 	if len(application.Status.VersionStatuses) == 0 {
-		application.Status.VersionStatuses = make([]v1beta2.FlinkApplicationVersionStatus, application.Status.DesiredApplicationCount)
+		application.Status.VersionStatuses = make([]v1beta2.FlinkApplicationVersionStatus, arraySize)
 	}
 
 	// If we're reading a v1beta1 app, populate the first element of the status array from
-	// the top-level jobStatus and clusteStatus
+	// the top-level jobStatus and clusterStatus
 	if application.Status.JobStatus != (v1beta2.FlinkJobStatus{}) {
 		s.flinkController.UpdateLatestJobStatus(ctx, application, application.Status.JobStatus)
 	}

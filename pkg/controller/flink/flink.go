@@ -655,7 +655,7 @@ func getCurrentStatusIndex(app *v1beta2.FlinkApplication) int32 {
 	// In every other state, we either have
 	// Dual mode --> One Application status object
 	// BlueGreen mode --> Two Application status objects
-	return app.Status.DesiredApplicationCount - indexOffset
+	return v1beta2.GetMaxRunningJobs(app.Spec.DeploymentMode) - indexOffset
 }
 
 func (f *Controller) GetLatestClusterStatus(ctx context.Context, application *v1beta2.FlinkApplication) v1beta2.FlinkClusterStatus {

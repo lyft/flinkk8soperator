@@ -75,7 +75,6 @@ func getFlinkTestApp() v1beta2.FlinkApplication {
 	app.Status.VersionStatuses = statuses
 	app.Spec.Image = testImage
 	app.Spec.FlinkVersion = testFlinkVersion
-	app.Status.DesiredApplicationCount = 1
 	return app
 }
 

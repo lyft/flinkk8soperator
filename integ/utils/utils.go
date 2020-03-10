@@ -484,7 +484,7 @@ func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplicat
 }
 
 func (f *TestUtil) GetCurrentStatusIndex(app *flinkapp.FlinkApplication) int32 {
-	desiredCount := app.Status.DesiredApplicationCount
+	desiredCount := flinkapp.GetMaxRunningJobs(app.Spec.DeploymentMode)
 	if app.Status.Phase != "Running" {
 		return 0
 	}

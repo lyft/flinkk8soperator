@@ -166,13 +166,12 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase                   FlinkApplicationPhase `json:"phase"`
-	StartedAt               *metav1.Time          `json:"startedAt,omitempty"`
-	LastUpdatedAt           *metav1.Time          `json:"lastUpdatedAt,omitempty"`
-	Reason                  string                `json:"reason,omitempty"`
-	DesiredApplicationCount int32                 `json:"desiredApplicationCount,omitempty"`
-	DeployVersion           string                `json:"deployVersion,omitempty"`
-	UpdatingVersion         string                `json:"updatingVersion,omitempty"`
+	Phase           FlinkApplicationPhase `json:"phase"`
+	StartedAt       *metav1.Time          `json:"startedAt,omitempty"`
+	LastUpdatedAt   *metav1.Time          `json:"lastUpdatedAt,omitempty"`
+	Reason          string                `json:"reason,omitempty"`
+	DeployVersion   string                `json:"deployVersion,omitempty"`
+	UpdatingVersion string                `json:"updatingVersion,omitempty"`
 	// To ensure backward compatibility allow repeat ClusterStatus and JobStatus
 	ClusterStatus      FlinkClusterStatus              `json:"clusterStatus,omitempty"`
 	JobStatus          FlinkJobStatus                  `json:"jobStatus,omitempty"`
@@ -270,6 +269,13 @@ func IsBlueGreenDeploymentMode(mode DeploymentMode) bool {
 		return false
 	}
 	return mode == DeploymentModeBlueGreen
+}
+
+func GetMaxRunningJobs(mode DeploymentMode) int32 {
+	if IsBlueGreenDeploymentMode(mode) {
+		return int32(2)
+	}
+	return int32(1)
 }
 
 type DeploymentMode string
