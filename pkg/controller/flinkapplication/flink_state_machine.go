@@ -155,10 +155,6 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta2.Fli
 	appPhase := application.Status.Phase
 	// initialize application status array if it's not yet been initialized
 	s.initializeAppStatusIfEmpty(ctx, application)
-	//jobId := s.flinkController.GetLatestJobID(ctx, application)
-	//logger.Errorf(ctx, "JOB ID!!!", jobId)
-	jobOverview, _ := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
-	logger.Errorf(ctx, "JOB ID!!!", jobOverview.JobID)
 	if !application.ObjectMeta.DeletionTimestamp.IsZero() && appPhase != v1beta2.FlinkApplicationDeleting {
 		s.updateApplicationPhase(application, v1beta2.FlinkApplicationDeleting)
 		// Always perform a single application update per callback
@@ -421,7 +417,7 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta2.
 		return "", err
 	}
 	jobId := s.flinkController.GetLatestJobID(ctx, app)
-	logger.Errorf(ctx, "JOB ID!!!", jobId)
+	logger.Errorf(ctx, "Inside submitjobIfneeded")
 	// Check if the job id has already been set on our application
 	if  jobId!= "" {
 		return jobId, nil
@@ -540,7 +536,6 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 
 	// get the state of the current application
 	job, err := s.flinkController.GetJobForApplication(ctx, app, hash)
-	logger.Errorf(ctx, "Handle submitting job ID", job)
 	if err != nil {
 		return statusUnchanged, err
 	}

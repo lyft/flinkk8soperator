@@ -223,11 +223,13 @@ func (f *Controller) GetJobsForApplication(ctx context.Context, application *v1b
 }
 
 func (f *Controller) GetJobForApplication(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+	logger.Infof(ctx, "GetJobForApplication", f.GetLatestJobID(ctx, application))
 	if f.GetLatestJobID(ctx, application) == "" {
 		return nil, nil
 	}
 
 	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(application, hash), f.GetLatestJobID(ctx, application))
+	logger.Infof(ctx, "GetJobOverview URL", getURLFromApp(application, hash))
 	if err != nil {
 		return nil, err
 	}
