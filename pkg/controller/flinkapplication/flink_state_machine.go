@@ -155,6 +155,7 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta2.Fli
 	appPhase := application.Status.Phase
 	// initialize application status array if it's not yet been initialized
 	s.initializeAppStatusIfEmpty(ctx, application)
+
 	if !application.ObjectMeta.DeletionTimestamp.IsZero() && appPhase != v1beta2.FlinkApplicationDeleting {
 		s.updateApplicationPhase(application, v1beta2.FlinkApplicationDeleting)
 		// Always perform a single application update per callback
@@ -416,11 +417,10 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta2.
 	if err := s.addFinalizerIfMissing(ctx, app, jobFinalizer); err != nil {
 		return "", err
 	}
-	jobId := s.flinkController.GetLatestJobID(ctx, app)
-	logger.Errorf(ctx, "Inside submitjobIfneeded")
+
 	// Check if the job id has already been set on our application
-	if  jobId!= "" {
-		return jobId, nil
+	if s.flinkController.GetLatestJobID(ctx, app) != "" {
+		return s.flinkController.GetLatestJobID(ctx, app), nil
 	}
 
 	// Check that there are no jobs running before starting the job
@@ -492,8 +492,6 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	// switch the service to point to the new jobmanager
-	// Clear job ID before this
-	s.flinkController.UpdateLatestJobID(ctx, app, "")
 	hash := flink.HashForApplication(app)
 	err := s.updateGenericService(ctx, app, hash)
 	if err != nil {
@@ -506,7 +504,12 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		logger.Errorf(ctx, "Updating cluster status failed with error: %v", clusterErr)
 	}
 
-	if s.flinkController.GetLatestJobID(ctx, app) == "" {
+	// Reset jobId if for some reason it's populated but there are no jobs running
+	jobs, _ := s.flinkController.GetJobsForApplication(ctx,app, hash)
+	if len(flink.GetActiveFlinkJobs(jobs)) == 0 {
+		s.flinkController.UpdateLatestJobID(ctx, app, "")
+	}
+	if s.flinkController.GetLatestJobID(ctx, app) == "" || len(flink.GetActiveFlinkJobs(jobs)) == 0 {
 		savepointPath := ""
 		if app.Status.DeployHash == "" {
 			// this is the first deploy, use the user-provided savepoint
