@@ -202,6 +202,10 @@ func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error
 	logger.Debugf(ctx, "Version %s",  objectCopy.GetObjectKind().GroupVersionKind().Version)
 	err := k.client.Status().Update(ctx, objectCopy)
 	if err != nil {
+		if errors.IsInvalid(err) {
+			logger.Warn(ctx, "Status sub-resource update failed, attempting to update the entire resource instead")
+			return k.client.Update(ctx, object)
+		}
 		if errors.IsConflict(err) {
 			logger.Warnf(ctx, "Conflict while updating status")
 			k.metrics.updateConflicts.Inc(ctx)
