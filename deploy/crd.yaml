@@ -12,6 +12,7 @@ spec:
     shortNames:
       - flinkapp
   scope: Namespaced
+  version: v1beta2
   versions:
     - name: v1beta2
       served: true
@@ -22,8 +23,6 @@ spec:
     - name: v1alpha1
       served: true
       storage: false
-  conversion:
-    strategy: None
   validation:
     # openAPIV3Schema is the schema for validating custom objects.
     openAPIV3Schema:

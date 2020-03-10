@@ -29,6 +29,7 @@ type GetLatestJobStatusFunc func(ctx context.Context, app *v1beta2.FlinkApplicat
 type GetLatestJobIDFunc func(ctx context.Context, app *v1beta2.FlinkApplication) string
 type UpdateLatestJobIDFunc func(ctx context.Context, app *v1beta2.FlinkApplication, jobID string)
 type UpdateLatestJobStatusFunc func(ctx context.Context, app *v1beta2.FlinkApplication, jobStatus v1beta2.FlinkJobStatus)
+type UpdateLatestClusterStatusFunc func(ctx context.Context, app *v1beta2.FlinkApplication, clusterStatus v1beta2.FlinkClusterStatus)
 
 type FlinkController struct {
 	CreateClusterFunc                 CreateClusterFunc
@@ -51,6 +52,7 @@ type FlinkController struct {
 	GetLatestJobIDFunc                GetLatestJobIDFunc
 	UpdateLatestJobIDFunc             UpdateLatestJobIDFunc
 	UpdateLatestJobStatusFunc         UpdateLatestJobStatusFunc
+	UpdateLatestClusterStatusFunc     UpdateLatestClusterStatusFunc
 }
 
 func (m *FlinkController) GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta2.FlinkApplication) (*common.FlinkDeployment, error) {
@@ -172,7 +174,7 @@ func (m *FlinkController) GetLatestClusterStatus(ctx context.Context, applicatio
 		return m.GetLatestClusterStatusFunc(ctx, application)
 	}
 
-	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].ClusterStatus
+	return application.Status.VersionStatuses[getCurrentStatusIndex(application)].ClusterStatus
 }
 
 func (m *FlinkController) GetLatestJobStatus(ctx context.Context, application *v1beta2.FlinkApplication) v1beta2.FlinkJobStatus {
@@ -180,7 +182,7 @@ func (m *FlinkController) GetLatestJobStatus(ctx context.Context, application *v
 		return m.GetLatestJobStatusFunc(ctx, application)
 	}
 
-	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus
+	return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus
 }
 
 func (m *FlinkController) GetLatestJobID(ctx context.Context, application *v1beta2.FlinkApplication) string {
@@ -188,7 +190,7 @@ func (m *FlinkController) GetLatestJobID(ctx context.Context, application *v1bet
 		return m.GetLatestJobIDFunc(ctx, application)
 	}
 
-	return application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus.JobID
+	return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID
 }
 
 func (m *FlinkController) UpdateLatestJobID(ctx context.Context, application *v1beta2.FlinkApplication, jobID string) {
@@ -196,7 +198,7 @@ func (m *FlinkController) UpdateLatestJobID(ctx context.Context, application *v1
 		m.UpdateLatestJobIDFunc(ctx, application, jobID)
 	}
 
-	application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus.JobID = jobID
+	application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID = jobID
 }
 
 func (m *FlinkController) UpdateLatestJobStatus(ctx context.Context, application *v1beta2.FlinkApplication, jobStatus v1beta2.FlinkJobStatus) {
@@ -204,7 +206,15 @@ func (m *FlinkController) UpdateLatestJobStatus(ctx context.Context, application
 		m.UpdateLatestJobStatusFunc(ctx, application, jobStatus)
 	}
 
-	application.Status.ApplicationStatus[getCurrentStatusIndex(application)].JobStatus = jobStatus
+	application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus = jobStatus
+}
+
+func (m *FlinkController) UpdateLatestClusterStatus(ctx context.Context, application *v1beta2.FlinkApplication, clusterStatus v1beta2.FlinkClusterStatus) {
+	if m.UpdateLatestClusterStatusFunc != nil {
+		m.UpdateLatestClusterStatusFunc(ctx, application, clusterStatus)
+	}
+
+	application.Status.VersionStatuses[getCurrentStatusIndex(application)].ClusterStatus = clusterStatus
 }
 
 func getCurrentStatusIndex(app *v1beta2.FlinkApplication) int32 {

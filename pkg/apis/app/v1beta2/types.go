@@ -166,24 +166,24 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase                   FlinkApplicationPhase           `json:"phase"`
-	StartedAt               *metav1.Time                    `json:"startedAt,omitempty"`
-	LastUpdatedAt           *metav1.Time                    `json:"lastUpdatedAt,omitempty"`
-	Reason                  string                          `json:"reason,omitempty"`
-	DesiredApplicationCount int32                           `json:"desiredApplicationCount,omitempty"`
-	DeployVersion           string                          `json:"deployVersion,omitempty"`
-	UpdatingVersion         string                          `json:"updatingVersion,omitempty"`
+	Phase                   FlinkApplicationPhase `json:"phase"`
+	StartedAt               *metav1.Time          `json:"startedAt,omitempty"`
+	LastUpdatedAt           *metav1.Time          `json:"lastUpdatedAt,omitempty"`
+	Reason                  string                `json:"reason,omitempty"`
+	DesiredApplicationCount int32                 `json:"desiredApplicationCount,omitempty"`
+	DeployVersion           string                `json:"deployVersion,omitempty"`
+	UpdatingVersion         string                `json:"updatingVersion,omitempty"`
 	// To ensure backward compatibility allow repeat ClusterStatus and JobStatus
-	ClusterStatus           FlinkClusterStatus              `json:"clusterStatus,omitempty"`
-	JobStatus               FlinkJobStatus                  `json:"jobStatus,omitempty"`
-	ApplicationStatus       []FlinkApplicationVersionStatus `json:"appStatus,omitempty"`
-	FailedDeployHash        string                          `json:"failedDeployHash,omitempty"`
-	RollbackHash            string                          `json:"rollbackHash,omitempty"`
-	DeployHash              string                          `json:"deployHash"`
-	SavepointTriggerID      string                          `json:"savepointTriggerId,omitempty"`
-	SavepointPath           string                          `json:"savepointPath,omitempty"`
-	RetryCount              int32                           `json:"retryCount,omitempty"`
-	LastSeenError           *FlinkApplicationError          `json:"lastSeenError,omitempty"`
+	ClusterStatus      FlinkClusterStatus              `json:"clusterStatus,omitempty"`
+	JobStatus          FlinkJobStatus                  `json:"jobStatus,omitempty"`
+	VersionStatuses    []FlinkApplicationVersionStatus `json:"appStatus,omitempty"`
+	FailedDeployHash   string                          `json:"failedDeployHash,omitempty"`
+	RollbackHash       string                          `json:"rollbackHash,omitempty"`
+	DeployHash         string                          `json:"deployHash"`
+	SavepointTriggerID string                          `json:"savepointTriggerId,omitempty"`
+	SavepointPath      string                          `json:"savepointPath,omitempty"`
+	RetryCount         int32                           `json:"retryCount,omitempty"`
+	LastSeenError      *FlinkApplicationError          `json:"lastSeenError,omitempty"`
 }
 
 type FlinkApplicationVersion string

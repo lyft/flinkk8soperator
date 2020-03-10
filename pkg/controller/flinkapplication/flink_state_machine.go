@@ -296,8 +296,8 @@ func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, appl
 		application.Status.DesiredApplicationCount = 1
 	}
 
-	if len(application.Status.ApplicationStatus) == 0 {
-		application.Status.ApplicationStatus = make([]v1beta2.FlinkApplicationVersionStatus, application.Status.DesiredApplicationCount)
+	if len(application.Status.VersionStatuses) == 0 {
+		application.Status.VersionStatuses = make([]v1beta2.FlinkApplicationVersionStatus, application.Status.DesiredApplicationCount)
 	}
 
 	// If we're reading a v1beta1 app, populate the first element of the status array from

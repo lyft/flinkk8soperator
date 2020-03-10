@@ -452,7 +452,7 @@ func TestRollingBack(t *testing.T) {
 			Phase:         v1beta2.FlinkApplicationRollingBackJob,
 			DeployHash:    "old-hash",
 			SavepointPath: "file:///savepoint",
-			ApplicationStatus: []v1beta2.FlinkApplicationVersionStatus{
+			VersionStatuses: []v1beta2.FlinkApplicationVersionStatus{
 				v1beta2.FlinkApplicationVersionStatus{
 					JobStatus: v1beta2.FlinkJobStatus{
 						JarName:     "old-job.jar",
@@ -635,7 +635,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 		Status: v1beta2.FlinkApplicationStatus{
 			Phase:      v1beta2.FlinkApplicationDeleting,
 			DeployHash: "deployhash",
-			ApplicationStatus: []v1beta2.FlinkApplicationVersionStatus{
+			VersionStatuses: []v1beta2.FlinkApplicationVersionStatus{
 				v1beta2.FlinkApplicationVersionStatus{
 					JobStatus: v1beta2.FlinkJobStatus{
 						JobID: jobID,
@@ -751,7 +751,7 @@ func TestDeleteWithSavepointAndFinishedJob(t *testing.T) {
 			Phase:         v1beta2.FlinkApplicationDeleting,
 			DeployHash:    "deployhash",
 			SavepointPath: "file:///savepoint",
-			ApplicationStatus: []v1beta2.FlinkApplicationVersionStatus{
+			VersionStatuses: []v1beta2.FlinkApplicationVersionStatus{
 				v1beta2.FlinkApplicationVersionStatus{
 					JobStatus: v1beta2.FlinkJobStatus{
 						JobID: jobID,
@@ -802,7 +802,7 @@ func TestDeleteWithForceCancel(t *testing.T) {
 		},
 		Status: v1beta2.FlinkApplicationStatus{
 			Phase: v1beta2.FlinkApplicationDeleting,
-			ApplicationStatus: []v1beta2.FlinkApplicationVersionStatus{
+			VersionStatuses: []v1beta2.FlinkApplicationVersionStatus{
 				v1beta2.FlinkApplicationVersionStatus{
 					JobStatus: v1beta2.FlinkJobStatus{
 						JobID: jobID,
@@ -1112,7 +1112,7 @@ func TestRollbackAfterJobSubmission(t *testing.T) {
 		Status: v1beta2.FlinkApplicationStatus{
 			Phase:      v1beta2.FlinkApplicationSubmittingJob,
 			DeployHash: "old-hash-retry-err",
-			ApplicationStatus: []v1beta2.FlinkApplicationVersionStatus{
+			VersionStatuses: []v1beta2.FlinkApplicationVersionStatus{
 				{
 					JobStatus: v1beta2.FlinkJobStatus{
 						JobID: "jobid",

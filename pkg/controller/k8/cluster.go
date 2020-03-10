@@ -81,6 +81,7 @@ type k8ClusterMetrics struct {
 	updateSuccess          labeled.Counter
 	updateFailure          labeled.Counter
 	updateConflicts        labeled.Counter
+	updateInvalidVersion   labeled.Counter
 	deleteSuccess          labeled.Counter
 	deleteFailure          labeled.Counter
 	getDeploymentCacheHit  labeled.Counter
@@ -199,11 +200,23 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) err
 
 func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error {
 	objectCopy := object.DeepCopyObject()
-	logger.Debugf(ctx, "Version %s",  objectCopy.GetObjectKind().GroupVersionKind().Version)
+	logger.Debugf(ctx, "Version %s", objectCopy.GetObjectKind().GroupVersionKind().Version)
 	err := k.client.Status().Update(ctx, objectCopy)
 	if err != nil {
 		if errors.IsInvalid(err) {
+			// This is a Kubernetes bug that has been fixed in k8s 1.15
+			// https://github.com/kubernetes/kubernetes/pull/78713
+			// The bug prevents status sub-resources from being updated when
+			// the stored version of the CRD changes
+			// Example of error:
+			// K8s object update failed FlinkApplication.flink.k8s.io "operator-test-app" is invalid:
+			// apiVersion: Invalid value: "flink.k8s.io/v1beta1": must be flink.k8s.io/v1beta2
+			// app_name=operator-test-app ns=default phase=Running src="cluster.go:209"
+			// This should only ever be encountered once (per application)
+			// when a new CRD version is deployed
+			// TODO Remove this block when we upgrade to k8s 1.15
 			logger.Warn(ctx, "Status sub-resource update failed, attempting to update the entire resource instead")
+			k.metrics.updateInvalidVersion.Inc(ctx)
 			return k.client.Update(ctx, object)
 		}
 		if errors.IsConflict(err) {
