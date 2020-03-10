@@ -570,7 +570,7 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta2
 	app.Status.VersionStatuses[currIndex].JobStatus.JobID = oldJobStatus.JobID
 	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(app, hash), f.GetLatestJobID(ctx, app))
 	if err != nil {
-		return false, fmt.Errorf("Error in Job Status Update!!!",err)
+		return false, err
 	}
 	checkpoints, err := f.flinkClient.GetCheckpointCounts(ctx, getURLFromApp(app, hash), f.GetLatestJobID(ctx, app))
 	if err != nil {

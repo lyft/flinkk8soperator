@@ -505,11 +505,11 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	// Reset jobId if for some reason it's populated but there are no jobs running
-	jobs, _ := s.flinkController.GetJobsForApplication(ctx,app, hash)
-	if len(flink.GetActiveFlinkJobs(jobs)) == 0 {
+	jobs, _ := s.flinkController.GetJobsForApplication(ctx, app, hash)
+	if s.flinkController.GetLatestJobID(ctx, app) != "" && len(flink.GetActiveFlinkJobs(jobs)) == 0 {
 		s.flinkController.UpdateLatestJobID(ctx, app, "")
 	}
-	if s.flinkController.GetLatestJobID(ctx, app) == "" || len(flink.GetActiveFlinkJobs(jobs)) == 0 {
+	if s.flinkController.GetLatestJobID(ctx, app) == "" {
 		savepointPath := ""
 		if app.Status.DeployHash == "" {
 			// this is the first deploy, use the user-provided savepoint

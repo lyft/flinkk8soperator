@@ -319,6 +319,20 @@ func TestSubmittingToRunning(t *testing.T) {
 		return jobID, nil
 	}
 
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) ([]client.FlinkJob, error) {
+		assert.Equal(t, appHash, hash)
+		if startCount > 0 {
+			return []client.FlinkJob{
+				{
+					JobID:  jobID,
+					Status: client.Running,
+				},
+			}, nil
+		}
+		return nil, nil
+
+	}
+
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 
 	getServiceCount := 0
@@ -1027,7 +1041,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	getCount := 0
 	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) ([]client.FlinkJob, error) {
 		var res []client.FlinkJob
-		if getCount == 1 {
+		if getCount == 2 {
 			res = []client.FlinkJob{
 				{
 					JobID:  "jid1",
