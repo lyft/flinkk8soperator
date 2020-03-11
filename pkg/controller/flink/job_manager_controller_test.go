@@ -358,7 +358,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 				"FLINK_APPLICATION_VERSION").Value)
 		case 2:
 			service := object.(*coreV1.Service)
-			assert.Equal(t, app.Name, service.Name)
+			assert.Equal(t, app.Name+"-"+testVersion, service.Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
 			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
 		case 3:
@@ -372,7 +372,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 				"flink-app": "app-name",
 			}
 			ingress := object.(*v1beta1.Ingress)
-			assert.Equal(t, app.Name, ingress.Name)
+			assert.Equal(t, app.Name+"-"+testVersion, ingress.Name)
 			assert.Equal(t, app.Namespace, ingress.Namespace)
 			assert.Equal(t, labels, ingress.Labels)
 		}

@@ -23,6 +23,8 @@ const (
 	JobManagerNameFormat                = "%s-%s-jm"
 	JobManagerPodNameFormat             = "%s-%s-jm-pod"
 	JobManagerVersionPodNameFormat      = "%s-%s-jm-%s-pod"
+	JobManagerServiceName               = "%s"
+	JobManagerVersionServiceName        = "%s-%s"
 	JobManagerContainerName             = "jobmanager"
 	JobManagerArg                       = "jobmanager"
 	JobManagerReadinessPath             = "/overview"
@@ -183,7 +185,7 @@ func getJobManagerName(application *v1beta2.FlinkApplication, hash string) strin
 }
 
 func FetchJobManagerServiceCreateObj(app *v1beta2.FlinkApplication, hash string) *coreV1.Service {
-	jmServiceName := app.Name
+	jmServiceName := getJobManagerServiceName(app)
 	serviceLabels := getCommonAppLabels(app)
 	serviceLabels[FlinkAppHash] = hash
 	serviceLabels[FlinkDeploymentType] = FlinkDeploymentTypeJobmanager
@@ -206,6 +208,15 @@ func FetchJobManagerServiceCreateObj(app *v1beta2.FlinkApplication, hash string)
 			Selector: serviceLabels,
 		},
 	}
+}
+
+func getJobManagerServiceName(app *v1beta2.FlinkApplication) string {
+	serviceName := app.Name
+	versionName := app.Status.UpdatingVersion
+	if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+		return fmt.Sprintf(JobManagerVersionServiceName, serviceName, versionName)
+	}
+	return serviceName
 }
 
 func getJobManagerServicePorts(app *v1beta2.FlinkApplication) []coreV1.ServicePort {

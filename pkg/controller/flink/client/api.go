@@ -47,7 +47,7 @@ const programInvocationException = "org.apache.flink.client.program.ProgramInvoc
 const jobSubmissionException = "org.apache.flink.runtime.client.JobSubmissionException"
 
 type FlinkAPIInterface interface {
-	CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error)
+	CancelJobWithSavepoint(ctx context.Context, url string, jobID string, cancel bool) (string, error)
 	ForceCancelJob(ctx context.Context, url string, jobID string) error
 	SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error)
 	CheckSavepointStatus(ctx context.Context, url string, jobID, triggerID string) (*SavepointResponse, error)
@@ -177,12 +177,12 @@ func (c *FlinkJobManagerClient) executeRequest(ctx context.Context,
 	return resp, err
 }
 
-func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error) {
+func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobID string, cancel bool) (string, error) {
 	path := fmt.Sprintf(savepointURL, jobID)
 
 	url = url + path
 	cancelJobRequest := CancelJobRequest{
-		CancelJob: true,
+		CancelJob: cancel,
 	}
 	response, err := c.executeRequest(ctx, httpPost, url, cancelJobRequest)
 	if err != nil {
@@ -227,7 +227,7 @@ func (c *FlinkJobManagerClient) ForceCancelJob(ctx context.Context, url string, 
 func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error) {
 	path := fmt.Sprintf(submitJobURL, jarID)
 	url = url + path
-
+	logger.Infof(ctx, "SubmitJob path %v", url)
 	response, err := c.executeRequest(ctx, httpPost, url, submitJobRequest)
 	if err != nil {
 		c.metrics.submitJobFailureCounter.Inc(ctx)

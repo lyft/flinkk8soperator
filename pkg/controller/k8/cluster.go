@@ -32,7 +32,7 @@ type ClusterInterface interface {
 	GetDeploymentsWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
 
 	// Tries to fetch the value from the controller runtime manager cache, if it does not exist, call API server
-	GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error)
+	GetService(ctx context.Context, namespace string, name string, version string) (*coreV1.Service, error)
 	GetServicesWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.ServiceList, error)
 
 	CreateK8Object(ctx context.Context, object runtime.Object) error
@@ -90,7 +90,11 @@ type k8ClusterMetrics struct {
 	getDeploymentFailure   labeled.Counter
 }
 
-func (k *Cluster) GetService(ctx context.Context, namespace string, name string) (*coreV1.Service, error) {
+func (k *Cluster) GetService(ctx context.Context, namespace string, name string, version string) (*coreV1.Service, error) {
+	serviceName := name
+	if version != "" {
+		serviceName = name + "-" + version
+	}
 	service := &coreV1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: coreV1.SchemeGroupVersion.String(),
@@ -98,7 +102,7 @@ func (k *Cluster) GetService(ctx context.Context, namespace string, name string)
 		},
 	}
 	key := types.NamespacedName{
-		Name:      name,
+		Name:      serviceName,
 		Namespace: namespace,
 	}
 	err := k.cache.Get(ctx, key, service)

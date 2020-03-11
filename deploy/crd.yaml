@@ -88,7 +88,7 @@ spec:
               type: boolean
             deploymentMode:
               type: string
-              enum: [Dual]
+              enum: [Dual, BlueGreen]
             rpcPort:
               type: integer
               minimum: 1

@@ -59,7 +59,7 @@ func getCommonAnnotations(app *v1beta2.FlinkApplication) map[string]string {
 		annotations[RestartNonce] = app.Spec.RestartNonce
 	}
 	if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
-		annotations[FlinkApplicationVersion] = app.Status.UpdatingVersion
+		annotations[FlinkApplicationVersion] = string(app.Status.UpdatingVersion)
 	}
 	return annotations
 }
@@ -234,7 +234,7 @@ func GetDeploySpecificEnv(app *v1beta2.FlinkApplication) []v1.EnvVar {
 	return []v1.EnvVar{
 		{
 			Name:  FlinkApplicationVersionEnv,
-			Value: app.Status.UpdatingVersion,
+			Value: string(app.Status.UpdatingVersion),
 		},
 	}
 

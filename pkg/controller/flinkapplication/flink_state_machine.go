@@ -235,7 +235,14 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 			fmt.Sprintf("Failed to create Flink Cluster: %s", reason))
 		return s.deployFailed(application)
 	}
-
+	// Update version if blue/green deploy
+	if v1beta2.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		application.Status.UpdatingVersion = getUpdatingVersion(application)
+		// First deploy both versions are the same
+		if application.Status.DeployHash == "" {
+			application.Status.DeployVersion = application.Status.UpdatingVersion
+		}
+	}
 	// Create the Flink cluster
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
@@ -244,6 +251,22 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	}
 	s.updateApplicationPhase(application, v1beta2.FlinkApplicationClusterStarting)
 	return statusChanged, nil
+}
+
+func getUpdatingVersion(application *v1beta2.FlinkApplication) v1beta2.FlinkApplicationVersion {
+	if getDeployedVersion(application) == v1beta2.BlueFlinkApplication {
+		return v1beta2.GreenFlinkApplication
+	}
+
+	return v1beta2.BlueFlinkApplication
+}
+
+func getDeployedVersion(application *v1beta2.FlinkApplication) v1beta2.FlinkApplicationVersion {
+	// First deploy, set the version to Blue
+	if application.Status.DeployVersion == "" {
+		application.Status.DeployVersion = v1beta2.BlueFlinkApplication
+	}
+	return application.Status.DeployVersion
 }
 
 func (s *FlinkStateMachine) deployFailed(app *v1beta2.FlinkApplication) (bool, error) {
@@ -285,6 +308,22 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	// TODO: in single mode move to submitting job
 	s.updateApplicationPhase(application, v1beta2.FlinkApplicationSavepointing)
 	return statusChanged, nil
+}
+
+// Two applications are running in this phase. This phase is only ever reached when the
+// DeploymentMode is set to BlueGreen
+func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
+	if rollback, reason := s.shouldRollback(ctx, application); rollback {
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
+			fmt.Sprintf("Could not bring up version %v due to %s", application.Status.UpdatingVersion,
+				reason))
+	}
+	if application.Spec.TeardownVersion != "" {
+		logger.Infof(ctx, "Tearing down version %v", application.Spec.TeardownVersion)
+		s.updateApplicationPhase(application, v1beta2.FlinkApplicationTeardown)
+		return statusChanged, nil
+	}
+	return statusUnchanged, nil
 }
 
 func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, application *v1beta2.FlinkApplication) {
@@ -331,7 +370,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	// we haven't started savepointing yet; do so now
 	// TODO: figure out the idempotence of this
 	if application.Status.SavepointTriggerID == "" {
-		triggerID, err := s.flinkController.CancelWithSavepoint(ctx, application, application.Status.DeployHash)
+		triggerID, err := s.flinkController.Savepoint(ctx, application, application.Status.DeployHash, getCancelFlag(application.Spec.DeploymentMode))
 		if err != nil {
 			return statusUnchanged, err
 		}
@@ -460,7 +499,7 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta2.
 }
 
 func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1beta2.FlinkApplication, newHash string) error {
-	service, err := s.k8Cluster.GetService(ctx, app.Namespace, app.Name)
+	service, err := s.k8Cluster.GetService(ctx, app.Namespace, app.Name, string(app.Status.UpdatingVersion))
 	if err != nil {
 		return err
 	}
@@ -557,10 +596,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	if job.State == client.Running && allVerticesStarted {
-		// Update the application status with the running job info
-		app.Status.DeployHash = hash
-		app.Status.SavepointPath = ""
-		app.Status.SavepointTriggerID = ""
+		// Update job status
 		jobStatus := s.flinkController.GetLatestJobStatus(ctx, app)
 		jobStatus.JarName = app.Spec.JarName
 		jobStatus.Parallelism = app.Spec.Parallelism
@@ -568,11 +604,30 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		jobStatus.ProgramArgs = app.Spec.ProgramArgs
 		jobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
 		s.flinkController.UpdateLatestJobStatus(ctx, app, jobStatus)
+		// Update the application status with the running job info
+		app.Status.DeployHash = hash
+		app.Status.SavepointPath = ""
+		app.Status.SavepointTriggerID = ""
+		if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) && getRunningJobs(app) == v1beta2.GetMaxRunningJobs(app.Spec.DeploymentMode) {
+			s.updateApplicationPhase(app, v1beta2.FlinkApplicationDualRunning)
+			return statusChanged, nil
+		}
 		s.updateApplicationPhase(app, v1beta2.FlinkApplicationRunning)
 		return statusChanged, nil
 	}
 
 	return statusUnchanged, nil
+}
+
+func getRunningJobs(app *v1beta2.FlinkApplication) int32 {
+	jobs := 0
+	for _, status := range app.Status.VersionStatuses {
+		if status.JobStatus.JobID != "" {
+			jobs++
+		}
+	}
+	return int32(jobs)
+
 }
 
 // Something has gone wrong during the update, post job-cancellation (and cluster tear-down in single mode). We need
@@ -769,7 +824,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 
 		if app.Status.SavepointTriggerID == "" {
 			// delete with savepoint
-			triggerID, err := s.flinkController.CancelWithSavepoint(ctx, app, app.Status.DeployHash)
+			triggerID, err := s.flinkController.Savepoint(ctx, app, app.Status.DeployHash, getCancelFlag(app.Spec.DeploymentMode))
 			if err != nil {
 				return statusUnchanged, err
 			}
@@ -806,6 +861,10 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	}
 
 	return statusUnchanged, nil
+}
+
+func getCancelFlag(mode v1beta2.DeploymentMode) bool {
+	return !v1beta2.IsBlueGreenDeploymentMode(mode)
 }
 
 func (s *FlinkStateMachine) compareAndUpdateError(application *v1beta2.FlinkApplication, err error) bool {

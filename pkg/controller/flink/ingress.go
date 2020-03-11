@@ -27,7 +27,7 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 	podLabels = common.CopyMap(podLabels, k8.GetAppLabel(app.Name))
 
 	ingressMeta := v1.ObjectMeta{
-		Name:      app.Name,
+		Name:      getJobManagerServiceName(app),
 		Labels:    podLabels,
 		Namespace: app.Namespace,
 		OwnerReferences: []v1.OwnerReference{
@@ -36,7 +36,7 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 	}
 
 	backend := v1beta1.IngressBackend{
-		ServiceName: app.Name,
+		ServiceName: getJobManagerServiceName(app),
 		ServicePort: intstr.IntOrString{
 			Type:   intstr.Int,
 			IntVal: getUIPort(app),

@@ -122,7 +122,7 @@ func TestHandleApplicationSavepointingInitialDeploy(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (s string, e error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string, isCancel bool) (s string, e error) {
 		// should not be called
 		assert.False(t, true)
 		return "", nil
@@ -157,7 +157,7 @@ func TestHandleApplicationSavepointingDual(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 
-	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (s string, e error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string, isCancel bool) (s string, e error) {
 		assert.Equal(t, "old-hash", hash)
 		cancelInvoked = true
 
@@ -336,7 +336,7 @@ func TestSubmittingToRunning(t *testing.T) {
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 
 	getServiceCount := 0
-	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string) (*v1.Service, error) {
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
 		assert.Equal(t, "flink", namespace)
 		assert.Equal(t, "test-app", name)
 
@@ -521,7 +521,7 @@ func TestRollingBack(t *testing.T) {
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 
 	getServiceCount := 0
-	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string) (*v1.Service, error) {
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
 		assert.Equal(t, "flink", namespace)
 		assert.Equal(t, "test-app", name)
 
@@ -663,7 +663,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 	savepointPath := "s3:///path/to/savepoint"
 
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (string, error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string, isCancel bool) (string, error) {
 		return triggerID, nil
 	}
 
@@ -963,7 +963,7 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	retryableErr := client.GetRetryableError(errors.New("blah"), "GetClusterOverview", "FAILED", 3)
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, app *v1beta2.FlinkApplication, hash string) (savepoint string, err error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, app *v1beta2.FlinkApplication, hash string, isCancel bool) (savepoint string, err error) {
 		return "", retryableErr
 	}
 
@@ -1064,7 +1064,7 @@ func TestRollbackWithFailFastError(t *testing.T) {
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	appHash := flink.HashForApplication(&app)
 	getServiceCount := 0
-	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string) (*v1.Service, error) {
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
 		hash := "old-hash-retry-err"
 		if getServiceCount > 0 {
 			hash = appHash
@@ -1217,7 +1217,7 @@ func TestForceRollback(t *testing.T) {
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 
 	getServiceCount := 0
-	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string) (*v1.Service, error) {
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
 		hash := oldHash
 		if getServiceCount > 0 {
 			hash = oldHash
@@ -1375,7 +1375,7 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (*client.SavepointResponse, error) {
 		return nil, retryableErr.(*v1beta2.FlinkApplicationError)
 	}
-	mockFlinkController.CancelWithSavepointFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (s string, e error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string, isCancel bool) (s string, e error) {
 		return "triggerId", nil
 	}
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)

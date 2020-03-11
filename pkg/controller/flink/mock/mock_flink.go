@@ -11,7 +11,7 @@ import (
 
 type CreateClusterFunc func(ctx context.Context, application *v1beta2.FlinkApplication) error
 type DeleteOldResourcesForApp func(ctx context.Context, application *v1beta2.FlinkApplication) error
-type CancelWithSavepointFunc func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (string, error)
+type SavepointFunc func(ctx context.Context, application *v1beta2.FlinkApplication, hash string, isCancel bool) (string, error)
 type ForceCancelFunc func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) error
 type StartFlinkJobFunc func(ctx context.Context, application *v1beta2.FlinkApplication, hash string,
 	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error)
@@ -34,7 +34,7 @@ type UpdateLatestClusterStatusFunc func(ctx context.Context, app *v1beta2.FlinkA
 type FlinkController struct {
 	CreateClusterFunc                 CreateClusterFunc
 	DeleteOldResourcesForAppFunc      DeleteOldResourcesForApp
-	CancelWithSavepointFunc           CancelWithSavepointFunc
+	SavepointFunc                     SavepointFunc
 	ForceCancelFunc                   ForceCancelFunc
 	StartFlinkJobFunc                 StartFlinkJobFunc
 	GetSavepointStatusFunc            GetSavepointStatusFunc
@@ -76,9 +76,9 @@ func (m *FlinkController) CreateCluster(ctx context.Context, application *v1beta
 	return nil
 }
 
-func (m *FlinkController) CancelWithSavepoint(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (string, error) {
-	if m.CancelWithSavepointFunc != nil {
-		return m.CancelWithSavepointFunc(ctx, application, hash)
+func (m *FlinkController) Savepoint(ctx context.Context, application *v1beta2.FlinkApplication, hash string, isCancel bool) (string, error) {
+	if m.SavepointFunc != nil {
+		return m.SavepointFunc(ctx, application, hash, isCancel)
 	}
 	return "", nil
 }

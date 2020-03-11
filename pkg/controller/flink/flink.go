@@ -27,7 +27,6 @@ import (
 
 const proxyURL = "http://localhost:%d/api/v1/namespaces/%s/services/%s:8081/proxy"
 const port = 8081
-const indexOffset = 1
 
 // If the last hearbeat from a taskmanager was more than taskManagerHeartbeatThreshold, the task
 // manager is considered unhealthy.
@@ -46,7 +45,7 @@ type ControllerInterface interface {
 	CreateCluster(ctx context.Context, application *v1beta2.FlinkApplication) error
 
 	// Cancels the running/active jobs in the Cluster for the Application after savepoint is created
-	CancelWithSavepoint(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (string, error)
+	Savepoint(ctx context.Context, application *v1beta2.FlinkApplication, hash string, isCancel bool) (string, error)
 
 	// Force cancels the running/active job without taking a savepoint
 	ForceCancel(ctx context.Context, application *v1beta2.FlinkApplication, hash string) error
@@ -178,11 +177,15 @@ func getJobOverviewURL(app *v1beta2.FlinkApplication) string {
 
 func getExternalURLFromApp(application *v1beta2.FlinkApplication) string {
 	cfg := controllerConfig.GetConfig()
+	ingressName := application.Name
+	if v1beta2.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		ingressName = fmt.Sprintf(ingressName, "-", application.Status.UpdatingVersion)
+	}
 	// Local environment
 	if cfg.UseProxy {
 		return fmt.Sprintf(proxyURL, cfg.ProxyPort.Port, application.Namespace, application.Name)
 	}
-	return GetFlinkUIIngressURL(application.Name)
+	return GetFlinkUIIngressURL(ingressName)
 }
 
 func GetActiveFlinkJobs(jobs []client.FlinkJob) []client.FlinkJob {
@@ -245,12 +248,12 @@ func (f *Controller) getJobIDForApplication(ctx context.Context, application *v1
 	return "", errors.New("active job id not available")
 }
 
-func (f *Controller) CancelWithSavepoint(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (string, error) {
+func (f *Controller) Savepoint(ctx context.Context, application *v1beta2.FlinkApplication, hash string, isCancel bool) (string, error) {
 	jobID, err := f.getJobIDForApplication(ctx, application)
 	if err != nil {
 		return "", err
 	}
-	return f.flinkClient.CancelJobWithSavepoint(ctx, getURLFromApp(application, hash), jobID)
+	return f.flinkClient.CancelJobWithSavepoint(ctx, getURLFromApp(application, hash), jobID, isCancel)
 }
 
 func (f *Controller) ForceCancel(ctx context.Context, application *v1beta2.FlinkApplication, hash string) error {
@@ -647,15 +650,27 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta2
 }
 
 func getCurrentStatusIndex(app *v1beta2.FlinkApplication) int32 {
-	// In the Running phase, we always have only 1 job
-	if v1beta2.IsRunningPhase(app.Status.Phase) {
+	if !v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
 		return 0
 	}
 
-	// In every other state, we either have
-	// Dual mode --> One Application status object
-	// BlueGreen mode --> Two Application status objects
-	return v1beta2.GetMaxRunningJobs(app.Spec.DeploymentMode) - indexOffset
+	numRunningJobs := getRunningJobs(app)
+	if v1beta2.IsRunningPhase(app.Status.Phase) || app.Status.DeployHash == "" || app.Status.Phase == v1beta2.FlinkApplicationSavepointing {
+		return 0
+	}
+
+	return numRunningJobs
+}
+
+func getRunningJobs(app *v1beta2.FlinkApplication) int32 {
+	jobs := 0
+	for _, status := range app.Status.VersionStatuses {
+		if status.JobStatus.JobID != "" && status.JobStatus.State == v1beta2.Running {
+			jobs++
+		}
+	}
+
+	return int32(jobs)
 }
 
 func (f *Controller) GetLatestClusterStatus(ctx context.Context, application *v1beta2.FlinkApplication) v1beta2.FlinkClusterStatus {

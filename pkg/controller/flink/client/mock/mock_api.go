@@ -6,7 +6,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 )
 
-type CancelJobWithSavepointFunc func(ctx context.Context, url string, jobID string) (string, error)
+type CancelJobWithSavepointFunc func(ctx context.Context, url string, jobID string, isCancel bool) (string, error)
 type ForceCancelJobFunc func(ctx context.Context, url string, jobID string) error
 type SubmitJobFunc func(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error)
 type CheckSavepointStatusFunc func(ctx context.Context, url string, jobID, triggerID string) (*client.SavepointResponse, error)
@@ -39,9 +39,9 @@ func (m *JobManagerClient) SubmitJob(ctx context.Context, url string, jarID stri
 	return nil, nil
 }
 
-func (m *JobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error) {
+func (m *JobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobID string, isCancel bool) (string, error) {
 	if m.CancelJobWithSavepointFunc != nil {
-		return m.CancelJobWithSavepointFunc(ctx, url, jobID)
+		return m.CancelJobWithSavepointFunc(ctx, url, jobID, isCancel)
 	}
 	return "", nil
 }

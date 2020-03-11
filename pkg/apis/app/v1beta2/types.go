@@ -41,21 +41,22 @@ type FlinkApplicationSpec struct {
 	EntryClass         string                       `json:"entryClass,omitempty"`
 	ProgramArgs        string                       `json:"programArgs,omitempty"`
 	// Deprecated: use SavepointPath instead
-	SavepointInfo                  SavepointInfo       `json:"savepointInfo,omitempty"`
-	SavepointPath                  string              `json:"savepointPath,omitempty"`
-	DeploymentMode                 DeploymentMode      `json:"deploymentMode,omitempty"`
-	RPCPort                        *int32              `json:"rpcPort,omitempty"`
-	BlobPort                       *int32              `json:"blobPort,omitempty"`
-	QueryPort                      *int32              `json:"queryPort,omitempty"`
-	UIPort                         *int32              `json:"uiPort,omitempty"`
-	MetricsQueryPort               *int32              `json:"metricsQueryPort,omitempty"`
-	Volumes                        []apiv1.Volume      `json:"volumes,omitempty"`
-	VolumeMounts                   []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
-	RestartNonce                   string              `json:"restartNonce"`
-	DeleteMode                     DeleteMode          `json:"deleteMode,omitempty"`
-	AllowNonRestoredState          bool                `json:"allowNonRestoredState,omitempty"`
-	ForceRollback                  bool                `json:"forceRollback"`
-	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
+	SavepointInfo                  SavepointInfo           `json:"savepointInfo,omitempty"`
+	SavepointPath                  string                  `json:"savepointPath,omitempty"`
+	DeploymentMode                 DeploymentMode          `json:"deploymentMode,omitempty"`
+	RPCPort                        *int32                  `json:"rpcPort,omitempty"`
+	BlobPort                       *int32                  `json:"blobPort,omitempty"`
+	QueryPort                      *int32                  `json:"queryPort,omitempty"`
+	UIPort                         *int32                  `json:"uiPort,omitempty"`
+	MetricsQueryPort               *int32                  `json:"metricsQueryPort,omitempty"`
+	Volumes                        []apiv1.Volume          `json:"volumes,omitempty"`
+	VolumeMounts                   []apiv1.VolumeMount     `json:"volumeMounts,omitempty"`
+	RestartNonce                   string                  `json:"restartNonce"`
+	DeleteMode                     DeleteMode              `json:"deleteMode,omitempty"`
+	AllowNonRestoredState          bool                    `json:"allowNonRestoredState,omitempty"`
+	ForceRollback                  bool                    `json:"forceRollback"`
+	MaxCheckpointRestoreAgeSeconds *int32                  `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
+	TeardownVersion                FlinkApplicationVersion `json:"teardownVersion,omitempty"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -166,12 +167,12 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase           FlinkApplicationPhase `json:"phase"`
-	StartedAt       *metav1.Time          `json:"startedAt,omitempty"`
-	LastUpdatedAt   *metav1.Time          `json:"lastUpdatedAt,omitempty"`
-	Reason          string                `json:"reason,omitempty"`
-	DeployVersion   string                `json:"deployVersion,omitempty"`
-	UpdatingVersion string                `json:"updatingVersion,omitempty"`
+	Phase           FlinkApplicationPhase   `json:"phase"`
+	StartedAt       *metav1.Time            `json:"startedAt,omitempty"`
+	LastUpdatedAt   *metav1.Time            `json:"lastUpdatedAt,omitempty"`
+	Reason          string                  `json:"reason,omitempty"`
+	DeployVersion   FlinkApplicationVersion `json:"deployVersion,omitempty"`
+	UpdatingVersion FlinkApplicationVersion `json:"updatingVersion,omitempty"`
 	// To ensure backward compatibility, repeat ClusterStatus and JobStatus
 	ClusterStatus      FlinkClusterStatus              `json:"clusterStatus,omitempty"`
 	JobStatus          FlinkJobStatus                  `json:"jobStatus,omitempty"`
@@ -188,8 +189,8 @@ type FlinkApplicationStatus struct {
 type FlinkApplicationVersion string
 
 const (
-	BlueFlinkApplication  FlinkApplicationVersion = "Blue"
-	GreenFlinkApplication FlinkApplicationVersion = "Green"
+	BlueFlinkApplication  FlinkApplicationVersion = "blue"
+	GreenFlinkApplication FlinkApplicationVersion = "green"
 )
 
 type FlinkApplicationVersionStatus struct {
