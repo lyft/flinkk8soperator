@@ -59,7 +59,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 
 	config.Name = testName + "job"
-	config.Spec.DeleteMode = "ForceCancel"
+	config.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
 	config.Spec.SavepointDisabled = true
 	config.ObjectMeta.Labels["integTest"] = testName
 	config.Finalizers = append(config.Finalizers, finalizer)
@@ -134,7 +134,7 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 
 	config.Name = testName + "job"
-	config.Spec.DeleteMode = "ForceCancel"
+	config.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
 	config.Spec.SavepointDisabled = true
 	config.ObjectMeta.Labels["integTest"] = testName
 
