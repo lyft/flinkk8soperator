@@ -19,9 +19,14 @@ labelled and annotated as indicated in the custom resource. The operator also se
 variables and arguments for the containers to start up the Flink application from the image. 
 
 ### ClusterStarting
-In this state, the operator monitors the Flink cluster created in the New state. Once it successfully starts, we 
-transition to the `Savepointing` state. Otherwise, if we are unable to start the cluster for some reason (an invalid 
+In this state, the operator monitors the Flink cluster created in the New state. Once it successfully starts, we check
+if the spec has `savepointDisabled` field set to true. If yes, we transition to `Cancelling` state else to `Savepointing`. 
+If we are unable to start the cluster for some reason (an invalid 
 image, bad configuration, not enough Kubernetes resources, etc.), we transition to the `DeployFailed` state.
+
+### Cancelling
+In this state, the operator attempts to cancel the running job (if existing) and transition to `SubmittingJob` state. 
+If it fails, we transition to `RollingBack`.
 
 ### Savepointing
 In the `Savepointing` state, the operator attempts to cancel the existing job with a 

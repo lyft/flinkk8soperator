@@ -361,18 +361,25 @@ func (s *FlinkStateMachine) handleApplicationCancelling(ctx context.Context, app
 	}
 
 	if rollback, reason := s.shouldRollback(ctx, application); rollback {
-		// it's rare to come here despite the retries. let's head to submitting.
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "CancelFailed",
 			fmt.Sprintf("Could not cancel existing job: %s", reason))
 		application.Status.RetryCount = 0
 		application.Status.JobStatus.JobID = ""
-		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRollingBackJob)
 		return statusChanged, nil
 	}
 
-	err := s.flinkController.ForceCancel(ctx, application, application.Status.DeployHash)
+	job, err := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
 	if err != nil {
 		return statusUnchanged, err
+	}
+
+	if job != nil && job.State != client.Canceled &&
+		job.State != client.Failed {
+		err := s.flinkController.ForceCancel(ctx, application, application.Status.DeployHash)
+		if err != nil {
+			return statusUnchanged, err
+		}
 	}
 
 	application.Status.JobStatus.JobID = ""

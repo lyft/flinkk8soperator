@@ -127,6 +127,7 @@ func TestHandleNewOrCreateWithSavepointDisabled(t *testing.T) {
 }
 
 func TestHandleApplicationCancel(t *testing.T) {
+	jobID := "j1"
 	app := v1beta1.FlinkApplication{
 		Spec: v1beta1.FlinkApplicationSpec{
 			SavepointDisabled: true,
@@ -140,6 +141,13 @@ func TestHandleApplicationCancel(t *testing.T) {
 	cancelInvoked := false
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		assert.Equal(t, "old-hash", hash)
+		return &client.FlinkJobOverview{
+			JobID: jobID,
+			State: client.Running,
+		}, nil
+	}
 
 	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (e error) {
 		assert.Equal(t, "old-hash", hash)
@@ -189,7 +197,7 @@ func TestHandleApplicationCancelFailedWithMaxRetries(t *testing.T) {
 	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
 		updateInvoked = true
 		application := object.(*v1beta1.FlinkApplication)
-		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
+		assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
 		return nil
 	}
 

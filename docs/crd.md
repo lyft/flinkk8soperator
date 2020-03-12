@@ -90,6 +90,9 @@ Below is the list of fields in the custom resource and their description
   * **savepointPath** `type:string`
     If specified, the application state will be restored from this savepoint
 
+  * **savepointDisabled** `type:boolean`
+    If specified, the current application (if existing) is cancelled without taking a savepoint.
+      
   * **allowNonRestoredState** `type:boolean`
     Skips savepoint operator state that cannot be mapped to the new program version
 

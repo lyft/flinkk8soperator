@@ -405,6 +405,30 @@ func (f *TestUtil) FlinkAPIGet(app *flinkapp.FlinkApplication, endpoint string) 
 	return result, nil
 }
 
+func (f *TestUtil) FlinkAPIPatch(app *flinkapp.FlinkApplication, endpoint string) (interface{}, error) {
+
+	url := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/"+
+		"services/%s:8081/proxy/%s",
+		f.Namespace.Name, app.Name, endpoint)
+
+	resp, err := resty.SetRedirectPolicy(resty.FlexibleRedirectPolicy(5)).R().Patch(url)
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("request failed with code %d", resp.StatusCode())
+	}
+
+	var result interface{}
+	err = json.Unmarshal(resp.Body(), &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 func vertexRunning(vertex map[string]interface{}) bool {
 	if vertex["status"] != "RUNNING" {
 		return false
@@ -481,4 +505,18 @@ func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplicat
 		log.Warn("Got conflict while updating... retrying")
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+func (f *TestUtil) GetJobOverview(app *flinkapp.FlinkApplication) map[string]interface{} {
+
+	jobs, _ := f.FlinkAPIGet(app, "/jobs")
+	jobMap := jobs.(map[string]interface{})
+	jobList := jobMap["jobs"].([]interface{})
+	for _, j := range jobList {
+		job := j.(map[string]interface{})
+		if job["id"] == app.Status.JobStatus.JobID {
+			return job
+		}
+	}
+	return nil
 }
