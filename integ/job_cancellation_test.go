@@ -198,3 +198,98 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	}
 	log.Info("All pods torn down")
 }
+
+// tests the recovery workflow of the job when savepoint is disabled.
+func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
+
+	const finalizer = "simple.finalizers.test.com"
+	const testName = "cancelrecovery"
+
+	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
+	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
+
+	config.Name = testName
+	config.ObjectMeta.Labels["integTest"] = testName
+	config.Finalizers = append(config.Finalizers, finalizer)
+	config.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
+	config.Spec.SavepointDisabled = true
+
+	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
+		Commentf("Failed to create flink application"))
+
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationSavepointing), IsNil)
+
+	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
+	currApp, _ := s.Util.GetFlinkApplication(config.Name)
+	c.Assert(currApp.Status.SavepointPath, Equals, "")
+
+	// Test updating the app with a bad jar name -- this should cause a failed deploy and roll back
+	_, err = s.Util.Update(config.Name, func(app *v1beta1.FlinkApplication) {
+		app.Spec.JarName = "nonexistent.jar"
+		app.Spec.RestartNonce = "rollback"
+	})
+	c.Assert(err, IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationDeployFailed, ""), IsNil)
+	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
+
+	// assert the restart of the job with a new job id and old deploy hash.
+	newApp, err := s.Util.GetFlinkApplication(config.Name)
+	c.Assert(err, IsNil)
+	c.Assert(newApp.Status.JobStatus.JobID, Not(Equals), currApp.Status.JobStatus.JobID)
+	c.Assert(newApp.Status.SavepointPath, Equals, "")
+	c.Assert(newApp.Status.SavepointTriggerID, Equals, "")
+	c.Assert(newApp.Status.DeployHash, Equals, currApp.Status.DeployHash)
+
+	// assert that the restarted job wasn't restored from a savepoint.
+	endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.JobStatus.JobID)
+	res, err := s.Util.FlinkAPIGet(newApp, endpoint)
+	c.Assert(err, IsNil)
+	body := res.(map[string]interface{})
+	restored := (body["latest"].(map[string]interface{}))["restored"]
+	c.Assert(restored, IsNil)
+
+	// roll forward with the right config.
+	newApp = WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
+		app.Spec.JarName = config.Spec.JarName
+		app.Spec.RestartNonce = "rollback2"
+		app.Spec.Image = NewImage
+	}, "")
+
+	// assert the pods have the new image
+	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
+		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+	c.Assert(err, IsNil)
+	for _, pod := range pods.Items {
+		c.Assert(pod.Spec.Containers[0].Image, Equals, NewImage)
+	}
+
+	// delete the application and ensure everything is cleaned up successfully
+	c.Assert(s.Util.FlinkApps().Delete(config.Name, &v1.DeleteOptions{}), IsNil)
+	var app *v1beta1.FlinkApplication
+	for {
+		app, err = s.Util.GetFlinkApplication(config.Name)
+		c.Assert(err, IsNil)
+		if len(app.Finalizers) == 1 && app.Finalizers[0] == finalizer {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	c.Assert(app.Status.SavepointPath, Equals, "")
+	c.Assert(app.Status.SavepointTriggerID, Equals, "")
+
+	app.Finalizers = []string{}
+	_, err = s.Util.FlinkApps().Update(app)
+	c.Assert(err, IsNil)
+
+	// wait until all pods are deleted
+	for {
+		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
+			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		c.Assert(err, IsNil)
+		if len(pods.Items) == 0 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	log.Info("All pods torn down")
+}
