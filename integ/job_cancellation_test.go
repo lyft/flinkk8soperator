@@ -249,7 +249,7 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 	c.Assert(restored, IsNil)
 
 	// roll forward with the right config.
-	newApp = WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
+	_ = WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.JarName = config.Spec.JarName
 		app.Spec.RestartNonce = "rollback2"
 		app.Spec.Image = NewImage
