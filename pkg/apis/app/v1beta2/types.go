@@ -180,10 +180,12 @@ type FlinkApplicationStatus struct {
 	FailedDeployHash   string                          `json:"failedDeployHash,omitempty"`
 	RollbackHash       string                          `json:"rollbackHash,omitempty"`
 	DeployHash         string                          `json:"deployHash"`
+	UpdatingHash       string                          `json:"updatingHash"`
 	SavepointTriggerID string                          `json:"savepointTriggerId,omitempty"`
 	SavepointPath      string                          `json:"savepointPath,omitempty"`
 	RetryCount         int32                           `json:"retryCount,omitempty"`
 	LastSeenError      *FlinkApplicationError          `json:"lastSeenError,omitempty"`
+	TeardownHash       string                          `json:"teardownHash,omitempty"`
 }
 
 type FlinkApplicationVersion string
@@ -195,6 +197,7 @@ const (
 
 type FlinkApplicationVersionStatus struct {
 	Version       FlinkApplicationVersion `json:"appVersion,omitempty"`
+	VersionHash   string                  `json:"versionHash,omitempty"`
 	ClusterStatus FlinkClusterStatus      `json:"clusterStatus,omitempty"`
 	JobStatus     FlinkJobStatus          `json:"jobStatus,omitempty"`
 }

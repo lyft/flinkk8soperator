@@ -34,7 +34,7 @@ const (
 	FlinkJobProperties               = "flink-job-properties"
 	RestartNonce                     = "restart-nonce"
 	FlinkApplicationVersionEnv       = "FLINK_APPLICATION_VERSION"
-	FlinkApplicationVersion          = "flink-application-version"
+	FlinkApplicationVersion          = "flink-app-version"
 )
 
 func getFlinkContainerName(containerName string) string {
@@ -47,7 +47,11 @@ func getFlinkContainerName(containerName string) string {
 }
 
 func getCommonAppLabels(app *v1beta2.FlinkApplication) map[string]string {
-	return k8.GetAppLabel(app.Name)
+	labels := common.DuplicateMap(k8.GetAppLabel(app.Name))
+	if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+		labels[FlinkApplicationVersion] = string(app.Status.UpdatingVersion)
+	}
+	return labels
 }
 
 func getCommonAnnotations(app *v1beta2.FlinkApplication) map[string]string {

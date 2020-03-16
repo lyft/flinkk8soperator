@@ -316,16 +316,17 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.DeploymentMode = v1beta22.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
-		"key":                       "annotation",
-		"flink-application-version": testVersion,
-		"flink-job-properties":      "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
+		"key":                  "annotation",
+		"flink-app-version":    testVersion,
+		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
 	app.Annotations = annotations
-	hash := "f0bd1679"
+	hash := "3b63e917"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
 		"flink-deployment-type": "jobmanager",
+		"flink-app-version":     testVersion,
 	}
 	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
@@ -360,13 +361,13 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name+"-"+testVersion, service.Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager", "flink-app-version": testVersion}, service.Spec.Selector)
 		case 3:
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name+"-"+hash, service.Name)
 			assert.Equal(t, "app-name", service.OwnerReferences[0].Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-app-version": testVersion, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
 		case 4:
 			labels := map[string]string{
 				"flink-app": "app-name",

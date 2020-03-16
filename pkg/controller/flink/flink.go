@@ -110,6 +110,13 @@ type ControllerInterface interface {
 
 	// Update clusterStatus on the latest VersionStatuses
 	UpdateLatestClusterStatus(ctx context.Context, app *v1beta2.FlinkApplication, jobStatus v1beta2.FlinkClusterStatus)
+	// Update Version and Hash for application
+	UpdateLatestVersionAndHash(application *v1beta2.FlinkApplication, version v1beta2.FlinkApplicationVersion, hash string)
+
+	// Delete Resources with Hash
+	DeleteResourcesForAppWithHash(ctx context.Context, application *v1beta2.FlinkApplication, hash string) error
+	// Delete status for torn down cluster/job
+	DeleteStatusPostTeardown(ctx context.Context, application *v1beta2.FlinkApplication)
 }
 
 func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
@@ -383,7 +390,7 @@ func listToFlinkDeployment(ds []v1.Deployment, hash string) *common.FlinkDeploym
 func getCurrentHash(app *v1beta2.FlinkApplication) string {
 	appHash := HashForApplication(app)
 
-	if appHash == app.Status.FailedDeployHash {
+	if appHash == app.Status.FailedDeployHash || appHash == app.Status.TeardownHash {
 		return app.Status.DeployHash
 	}
 	return appHash
@@ -415,7 +422,7 @@ func (f *Controller) GetCurrentDeploymentsForApp(ctx context.Context, applicatio
 
 func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta2.FlinkApplication) error {
 	curHash := getCurrentHash(app)
-
+	logger.Infof(ctx, "Hash for current application %v", curHash)
 	appLabel := k8.GetAppLabel(app.Name)
 	deployments, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, app.Namespace, appLabel)
 	if err != nil {
@@ -508,45 +515,55 @@ func (f *Controller) LogEvent(ctx context.Context, app *v1beta2.FlinkApplication
 
 // Gets and updates the cluster status
 func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (bool, error) {
+	isEqual := false
 	// Error retrieving cluster / taskmanagers overview (after startup/readiness) --> Red
 	// If there is an error this loop will return with Health set to Red
-	currIndex := getCurrentStatusIndex(application)
-	oldClusterStatus := application.Status.VersionStatuses[currIndex].ClusterStatus
-	application.Status.VersionStatuses[currIndex].ClusterStatus.Health = v1beta2.Red
+	for currIndex := range application.Status.VersionStatuses {
+		if v1beta2.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) && application.Status.VersionStatuses[currIndex].VersionHash == "" {
+			continue
+		}
+		if v1beta2.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+			hash = application.Status.VersionStatuses[currIndex].VersionHash
+		}
+		oldClusterStatus := application.Status.VersionStatuses[currIndex].ClusterStatus
+		application.Status.VersionStatuses[currIndex].ClusterStatus.Health = v1beta2.Red
 
-	deployment, err := f.GetCurrentDeploymentsForApp(ctx, application)
-	if deployment == nil || err != nil {
-		return false, err
+		deployment, err := f.GetCurrentDeploymentsForApp(ctx, application)
+		if deployment == nil || err != nil {
+			return false, err
+		}
+		//logger.Infof(ctx, "Hash input %s", hash)
+		application.Status.VersionStatuses[currIndex].ClusterStatus.ClusterOverviewURL = getClusterOverviewURL(application)
+		application.Status.VersionStatuses[currIndex].ClusterStatus.NumberOfTaskManagers = deployment.Taskmanager.Status.AvailableReplicas
+		// Get Cluster overview
+		//logger.Infof(ctx, "Hash query %s and index %d", application.Status.VersionStatuses[currIndex].VersionHash, currIndex)
+		response, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
+		if err != nil {
+			return false, err
+		}
+		// Update cluster overview
+		application.Status.VersionStatuses[currIndex].ClusterStatus.AvailableTaskSlots = response.SlotsAvailable
+		application.Status.VersionStatuses[currIndex].ClusterStatus.NumberOfTaskSlots = response.NumberOfTaskSlots
+
+		// Get Healthy Taskmanagers
+		tmResponse, tmErr := f.flinkClient.GetTaskManagers(ctx, getURLFromApp(application, hash))
+		if tmErr != nil {
+			return false, tmErr
+		}
+		application.Status.VersionStatuses[currIndex].ClusterStatus.HealthyTaskManagers = getHealthyTaskManagerCount(tmResponse)
+
+		// Determine Health of the cluster.
+		// Healthy TaskManagers == Number of taskmanagers --> Green
+		// Else --> Yellow
+		if application.Status.VersionStatuses[currIndex].ClusterStatus.HealthyTaskManagers == deployment.Taskmanager.Status.Replicas {
+			application.Status.VersionStatuses[currIndex].ClusterStatus.Health = v1beta2.Green
+		} else {
+			application.Status.VersionStatuses[currIndex].ClusterStatus.Health = v1beta2.Yellow
+		}
+		isEqual = isEqual || !apiequality.Semantic.DeepEqual(oldClusterStatus, application.Status.VersionStatuses[currIndex].ClusterStatus)
 	}
 
-	application.Status.VersionStatuses[currIndex].ClusterStatus.ClusterOverviewURL = getClusterOverviewURL(application)
-	application.Status.VersionStatuses[currIndex].ClusterStatus.NumberOfTaskManagers = deployment.Taskmanager.Status.AvailableReplicas
-	// Get Cluster overview
-	response, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
-	if err != nil {
-		return false, err
-	}
-	// Update cluster overview
-	application.Status.VersionStatuses[currIndex].ClusterStatus.AvailableTaskSlots = response.SlotsAvailable
-	application.Status.VersionStatuses[currIndex].ClusterStatus.NumberOfTaskSlots = response.NumberOfTaskSlots
-
-	// Get Healthy Taskmanagers
-	tmResponse, tmErr := f.flinkClient.GetTaskManagers(ctx, getURLFromApp(application, hash))
-	if tmErr != nil {
-		return false, tmErr
-	}
-	application.Status.VersionStatuses[currIndex].ClusterStatus.HealthyTaskManagers = getHealthyTaskManagerCount(tmResponse)
-
-	// Determine Health of the cluster.
-	// Healthy TaskManagers == Number of taskmanagers --> Green
-	// Else --> Yellow
-	if application.Status.VersionStatuses[currIndex].ClusterStatus.HealthyTaskManagers == deployment.Taskmanager.Status.Replicas {
-		application.Status.VersionStatuses[currIndex].ClusterStatus.Health = v1beta2.Green
-	} else {
-		application.Status.VersionStatuses[currIndex].ClusterStatus.Health = v1beta2.Yellow
-	}
-
-	return !apiequality.Semantic.DeepEqual(oldClusterStatus, application.Status.VersionStatuses[currIndex].ClusterStatus), nil
+	return isEqual, nil
 }
 
 func getHealthyTaskManagerCount(response *client.TaskManagersResponse) int32 {
@@ -563,114 +580,127 @@ func getHealthyTaskManagerCount(response *client.TaskManagersResponse) int32 {
 }
 
 func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta2.FlinkApplication, hash string) (bool, error) {
-	currIndex := getCurrentStatusIndex(app)
-	if app.Status.VersionStatuses[currIndex].JobStatus.LastFailingTime == nil {
-		initTime := metav1.NewTime(time.Time{})
-		app.Status.VersionStatuses[currIndex].JobStatus.LastFailingTime = &initTime
-	}
-
-	oldJobStatus := app.Status.VersionStatuses[currIndex].JobStatus
-	app.Status.VersionStatuses[currIndex].JobStatus.JobID = oldJobStatus.JobID
-	jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(app, hash), f.GetLatestJobID(ctx, app))
-	if err != nil {
-		return false, err
-	}
-	checkpoints, err := f.flinkClient.GetCheckpointCounts(ctx, getURLFromApp(app, hash), f.GetLatestJobID(ctx, app))
-	if err != nil {
-		return false, err
-	}
-
-	// Job status
-	app.Status.VersionStatuses[currIndex].JobStatus.JobOverviewURL = getJobOverviewURL(app)
-	app.Status.VersionStatuses[currIndex].JobStatus.State = v1beta2.JobState(jobResponse.State)
-	jobStartTime := metav1.NewTime(time.Unix(jobResponse.StartTime/1000, 0))
-	app.Status.VersionStatuses[currIndex].JobStatus.StartTime = &jobStartTime
-
-	// Checkpoints status
-	app.Status.VersionStatuses[currIndex].JobStatus.FailedCheckpointCount = checkpoints.Counts["failed"]
-	app.Status.VersionStatuses[currIndex].JobStatus.CompletedCheckpointCount = checkpoints.Counts["completed"]
-	app.Status.VersionStatuses[currIndex].JobStatus.JobRestartCount = checkpoints.Counts["restored"]
-
-	latestCheckpoint := checkpoints.Latest.Completed
-	var lastCheckpointAgeSeconds int
-	if latestCheckpoint != nil {
-		lastCheckpointTimeMillis := metav1.NewTime(time.Unix(latestCheckpoint.LatestAckTimestamp/1000, 0))
-		app.Status.VersionStatuses[currIndex].JobStatus.LastCheckpointTime = &lastCheckpointTimeMillis
-		app.Status.VersionStatuses[currIndex].JobStatus.LastCheckpointPath = latestCheckpoint.ExternalPath
-		lastCheckpointAgeSeconds = app.Status.VersionStatuses[currIndex].JobStatus.LastCheckpointTime.Second()
-	}
-
-	if checkpoints.Latest.Restored != nil {
-		app.Status.VersionStatuses[currIndex].JobStatus.RestorePath = checkpoints.Latest.Restored.ExternalPath
-		restoreTime := metav1.NewTime(time.Unix(checkpoints.Latest.Restored.RestoredTimeStamp/1000, 0))
-		app.Status.VersionStatuses[currIndex].JobStatus.RestoreTime = &restoreTime
-	}
-
-	runningTasks := int32(0)
-	totalTasks := int32(0)
-	verticesInCreated := int32(0)
-
-	for _, v := range jobResponse.Vertices {
-		if v.Status == client.Created {
-			verticesInCreated++
+	// Compare and update job status for each element of the VersionStatuses array
+	isEqual := false
+	var err error
+	for statusIndex := range app.Status.VersionStatuses {
+		logger.Infof(ctx, "Status index %v and job ID %s", statusIndex, app.Status.VersionStatuses[statusIndex].JobStatus.JobID)
+		if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) && app.Status.VersionStatuses[statusIndex].JobStatus.JobID == "" {
+			continue
+		}
+		if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+			hash = app.Status.VersionStatuses[statusIndex].VersionHash
+		}
+		if app.Status.VersionStatuses[statusIndex].JobStatus.LastFailingTime == nil {
+			initTime := metav1.NewTime(time.Time{})
+			app.Status.VersionStatuses[statusIndex].JobStatus.LastFailingTime = &initTime
+		}
+		oldJobStatus := app.Status.VersionStatuses[statusIndex].JobStatus
+		logger.Infof(ctx, "Job ID for index %d is being updated to %s", statusIndex, oldJobStatus.JobID)
+		app.Status.VersionStatuses[statusIndex].JobStatus.JobID = oldJobStatus.JobID
+		logger.Infof(ctx, "Hash query %s and index %d", app.Status.VersionStatuses[statusIndex].VersionHash, statusIndex)
+		jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(app, hash), app.Status.VersionStatuses[statusIndex].JobStatus.JobID)
+		if err != nil {
+			return false, err
+		}
+		checkpoints, err := f.flinkClient.GetCheckpointCounts(ctx, getURLFromApp(app, hash), app.Status.VersionStatuses[statusIndex].JobStatus.JobID)
+		if err != nil {
+			return false, err
 		}
 
-		for k, v := range v.Tasks {
-			if k == "RUNNING" {
-				runningTasks += int32(v)
+		// Job status
+		app.Status.VersionStatuses[statusIndex].JobStatus.JobOverviewURL = getJobOverviewURL(app)
+		app.Status.VersionStatuses[statusIndex].JobStatus.State = v1beta2.JobState(jobResponse.State)
+		jobStartTime := metav1.NewTime(time.Unix(jobResponse.StartTime/1000, 0))
+		app.Status.VersionStatuses[statusIndex].JobStatus.StartTime = &jobStartTime
+
+		// Checkpoints status
+		app.Status.VersionStatuses[statusIndex].JobStatus.FailedCheckpointCount = checkpoints.Counts["failed"]
+		app.Status.VersionStatuses[statusIndex].JobStatus.CompletedCheckpointCount = checkpoints.Counts["completed"]
+		app.Status.VersionStatuses[statusIndex].JobStatus.JobRestartCount = checkpoints.Counts["restored"]
+
+		latestCheckpoint := checkpoints.Latest.Completed
+		var lastCheckpointAgeSeconds int
+		if latestCheckpoint != nil {
+			lastCheckpointTimeMillis := metav1.NewTime(time.Unix(latestCheckpoint.LatestAckTimestamp/1000, 0))
+			app.Status.VersionStatuses[statusIndex].JobStatus.LastCheckpointTime = &lastCheckpointTimeMillis
+			app.Status.VersionStatuses[statusIndex].JobStatus.LastCheckpointPath = latestCheckpoint.ExternalPath
+			lastCheckpointAgeSeconds = app.Status.VersionStatuses[statusIndex].JobStatus.LastCheckpointTime.Second()
+		}
+
+		if checkpoints.Latest.Restored != nil {
+			app.Status.VersionStatuses[statusIndex].JobStatus.RestorePath = checkpoints.Latest.Restored.ExternalPath
+			restoreTime := metav1.NewTime(time.Unix(checkpoints.Latest.Restored.RestoredTimeStamp/1000, 0))
+			app.Status.VersionStatuses[statusIndex].JobStatus.RestoreTime = &restoreTime
+		}
+
+		runningTasks := int32(0)
+		totalTasks := int32(0)
+		verticesInCreated := int32(0)
+
+		for _, v := range jobResponse.Vertices {
+			if v.Status == client.Created {
+				verticesInCreated++
 			}
-			totalTasks += int32(v)
+
+			for k, v := range v.Tasks {
+				if k == "RUNNING" {
+					runningTasks += int32(v)
+				}
+				totalTasks += int32(v)
+			}
 		}
-	}
 
-	app.Status.VersionStatuses[currIndex].JobStatus.RunningTasks = runningTasks
-	app.Status.VersionStatuses[currIndex].JobStatus.TotalTasks = totalTasks
+		app.Status.VersionStatuses[statusIndex].JobStatus.RunningTasks = runningTasks
+		app.Status.VersionStatuses[statusIndex].JobStatus.TotalTasks = totalTasks
 
-	// Health Status for job
-	// Job is in FAILING state --> RED
-	// Time since last successful checkpoint > maxCheckpointTime --> YELLOW
-	// Else --> Green
+		// Health Status for job
+		// Job is in FAILING state --> RED
+		// Time since last successful checkpoint > maxCheckpointTime --> YELLOW
+		// Else --> Green
 
-	if app.Status.VersionStatuses[currIndex].JobStatus.State == v1beta2.Failing ||
-		time.Since(app.Status.VersionStatuses[currIndex].JobStatus.LastFailingTime.Time) < failingIntervalThreshold ||
-		verticesInCreated > 0 {
-		app.Status.VersionStatuses[currIndex].JobStatus.Health = v1beta2.Red
-	} else if time.Since(time.Unix(int64(lastCheckpointAgeSeconds), 0)) < maxCheckpointTime ||
-		runningTasks < totalTasks {
-		app.Status.VersionStatuses[currIndex].JobStatus.Health = v1beta2.Yellow
-	} else {
-		app.Status.VersionStatuses[currIndex].JobStatus.Health = v1beta2.Green
+		if app.Status.VersionStatuses[statusIndex].JobStatus.State == v1beta2.Failing ||
+			time.Since(app.Status.VersionStatuses[statusIndex].JobStatus.LastFailingTime.Time) < failingIntervalThreshold ||
+			verticesInCreated > 0 {
+			app.Status.VersionStatuses[statusIndex].JobStatus.Health = v1beta2.Red
+		} else if time.Since(time.Unix(int64(lastCheckpointAgeSeconds), 0)) < maxCheckpointTime ||
+			runningTasks < totalTasks {
+			app.Status.VersionStatuses[statusIndex].JobStatus.Health = v1beta2.Yellow
+		} else {
+			app.Status.VersionStatuses[statusIndex].JobStatus.Health = v1beta2.Green
+		}
+		// Update LastFailingTime
+		if app.Status.VersionStatuses[statusIndex].JobStatus.State == v1beta2.Failing {
+			currTime := metav1.Now()
+			app.Status.VersionStatuses[statusIndex].JobStatus.LastFailingTime = &currTime
+		}
+		isEqual = isEqual || !apiequality.Semantic.DeepEqual(oldJobStatus, app.Status.VersionStatuses[statusIndex].JobStatus)
 	}
-	// Update LastFailingTime
-	if app.Status.VersionStatuses[currIndex].JobStatus.State == v1beta2.Failing {
-		currTime := metav1.Now()
-		app.Status.VersionStatuses[currIndex].JobStatus.LastFailingTime = &currTime
-	}
-	return !apiequality.Semantic.DeepEqual(oldJobStatus, app.Status.VersionStatuses[currIndex].JobStatus), err
+	return isEqual, err
 }
 
 func getCurrentStatusIndex(app *v1beta2.FlinkApplication) int32 {
-	if !v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+
+	if !v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) || v1beta2.IsRunningPhase(app.Status.Phase) || app.Status.DeployHash == "" ||
+		app.Status.Phase == v1beta2.FlinkApplicationSavepointing {
 		return 0
 	}
 
-	numRunningJobs := getRunningJobs(app)
-	if v1beta2.IsRunningPhase(app.Status.Phase) || app.Status.DeployHash == "" || app.Status.Phase == v1beta2.FlinkApplicationSavepointing {
-		return 0
+	if app.Status.Phase == v1beta2.FlinkApplicationDualRunning {
+		return 1
 	}
-
-	return numRunningJobs
+	activeJobs := int32(len(app.Status.VersionStatuses))
+	numRunningJobs := v1beta2.GetMaxRunningJobs(app.Spec.DeploymentMode)
+	index := Min(activeJobs, numRunningJobs) - 1
+	logger.InfofNoCtx("Phase %v and index %d", app.Status.Phase, numRunningJobs)
+	return index
 }
 
-func getRunningJobs(app *v1beta2.FlinkApplication) int32 {
-	jobs := 0
-	for _, status := range app.Status.VersionStatuses {
-		if status.JobStatus.JobID != "" && status.JobStatus.State == v1beta2.Running {
-			jobs++
-		}
+func Min(x, y int32) int32 {
+	if x < y {
+		return x
 	}
-
-	return int32(jobs)
+	return y
 }
 
 func (f *Controller) GetLatestClusterStatus(ctx context.Context, application *v1beta2.FlinkApplication) v1beta2.FlinkClusterStatus {
@@ -696,5 +726,71 @@ func (f *Controller) GetLatestJobID(ctx context.Context, application *v1beta2.Fl
 }
 
 func (f *Controller) UpdateLatestJobID(ctx context.Context, app *v1beta2.FlinkApplication, jobID string) {
+	index := getCurrentStatusIndex(app)
+	if jobID == "" {
+		logger.Infof(ctx, "Resetting jobID for index %d as %s", index, jobID)
+	}
 	app.Status.VersionStatuses[getCurrentStatusIndex(app)].JobStatus.JobID = jobID
+}
+
+func (f *Controller) UpdateLatestVersionAndHash(application *v1beta2.FlinkApplication, version v1beta2.FlinkApplicationVersion, hash string) {
+	currIndex := getCurrentStatusIndex(application)
+	application.Status.VersionStatuses[currIndex].Version = version
+	application.Status.VersionStatuses[currIndex].VersionHash = hash
+	application.Status.UpdatingHash = hash
+}
+
+func (f *Controller) DeleteResourcesForAppWithHash(ctx context.Context, app *v1beta2.FlinkApplication, hash string) error {
+	appLabel := k8.GetAppLabel(app.Name)
+	deployments, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, app.Namespace, appLabel)
+	if err != nil {
+		return err
+	}
+
+	oldObjects := make([]metav1.Object, 0)
+
+	for _, d := range deployments.Items {
+		if d.Labels[FlinkAppHash] == hash &&
+			// verify that this deployment matches the jobmanager or taskmanager naming format
+			(d.Name == fmt.Sprintf(JobManagerNameFormat, app.Name, d.Labels[FlinkAppHash]) ||
+				d.Name == fmt.Sprintf(TaskManagerNameFormat, app.Name, d.Labels[FlinkAppHash])) {
+			oldObjects = append(oldObjects, d.DeepCopy())
+		}
+	}
+
+	services, err := f.k8Cluster.GetServicesWithLabel(ctx, app.Namespace, appLabel)
+
+	if err != nil {
+		return err
+	}
+
+	for _, d := range services.Items {
+		if d.Labels[FlinkAppHash] == hash || d.Spec.Selector[FlinkAppHash] == hash {
+			logger.Infof(ctx, "Services with label %s are %v", hash, d.Name)
+			oldObjects = append(oldObjects, d.DeepCopy())
+		}
+	}
+
+	deletedHashes := make(map[string]bool)
+
+	for _, resource := range oldObjects {
+		err := f.k8Cluster.DeleteK8Object(ctx, resource.(runtime.Object))
+		if err != nil {
+			f.metrics.deleteResourceFailedCounter.Inc(ctx)
+			return err
+		}
+		f.metrics.deleteResourceSuccessCounter.Inc(ctx)
+		deletedHashes[resource.GetLabels()[FlinkAppHash]] = true
+	}
+
+	for k := range deletedHashes {
+		f.LogEvent(ctx, app, corev1.EventTypeNormal, "ToreDownCluster",
+			fmt.Sprintf("Deleted old cluster with hash %s", k))
+	}
+	return nil
+}
+
+func (f *Controller) DeleteStatusPostTeardown(ctx context.Context, application *v1beta2.FlinkApplication) {
+	application.Status.VersionStatuses[0] = application.Status.VersionStatuses[1]
+	application.Status.VersionStatuses[1] = v1beta2.FlinkApplicationVersionStatus{}
 }
