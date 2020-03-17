@@ -17,7 +17,7 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 	config.Name = testName + "job"
-	config.Spec.DeleteMode = "ForceCancel"
+	config.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
 
 	config.ObjectMeta.Labels["integTest"] = testName
 

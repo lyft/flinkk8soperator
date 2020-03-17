@@ -220,7 +220,7 @@ func (c *FlinkJobManagerClient) ForceCancelJob(ctx context.Context, url string, 
 		return GetRetryableError(err, v1beta1.ForceCancelJob, response.Status(), DefaultRetries)
 	}
 
-	c.metrics.forceCancelJobFailureCounter.Inc(ctx)
+	c.metrics.forceCancelJobSuccessCounter.Inc(ctx)
 	return nil
 }
 

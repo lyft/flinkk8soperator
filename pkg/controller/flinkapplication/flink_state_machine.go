@@ -174,6 +174,8 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 			updateApplication, appErr = s.handleSubmittingJob(ctx, application)
 		case v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed:
 			updateApplication, appErr = s.handleApplicationRunning(ctx, application)
+		case v1beta1.FlinkApplicationCancelling:
+			updateApplication, appErr = s.handleApplicationCancelling(ctx, application)
 		case v1beta1.FlinkApplicationSavepointing:
 			updateApplication, appErr = s.handleApplicationSavepointing(ctx, application)
 		case v1beta1.FlinkApplicationRecovering:
@@ -283,7 +285,11 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
 	// TODO: in single mode move to submitting job
-	s.updateApplicationPhase(application, v1beta1.FlinkApplicationSavepointing)
+	if application.Spec.SavepointDisabled {
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationCancelling)
+	} else {
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSavepointing)
+	}
 	return statusChanged, nil
 }
 
@@ -344,6 +350,41 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	}
 
 	return statusUnchanged, nil
+}
+
+func (s *FlinkStateMachine) handleApplicationCancelling(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+
+	// this is the first deploy
+	if application.Status.DeployHash == "" {
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
+		return statusChanged, nil
+	}
+
+	if rollback, reason := s.shouldRollback(ctx, application); rollback {
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "CancelFailed",
+			fmt.Sprintf("Could not cancel existing job: %s", reason))
+		application.Status.RetryCount = 0
+		application.Status.JobStatus.JobID = ""
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRollingBackJob)
+		return statusChanged, nil
+	}
+
+	job, err := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
+	if err != nil {
+		return statusUnchanged, err
+	}
+
+	if job != nil && job.State != client.Canceled &&
+		job.State != client.Failed {
+		err := s.flinkController.ForceCancel(ctx, application, application.Status.DeployHash)
+		if err != nil {
+			return statusUnchanged, err
+		}
+	}
+
+	application.Status.JobStatus.JobID = ""
+	s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
+	return statusChanged, nil
 }
 
 func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {

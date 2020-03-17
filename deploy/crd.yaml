@@ -114,6 +114,8 @@ spec:
                   type: string
             savepointPath:
               type: string
+            savepointDisabled:
+              type: boolean
             maxCheckpointRestoreAgeSeconds:
               type: integer
               minimum: 1
