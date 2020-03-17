@@ -422,7 +422,6 @@ func (f *Controller) GetCurrentDeploymentsForApp(ctx context.Context, applicatio
 
 func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta2.FlinkApplication) error {
 	curHash := getCurrentHash(app)
-	logger.Infof(ctx, "Hash for current application %v", curHash)
 	appLabel := k8.GetAppLabel(app.Name)
 	deployments, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, app.Namespace, appLabel)
 	if err != nil {
@@ -532,11 +531,10 @@ func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, applicat
 		if deployment == nil || err != nil {
 			return false, err
 		}
-		//logger.Infof(ctx, "Hash input %s", hash)
+
 		application.Status.VersionStatuses[currIndex].ClusterStatus.ClusterOverviewURL = getClusterOverviewURL(application)
 		application.Status.VersionStatuses[currIndex].ClusterStatus.NumberOfTaskManagers = deployment.Taskmanager.Status.AvailableReplicas
 		// Get Cluster overview
-		//logger.Infof(ctx, "Hash query %s and index %d", application.Status.VersionStatuses[currIndex].VersionHash, currIndex)
 		response, err := f.flinkClient.GetClusterOverview(ctx, getURLFromApp(application, hash))
 		if err != nil {
 			return false, err
@@ -689,10 +687,12 @@ func getCurrentStatusIndex(app *v1beta2.FlinkApplication) int32 {
 	if app.Status.Phase == v1beta2.FlinkApplicationDualRunning {
 		return 1
 	}
+
+	// activeJobs and numRunningJobs would be different once a Teardown has happened and
+	// the app has moved back to a Running state.
 	activeJobs := int32(len(app.Status.VersionStatuses))
-	numRunningJobs := v1beta2.GetMaxRunningJobs(app.Spec.DeploymentMode)
-	index := Min(activeJobs, numRunningJobs) - 1
-	logger.InfofNoCtx("Phase %v and index %d", app.Status.Phase, numRunningJobs)
+	maxRunningJobs := v1beta2.GetMaxRunningJobs(app.Spec.DeploymentMode)
+	index := Min(activeJobs, maxRunningJobs) - 1
 	return index
 }
 
@@ -766,7 +766,6 @@ func (f *Controller) DeleteResourcesForAppWithHash(ctx context.Context, app *v1b
 
 	for _, d := range services.Items {
 		if d.Labels[FlinkAppHash] == hash || d.Spec.Selector[FlinkAppHash] == hash {
-			logger.Infof(ctx, "Services with label %s are %v", hash, d.Name)
 			oldObjects = append(oldObjects, d.DeepCopy())
 		}
 	}

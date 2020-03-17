@@ -327,8 +327,10 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 				reason))
 		s.updateApplicationPhase(application, v1beta2.FlinkApplicationRollingBackJob)
 	}
-	if application.Spec.TeardownVersion != "" {
-		logger.Infof(ctx, "Tearing down version %v", application.Spec.TeardownVersion)
+	if application.Spec.Teardown {
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
+			fmt.Sprintf("Tearing down application with hash %s and version %v", application.Status.DeployHash,
+				application.Status.DeployVersion))
 		s.updateApplicationPhase(application, v1beta2.FlinkApplicationTeardown)
 		return statusChanged, nil
 	}
@@ -359,10 +361,7 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, application *v1beta2.FlinkApplication) {
 	// initialize the app status array to include 2 status elements in case of blue green deploys
 	// else use a one element array
-	arraySize := 1
-	if application.Spec.DeploymentMode == v1beta2.DeploymentModeBlueGreen {
-		arraySize = 2
-	}
+	arraySize := v1beta2.GetMaxRunningJobs(application.Spec.DeploymentMode)
 
 	if len(application.Status.VersionStatuses) == 0 {
 		application.Status.VersionStatuses = make([]v1beta2.FlinkApplicationVersionStatus, arraySize)
@@ -579,12 +578,6 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		logger.Errorf(ctx, "Updating cluster status failed with error: %v", clusterErr)
 	}
 
-	// Reset jobId if for some reason it's populated but there are no jobs running
-	jobs, _ := s.flinkController.GetJobsForApplication(ctx, app, hash)
-	if s.flinkController.GetLatestJobID(ctx, app) != "" && len(flink.GetActiveFlinkJobs(jobs)) == 0 {
-		logger.Infof(ctx, "Resetting Job ID ")
-		s.flinkController.UpdateLatestJobID(ctx, app, "")
-	}
 	if s.flinkController.GetLatestJobID(ctx, app) == "" {
 		savepointPath := ""
 		if app.Status.DeployHash == "" {
@@ -668,6 +661,11 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta2.
 	s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "DeployFailed",
 		fmt.Sprintf("Deployment %s failed, rolling back", flink.HashForApplication(app)))
 
+	// In the case of blue green deploys, we don't try to submit a new job
+	// and instead transition to a deploy failed state
+	if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+		return s.deployFailed(app)
+	}
 	// TODO: handle single mode
 
 	// TODO: it's possible that a job is successfully running in the new cluster at this point -- should cancel it

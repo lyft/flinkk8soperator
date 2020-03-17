@@ -227,7 +227,6 @@ func (c *FlinkJobManagerClient) ForceCancelJob(ctx context.Context, url string, 
 func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error) {
 	path := fmt.Sprintf(submitJobURL, jarID)
 	url = url + path
-	logger.Infof(ctx, "SubmitJob path %v", url)
 	response, err := c.executeRequest(ctx, httpPost, url, submitJobRequest)
 	if err != nil {
 		c.metrics.submitJobFailureCounter.Inc(ctx)

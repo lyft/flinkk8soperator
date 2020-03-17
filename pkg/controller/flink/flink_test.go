@@ -954,3 +954,164 @@ func TestMaxCheckpointRestoreAge(t *testing.T) {
 	// Test valid checkpoint that can be recovered. Recovery age is 10 minutes
 	assert.False(t, isCheckpointOldToRecover(time.Now().Unix()-100, 600))
 }
+
+func TestGetCurrentStatusIndex(t *testing.T) {
+	app := getFlinkTestApp()
+	// Dual deployment should always return 0
+	app.Status.Phase = v1beta2.FlinkApplicationRunning
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationUpdating
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationClusterStarting
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationSavepointing
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationRecovering
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationRollingBackJob
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationSubmittingJob
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+
+	// Tests for bluegreen deployment mode
+	app.Spec.DeploymentMode = v1beta2.DeploymentModeBlueGreen
+
+	// First deploy should always return 0
+	app.Status.Phase = v1beta2.FlinkApplicationRunning
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationUpdating
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationClusterStarting
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationSavepointing
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationRecovering
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationRollingBackJob
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationSubmittingJob
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+
+	// Subsequent deploys return 0 when in Running or Savepointing phase
+	app.Status.DeployHash = "hash"
+	statuses := make([]v1beta2.FlinkApplicationVersionStatus, 2)
+	app.Status.VersionStatuses = statuses
+	app.Status.Phase = v1beta2.FlinkApplicationSavepointing
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationRunning
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+	// Else return 1
+	app.Status.Phase = v1beta2.FlinkApplicationUpdating
+	assert.Equal(t, int32(1), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationClusterStarting
+	assert.Equal(t, int32(1), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationRecovering
+	assert.Equal(t, int32(1), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationRollingBackJob
+	assert.Equal(t, int32(1), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationSubmittingJob
+	assert.Equal(t, int32(1), getCurrentStatusIndex(&app))
+	app.Status.Phase = v1beta2.FlinkApplicationDualRunning
+	assert.Equal(t, int32(1), getCurrentStatusIndex(&app))
+
+	// Once teardown has happened and the one of the two apps have been deleted
+	app.Status.VersionStatuses = make([]v1beta2.FlinkApplicationVersionStatus, 1)
+	app.Status.Phase = v1beta2.FlinkApplicationRunning
+	assert.Equal(t, int32(0), getCurrentStatusIndex(&app))
+
+}
+
+func TestDeleteStatusPostTeardown(t *testing.T) {
+	controller := getTestFlinkController()
+	app := getFlinkTestApp()
+	app.Status.VersionStatuses = []v1beta2.FlinkApplicationVersionStatus{
+		{
+			Version:     v1beta2.BlueFlinkApplication,
+			VersionHash: "blue-hash",
+			ClusterStatus: v1beta2.FlinkClusterStatus{
+				ClusterOverviewURL: "blue-overview",
+			},
+			JobStatus: v1beta2.FlinkJobStatus{
+				JobID: "blue-job-id",
+			},
+		},
+		{
+			Version:     v1beta2.GreenFlinkApplication,
+			VersionHash: "green-hash",
+			ClusterStatus: v1beta2.FlinkClusterStatus{
+				ClusterOverviewURL: "green-overview",
+			},
+			JobStatus: v1beta2.FlinkJobStatus{
+				JobID: "green-job-id",
+			},
+		},
+	}
+	expectedStatus := app.Status.VersionStatuses[1]
+	controller.DeleteStatusPostTeardown(context.Background(), &app)
+	assert.Equal(t, expectedStatus, app.Status.VersionStatuses[0])
+	assert.Empty(t, app.Status.VersionStatuses[1])
+}
+
+func TestDeleteResourcesForAppWithHash(t *testing.T) {
+	flinkControllerForTest := getTestFlinkController()
+	app := getFlinkTestApp()
+
+	jmDeployment := FetchTaskMangerDeploymentCreateObj(&app, "oldhash")
+	tmDeployment := FetchJobMangerDeploymentCreateObj(&app, "oldhash")
+	service := FetchJobManagerServiceCreateObj(&app, "oldhash")
+	service.Labels[FlinkAppHash] = "oldhash"
+	service.Name = VersionedJobManagerServiceName(&app, "oldhash")
+	genericService := FetchJobManagerServiceCreateObj(&app, "oldhash")
+	genericService.Name = app.Name
+
+	mockK8Cluster := flinkControllerForTest.k8Cluster.(*k8mock.K8Cluster)
+
+	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error) {
+		curJobmanager := FetchJobMangerDeploymentCreateObj(&app, testAppHash)
+		curTaskmanager := FetchTaskMangerDeploymentCreateObj(&app, testAppHash)
+		return &v1.DeploymentList{
+			Items: []v1.Deployment{
+				*jmDeployment,
+				*tmDeployment,
+				*curJobmanager,
+				*curTaskmanager,
+			},
+		}, nil
+	}
+
+	mockK8Cluster.GetServicesWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.ServiceList, error) {
+		curService := FetchJobManagerServiceCreateObj(&app, testAppHash)
+		curService.Labels[FlinkAppHash] = testAppHash
+		curService.Name = VersionedJobManagerServiceName(&app, testAppHash)
+
+		generic := FetchJobManagerServiceCreateObj(&app, testAppHash)
+		return &corev1.ServiceList{
+			Items: []corev1.Service{
+				*service,
+				*curService,
+				*generic,
+			},
+		}, nil
+	}
+
+	ctr := 0
+	mockK8Cluster.DeleteK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		ctr++
+		switch ctr {
+		case 1:
+			assert.Equal(t, jmDeployment, object)
+		case 2:
+			assert.Equal(t, tmDeployment, object)
+		case 3:
+			assert.Equal(t, service, object)
+		case 4:
+			assert.Equal(t, genericService, object)
+
+		}
+		return nil
+	}
+
+	err := flinkControllerForTest.DeleteResourcesForAppWithHash(context.Background(), &app, "oldhash")
+	assert.Equal(t, 3, ctr)
+	assert.Nil(t, err)
+}

@@ -227,6 +227,10 @@ func (m *FlinkController) UpdateLatestVersionAndHash(application *v1beta2.FlinkA
 	if m.UpdateLatestVersionAndHashFunc != nil {
 		m.UpdateLatestVersionAndHashFunc(application, version, hash)
 	}
+	currIndex := getCurrentStatusIndex(application)
+	application.Status.VersionStatuses[currIndex].Version = version
+	application.Status.VersionStatuses[currIndex].VersionHash = hash
+	application.Status.UpdatingHash = hash
 
 }
 
@@ -241,7 +245,8 @@ func (m *FlinkController) DeleteStatusPostTeardown(ctx context.Context, applicat
 	if m.DeleteStatusPostTeardownFunc != nil {
 		m.DeleteStatusPostTeardownFunc(ctx, application)
 	}
-
+	application.Status.VersionStatuses[0] = application.Status.VersionStatuses[1]
+	application.Status.VersionStatuses[1] = v1beta2.FlinkApplicationVersionStatus{}
 }
 
 func getCurrentStatusIndex(app *v1beta2.FlinkApplication) int32 {

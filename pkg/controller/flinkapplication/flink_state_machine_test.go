@@ -1412,3 +1412,291 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 	assert.Nil(t, app.GetFinalizers())
 
 }
+
+func TestRunningToDualRunning(t *testing.T) {
+	deployHash := "appHash"
+	updatingHash := "68d96966"
+	triggerID := "trigger"
+	savepointPath := "savepointPath"
+	app := v1beta2.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta2.FlinkApplicationSpec{
+			JarName:        "job.jar",
+			Parallelism:    5,
+			EntryClass:     "com.my.Class",
+			ProgramArgs:    "--test",
+			DeploymentMode: v1beta2.DeploymentModeBlueGreen,
+		},
+		Status: v1beta2.FlinkApplicationStatus{
+			Phase:         v1beta2.FlinkApplicationRunning,
+			DeployHash:    deployHash,
+			DeployVersion: v1beta2.GreenFlinkApplication,
+			VersionStatuses: []v1beta2.FlinkApplicationVersionStatus{
+				{
+					JobStatus: v1beta2.FlinkJobStatus{
+						JobID: "jobId",
+						State: v1beta2.Running,
+					},
+					VersionHash: deployHash,
+					Version:     v1beta2.GreenFlinkApplication,
+				},
+				{},
+			},
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		return &client.FlinkJobOverview{
+			JobID: "jobID2",
+			State: client.Running,
+		}, nil
+
+	}
+
+	mockFlinkController.IsClusterReadyFunc = func(ctx context.Context, application *v1beta2.FlinkApplication) (b bool, err error) {
+		return true, nil
+	}
+
+	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (b bool, err error) {
+		return true, nil
+	}
+
+	// Handle Running and move to Updating
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, v1beta2.FlinkApplicationUpdating, app.Status.Phase)
+	assert.Equal(t, 2, len(app.Status.VersionStatuses))
+	assert.Equal(t, "", app.Status.UpdatingHash)
+
+	// Handle Updating and move to ClusterStarting
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Equal(t, v1beta2.FlinkApplicationClusterStarting, app.Status.Phase)
+	assert.Equal(t, v1beta2.BlueFlinkApplication, app.Status.UpdatingVersion)
+	assert.Nil(t, err)
+
+	// Handle ClusterStarting and move to Savepointing
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Equal(t, v1beta2.FlinkApplicationSavepointing, app.Status.Phase)
+	assert.Equal(t, updatingHash, app.Status.VersionStatuses[1].VersionHash)
+	assert.Equal(t, v1beta2.BlueFlinkApplication, app.Status.VersionStatuses[1].Version)
+	assert.Equal(t, updatingHash, app.Status.UpdatingHash)
+	assert.Nil(t, err)
+
+	// Handle Savepointing and move to SubmittingJob
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string, isCancel bool) (s string, err error) {
+		assert.False(t, isCancel)
+		return triggerID, nil
+	}
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) (response *client.SavepointResponse, err error) {
+		return &client.SavepointResponse{
+			SavepointStatus: client.SavepointStatusResponse{
+				Status: client.SavePointCompleted,
+			},
+			Operation: client.SavepointOperationResponse{
+				Location:     savepointPath,
+				FailureCause: client.FailureCause{},
+			},
+		}, nil
+	}
+	assert.Equal(t, app.Status.SavepointTriggerID, triggerID)
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, app.Status.SavepointPath, savepointPath)
+	assert.Equal(t, v1beta2.FlinkApplicationSubmittingJob, app.Status.Phase)
+
+	// Handle SubmittingJob and move to DualRunning
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
+
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-app",
+				Namespace: "flink",
+			},
+			Spec: v1.ServiceSpec{
+				Selector: map[string]string{
+					"flink-app-hash": updatingHash,
+				},
+			},
+		}, nil
+	}
+
+	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string, jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (s string, err error) {
+		return "jobID2", nil
+	}
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, "jobID2", app.Status.VersionStatuses[1].JobStatus.JobID)
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, "jobID2", app.Status.VersionStatuses[1].JobStatus.JobID)
+	assert.Equal(t, app.Spec.JarName, app.Status.VersionStatuses[1].JobStatus.JarName)
+	assert.Equal(t, app.Spec.Parallelism, app.Status.VersionStatuses[1].JobStatus.Parallelism)
+	assert.Equal(t, app.Spec.EntryClass, app.Status.VersionStatuses[1].JobStatus.EntryClass)
+	assert.Equal(t, app.Spec.ProgramArgs, app.Status.VersionStatuses[1].JobStatus.ProgramArgs)
+
+	assert.Equal(t, v1beta2.FlinkApplicationDualRunning, app.Status.Phase)
+	assert.Equal(t, deployHash, app.Status.DeployHash)
+	assert.Equal(t, updatingHash, app.Status.UpdatingHash)
+	assert.Equal(t, v1beta2.GreenFlinkApplication, app.Status.DeployVersion)
+	assert.Equal(t, v1beta2.BlueFlinkApplication, app.Status.UpdatingVersion)
+
+}
+
+func TestDualRunningToTeardown(t *testing.T) {
+	deployHash := "appHash"
+	updatingHash := "68d96966"
+	teardownHash := "d555be26"
+
+	app := v1beta2.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta2.FlinkApplicationSpec{
+			JarName:        "job.jar",
+			Parallelism:    5,
+			EntryClass:     "com.my.Class",
+			ProgramArgs:    "--test",
+			DeploymentMode: v1beta2.DeploymentModeBlueGreen,
+		},
+		Status: v1beta2.FlinkApplicationStatus{
+			Phase:           v1beta2.FlinkApplicationDualRunning,
+			DeployHash:      deployHash,
+			UpdatingHash:    updatingHash,
+			DeployVersion:   v1beta2.GreenFlinkApplication,
+			UpdatingVersion: v1beta2.BlueFlinkApplication,
+			VersionStatuses: []v1beta2.FlinkApplicationVersionStatus{
+				{
+					JobStatus: v1beta2.FlinkJobStatus{
+						JobID: "jobId",
+						State: v1beta2.Running,
+					},
+					VersionHash: deployHash,
+					Version:     v1beta2.GreenFlinkApplication,
+				},
+				{
+					JobStatus: v1beta2.FlinkJobStatus{
+						JobID: "jobId2",
+						State: v1beta2.Running,
+					},
+					VersionHash: updatingHash,
+					Version:     v1beta2.BlueFlinkApplication,
+				},
+			},
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.DeleteResourcesForAppWithHashFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string) error {
+		return nil
+	}
+
+	app.Spec.Teardown = true
+	// Handle DualRunning and move to Teardown
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Equal(t, v1beta2.FlinkApplicationTeardown, app.Status.Phase)
+	assert.Nil(t, err)
+
+	// Handle Teardown and move to Running
+	expectedVersionStatus := app.Status.VersionStatuses[1]
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Equal(t, v1beta2.FlinkApplicationRunning, app.Status.Phase)
+	assert.Nil(t, err)
+	assert.Empty(t, app.Status.VersionStatuses[1])
+	assert.Equal(t, teardownHash, app.Status.TeardownHash)
+	assert.Equal(t, expectedVersionStatus, app.Status.VersionStatuses[0])
+
+	// Handle Running
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, "", app.Status.UpdatingHash)
+	assert.Equal(t, updatingHash, app.Status.DeployHash)
+	assert.Equal(t, "", string(app.Status.UpdatingVersion))
+	assert.Equal(t, v1beta2.BlueFlinkApplication, app.Status.DeployVersion)
+	assert.Equal(t, teardownHash, app.Status.TeardownHash)
+}
+
+func TestBlueGreenUpdateWithError(t *testing.T) {
+	deployHash := "deployHash"
+	updatingHash := "updateHash"
+
+	app := v1beta2.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta2.FlinkApplicationSpec{
+			JarName:        "job.jar",
+			Parallelism:    5,
+			EntryClass:     "com.my.Class",
+			ProgramArgs:    "--test",
+			DeploymentMode: v1beta2.DeploymentModeBlueGreen,
+		},
+		Status: v1beta2.FlinkApplicationStatus{
+			Phase:         v1beta2.FlinkApplicationSubmittingJob,
+			DeployHash:    deployHash,
+			DeployVersion: v1beta2.GreenFlinkApplication,
+			VersionStatuses: []v1beta2.FlinkApplicationVersionStatus{
+				{
+					JobStatus: v1beta2.FlinkJobStatus{
+						JobID: "jobId",
+						State: v1beta2.Running,
+					},
+					VersionHash: deployHash,
+					Version:     v1beta2.GreenFlinkApplication,
+				},
+				{},
+			},
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta2.FlinkApplication, hash string, jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (s string, err error) {
+		return "", client.GetNonRetryableError(errors.New("bad submission"), "SubmitJob", "500")
+
+	}
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
+
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-app",
+				Namespace: "flink",
+			},
+			Spec: v1.ServiceSpec{
+				Selector: map[string]string{
+					"flink-app-hash": updatingHash,
+				},
+			},
+		}, nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.NotNil(t, err)
+	assert.NotNil(t, app.Status.LastSeenError)
+	assert.Equal(t, v1beta2.FlinkApplicationSubmittingJob, app.Status.Phase)
+
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, v1beta2.FlinkApplicationRollingBackJob, app.Status.Phase)
+	assert.Equal(t, "", app.Status.VersionStatuses[1].JobStatus.JobID)
+
+	// We should have moved to DeployFailed without affecting the existing job
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, v1beta2.FlinkApplicationDeployFailed, app.Status.Phase)
+	assert.Equal(t, "jobId", app.Status.VersionStatuses[0].JobStatus.JobID)
+
+}
