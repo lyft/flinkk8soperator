@@ -91,7 +91,7 @@ Below is the list of fields in the custom resource and their description
     If specified, the application state will be restored from this savepoint
 
   * **savepointDisabled** `type:boolean`
-    If specified, the current application (if existing) is cancelled without taking a savepoint.
+    If specified, during an update, the current application (if existing) is cancelled without taking a savepoint. 
       
   * **allowNonRestoredState** `type:boolean`
     Skips savepoint operator state that cannot be mapped to the new program version
