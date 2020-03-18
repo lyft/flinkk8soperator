@@ -321,14 +321,8 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 // Two applications are running in this phase. This phase is only ever reached when the
 // DeploymentMode is set to BlueGreen
 func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
-	if rollback, reason := s.shouldRollback(ctx, application); rollback {
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
-			fmt.Sprintf("Could not bring up version %v due to %s", application.Status.UpdatingVersion,
-				reason))
-		s.updateApplicationPhase(application, v1beta2.FlinkApplicationRollingBackJob)
-	}
 	if application.Spec.Teardown {
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "TeardownInitated",
 			fmt.Sprintf("Tearing down application with hash %s and version %v", application.Status.DeployHash,
 				application.Status.DeployVersion))
 		s.updateApplicationPhase(application, v1beta2.FlinkApplicationTeardown)
@@ -337,7 +331,6 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 
 	// Update status of the cluster
 	hasClusterStatusChanged, clusterErr := s.flinkController.CompareAndUpdateClusterStatus(ctx, application, application.Status.DeployHash)
-	logger.Infof(ctx, "Cluster status %v", hasClusterStatusChanged)
 	if clusterErr != nil {
 		logger.Errorf(ctx, "Updating cluster status failed with %v", clusterErr)
 		return statusUnchanged, clusterErr
@@ -345,7 +338,6 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 
 	// Update status of jobs on the cluster
 	hasJobStatusChanged, jobsErr := s.flinkController.CompareAndUpdateJobStatus(ctx, application, application.Status.DeployHash)
-	logger.Infof(ctx, "Job status %v", hasJobStatusChanged)
 	if jobsErr != nil {
 		logger.Errorf(ctx, "Updating jobs status failed with %v", jobsErr)
 		return statusUnchanged, jobsErr
@@ -661,9 +653,9 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta2.
 	s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "DeployFailed",
 		fmt.Sprintf("Deployment %s failed, rolling back", flink.HashForApplication(app)))
 
-	// In the case of blue green deploys, we don't try to submit a new job
+	// In the case of blue green deploys (aside from first deploys), we don't try to submit a new job
 	// and instead transition to a deploy failed state
-	if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) && app.Status.DeployHash != "" {
 		return s.deployFailed(app)
 	}
 	// TODO: handle single mode
@@ -715,7 +707,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta2.
 // This is a stable state. Keep monitoring if the underlying CRD reflects the Flink cluster
 func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, application *v1beta2.FlinkApplication) (bool, error) {
 	// Blue green deploy specific hash updates
-	if v1beta2.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) && application.Status.UpdatingHash != "" {
+	if v1beta2.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) && application.Status.UpdatingHash != "" && application.Status.Phase != v1beta2.FlinkApplicationDeployFailed {
 		// We've successfully torn down the previous version
 		logger.Infof(ctx, "Updating deployHash %s to %s", application.Status.DeployHash, application.Status.UpdatingHash)
 		application.Status.DeployHash = application.Status.UpdatingHash
@@ -735,6 +727,12 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		return statusChanged, nil
 	}
 
+	// If there are old resources left-over from a previous version, clean them up
+	err = s.flinkController.DeleteOldResourcesForApp(ctx, application)
+	if err != nil {
+		logger.Warn(ctx, "Failed to clean up old resources: %v", err)
+	}
+
 	job, err := s.flinkController.GetJobForApplication(ctx, application, application.Status.DeployHash)
 	if err != nil {
 		// TODO: think more about this case
@@ -745,12 +743,6 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		logger.Warnf(ctx, "Could not find active job {}", s.flinkController.GetLatestJobID(ctx, application))
 	} else {
 		logger.Debugf(ctx, "Application running with job %v", job.JobID)
-	}
-
-	// If there are old resources left-over from a previous version, clean them up
-	err = s.flinkController.DeleteOldResourcesForApp(ctx, application)
-	if err != nil {
-		logger.Warn(ctx, "Failed to clean up old resources: %v", err)
 	}
 
 	// Update status of the cluster
@@ -930,12 +922,18 @@ func (s *FlinkStateMachine) handleTeardown(ctx context.Context, application *v1b
 	err := s.flinkController.DeleteResourcesForAppWithHash(ctx, application, application.Status.DeployHash)
 
 	if err != nil {
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
+			fmt.Sprintf("Failed to teardown application with hash %s and version %v, manual intervention needed: %s", application.Status.DeployHash,
+				application.Status.DeployVersion, err))
 		return statusUnchanged, err
 	}
 	application.Status.DeployVersion = application.Status.UpdatingVersion
 	application.Status.UpdatingVersion = ""
 	application.Status.TeardownHash = flink.HashForApplication(application)
 	s.flinkController.DeleteStatusPostTeardown(ctx, application)
+	s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
+		fmt.Sprintf("Tore down application with hash %s and version %v", application.Status.DeployHash,
+			application.Status.DeployVersion))
 	s.updateApplicationPhase(application, v1beta2.FlinkApplicationRunning)
 	return statusChanged, nil
 }

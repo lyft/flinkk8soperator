@@ -582,7 +582,6 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta2
 	isEqual := false
 	var err error
 	for statusIndex := range app.Status.VersionStatuses {
-		logger.Infof(ctx, "Status index %v and job ID %s", statusIndex, app.Status.VersionStatuses[statusIndex].JobStatus.JobID)
 		if v1beta2.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) && app.Status.VersionStatuses[statusIndex].JobStatus.JobID == "" {
 			continue
 		}
@@ -594,9 +593,7 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta2
 			app.Status.VersionStatuses[statusIndex].JobStatus.LastFailingTime = &initTime
 		}
 		oldJobStatus := app.Status.VersionStatuses[statusIndex].JobStatus
-		logger.Infof(ctx, "Job ID for index %d is being updated to %s", statusIndex, oldJobStatus.JobID)
 		app.Status.VersionStatuses[statusIndex].JobStatus.JobID = oldJobStatus.JobID
-		logger.Infof(ctx, "Hash query %s and index %d", app.Status.VersionStatuses[statusIndex].VersionHash, statusIndex)
 		jobResponse, err := f.flinkClient.GetJobOverview(ctx, getURLFromApp(app, hash), app.Status.VersionStatuses[statusIndex].JobStatus.JobID)
 		if err != nil {
 			return false, err
