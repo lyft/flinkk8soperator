@@ -297,25 +297,22 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, application *v1beta1.FlinkApplication) {
 	// initialize the app status array to include 2 status elements in case of blue green deploys
 	// else use a one element array
-	arraySize := 1
-	if application.Spec.DeploymentMode == v1beta1.DeploymentModeBlueGreen {
-		arraySize = 2
-	}
+	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		application.Status.VersionStatuses = make([]v1beta1.FlinkApplicationVersionStatus, v1beta1.GetMaxRunningJobs(application.Spec.DeploymentMode))
 
-	if len(application.Status.VersionStatuses) == 0 {
-		application.Status.VersionStatuses = make([]v1beta1.FlinkApplicationVersionStatus, arraySize)
-	}
+		// If an application is moving from a Dual to BlueGreen deployment mode,
+		// We pre-populate the version statuses array with the current Job and Cluster Status
+		// And reset top-level ClusterStatus and JobStatus to empty structs
+		// as they'll no longer get updated
+		if application.Status.JobStatus != (v1beta1.FlinkJobStatus{}) {
+			s.flinkController.UpdateLatestJobStatus(ctx, application, application.Status.JobStatus)
+			application.Status.JobStatus = v1beta1.FlinkJobStatus{}
+		}
 
-	// If we're reading a v1beta1 app, populate the first element of the status array from
-	// the top-level jobStatus and clusterStatus
-	if application.Status.JobStatus != (v1beta1.FlinkJobStatus{}) {
-		s.flinkController.UpdateLatestJobStatus(ctx, application, application.Status.JobStatus)
-		application.Status.JobStatus = v1beta1.FlinkJobStatus{}
-	}
-
-	if application.Status.ClusterStatus != (v1beta1.FlinkClusterStatus{}) {
-		s.flinkController.UpdateLatestClusterStatus(ctx, application, application.Status.ClusterStatus)
-		application.Status.ClusterStatus = v1beta1.FlinkClusterStatus{}
+		if application.Status.ClusterStatus != (v1beta1.FlinkClusterStatus{}) {
+			s.flinkController.UpdateLatestClusterStatus(ctx, application, application.Status.ClusterStatus)
+			application.Status.ClusterStatus = v1beta1.FlinkClusterStatus{}
+		}
 	}
 }
 

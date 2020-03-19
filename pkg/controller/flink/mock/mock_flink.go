@@ -173,48 +173,63 @@ func (m *FlinkController) GetLatestClusterStatus(ctx context.Context, applicatio
 	if m.GetLatestClusterStatusFunc != nil {
 		return m.GetLatestClusterStatusFunc(ctx, application)
 	}
-
-	return application.Status.VersionStatuses[getCurrentStatusIndex(application)].ClusterStatus
+	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		return application.Status.VersionStatuses[getCurrentStatusIndex(application)].ClusterStatus
+	}
+	return application.Status.ClusterStatus
 }
 
 func (m *FlinkController) GetLatestJobStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkJobStatus {
 	if m.GetLatestClusterStatusFunc != nil {
 		return m.GetLatestJobStatusFunc(ctx, application)
 	}
-
-	return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus
+	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus
+	}
+	return application.Status.JobStatus
 }
 
 func (m *FlinkController) GetLatestJobID(ctx context.Context, application *v1beta1.FlinkApplication) string {
 	if m.GetLatestClusterStatusFunc != nil {
 		return m.GetLatestJobIDFunc(ctx, application)
 	}
-
-	return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID
+	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID
+	}
+	return application.Status.JobStatus.JobID
 }
 
 func (m *FlinkController) UpdateLatestJobID(ctx context.Context, application *v1beta1.FlinkApplication, jobID string) {
 	if m.UpdateLatestJobIDFunc != nil {
 		m.UpdateLatestJobIDFunc(ctx, application, jobID)
 	}
-
-	application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID = jobID
+	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID = jobID
+		return
+	}
+	application.Status.JobStatus.JobID = jobID
 }
 
 func (m *FlinkController) UpdateLatestJobStatus(ctx context.Context, application *v1beta1.FlinkApplication, jobStatus v1beta1.FlinkJobStatus) {
 	if m.UpdateLatestJobStatusFunc != nil {
 		m.UpdateLatestJobStatusFunc(ctx, application, jobStatus)
 	}
-
-	application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus = jobStatus
+	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus = jobStatus
+		return
+	}
+	application.Status.JobStatus = jobStatus
 }
 
 func (m *FlinkController) UpdateLatestClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication, clusterStatus v1beta1.FlinkClusterStatus) {
 	if m.UpdateLatestClusterStatusFunc != nil {
 		m.UpdateLatestClusterStatusFunc(ctx, application, clusterStatus)
 	}
-
-	application.Status.VersionStatuses[getCurrentStatusIndex(application)].ClusterStatus = clusterStatus
+	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		application.Status.VersionStatuses[getCurrentStatusIndex(application)].ClusterStatus = clusterStatus
+		return
+	}
+	application.Status.ClusterStatus = clusterStatus
 }
 
 func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {

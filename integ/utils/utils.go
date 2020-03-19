@@ -453,7 +453,7 @@ func (f *TestUtil) WaitForAllTasksRunning(name string) error {
 		return err
 	}
 
-	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.VersionStatuses[f.GetCurrentStatusIndex(flinkApp)].JobStatus.JobID)
+	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.JobStatus.JobID)
 	for {
 		res, err := f.FlinkAPIGet(flinkApp, endpoint)
 		if err != nil {
@@ -519,13 +519,4 @@ func (f *TestUtil) GetJobOverview(app *flinkapp.FlinkApplication) map[string]int
 		}
 	}
 	return nil
-}
-
-func (f *TestUtil) GetCurrentStatusIndex(app *flinkapp.FlinkApplication) int32 {
-	desiredCount := flinkapp.GetMaxRunningJobs(app.Spec.DeploymentMode)
-	if app.Status.Phase != "Running" {
-		return 0
-	}
-
-	return desiredCount - 1
 }

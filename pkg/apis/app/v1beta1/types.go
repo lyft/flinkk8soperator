@@ -196,6 +196,7 @@ const (
 
 type FlinkApplicationVersionStatus struct {
 	Version       FlinkApplicationVersion `json:"appVersion,omitempty"`
+	VersionHash   string                  `json:"versionHash,omitempty"`
 	ClusterStatus FlinkClusterStatus      `json:"clusterStatus,omitempty"`
 	JobStatus     FlinkJobStatus          `json:"jobStatus,omitempty"`
 }
