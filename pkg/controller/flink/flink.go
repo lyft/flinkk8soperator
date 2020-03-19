@@ -650,16 +650,35 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1
 	return !apiequality.Semantic.DeepEqual(oldJobStatus, app.Status.JobStatus), err
 }
 
+// Only used with the BlueGreen DeploymentMode
+// A method to identify the current VersionStatus
 func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
-	// In the Running phase, we always have only 1 job
-	if v1beta1.IsRunningPhase(app.Status.Phase) {
+	// The current VersionStatus is the first (or earlier) version when
+	// 1. The application is a Running phase and there's only one job running
+	// 2. First deploy ever
+	// 3. When the savepoint is being taken on the existing job
+	if v1beta1.IsRunningPhase(app.Status.Phase) || app.Status.DeployHash == "" ||
+		app.Status.Phase == v1beta1.FlinkApplicationSavepointing {
 		return 0
 	}
 
-	// In every other state, we either have
-	// Dual mode --> One Application status object
-	// BlueGreen mode --> Two Application status objects
-	return v1beta1.GetMaxRunningJobs(app.Spec.DeploymentMode) - indexOffset
+	if app.Status.Phase == v1beta1.FlinkApplicationDualRunning {
+		return 1
+	}
+
+	// activeJobs and maxRunningJobs would be different once a Teardown has happened and
+	// the app has moved back to a Running state.
+	activeJobs := int32(len(app.Status.VersionStatuses))
+	maxRunningJobs := v1beta1.GetMaxRunningJobs(app.Spec.DeploymentMode)
+	index := Min(activeJobs, maxRunningJobs) - indexOffset
+	return index
+}
+
+func Min(x, y int32) int32 {
+	if x < y {
+		return x
+	}
+	return y
 }
 
 func (f *Controller) GetLatestClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkClusterStatus {
