@@ -44,6 +44,7 @@ type FlinkApplicationSpec struct {
 	// Deprecated: use SavepointPath instead
 	SavepointInfo                  SavepointInfo       `json:"savepointInfo,omitempty"`
 	SavepointPath                  string              `json:"savepointPath,omitempty"`
+	SavepointDisabled              bool                `json:"savepointDisabled"`
 	DeploymentMode                 DeploymentMode      `json:"deploymentMode,omitempty"`
 	RPCPort                        *int32              `json:"rpcPort,omitempty"`
 	BlobPort                       *int32              `json:"blobPort,omitempty"`
@@ -220,6 +221,7 @@ const (
 	FlinkApplicationSubmittingJob   FlinkApplicationPhase = "SubmittingJob"
 	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
 	FlinkApplicationSavepointing    FlinkApplicationPhase = "Savepointing"
+	FlinkApplicationCancelling      FlinkApplicationPhase = "Cancelling"
 	FlinkApplicationDeleting        FlinkApplicationPhase = "Deleting"
 	FlinkApplicationRecovering      FlinkApplicationPhase = "Recovering"
 	FlinkApplicationRollingBackJob  FlinkApplicationPhase = "RollingBackJob"
@@ -233,6 +235,7 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationSubmittingJob,
 	FlinkApplicationRunning,
 	FlinkApplicationSavepointing,
+	FlinkApplicationCancelling,
 	FlinkApplicationDeleting,
 	FlinkApplicationRecovering,
 	FlinkApplicationDeployFailed,

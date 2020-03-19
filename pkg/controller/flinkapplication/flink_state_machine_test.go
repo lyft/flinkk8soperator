@@ -81,6 +81,140 @@ func TestHandleStartingClusterStarting(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestHandleNewOrCreateWithSavepointDisabled(t *testing.T) {
+	updateInvoked := false
+	app := v1beta1.FlinkApplication{
+		Spec: v1beta1.FlinkApplicationSpec{
+			SavepointDisabled: true,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:      v1beta1.FlinkApplicationClusterStarting,
+			DeployHash: "old-hash",
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.IsClusterReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+		return true, nil
+	}
+	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (b bool, e error) {
+		return true, nil
+	}
+	mockFlinkController.GetCurrentDeploymentsForAppFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
+		fd := testFlinkDeployment(application)
+		fd.Taskmanager.Status.AvailableReplicas = 2
+		fd.Jobmanager.Status.AvailableReplicas = 1
+		return &fd, nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		return nil
+	}
+
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+		application := object.(*v1beta1.FlinkApplication)
+		assert.Equal(t, v1beta1.FlinkApplicationCancelling, application.Status.Phase)
+		updateInvoked = true
+		return nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.True(t, updateInvoked)
+}
+
+func TestHandleApplicationCancel(t *testing.T) {
+	jobID := "j1"
+	app := v1beta1.FlinkApplication{
+		Spec: v1beta1.FlinkApplicationSpec{
+			SavepointDisabled: true,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:      v1beta1.FlinkApplicationCancelling,
+			DeployHash: "old-hash",
+		},
+	}
+
+	cancelInvoked := false
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		assert.Equal(t, "old-hash", hash)
+		return &client.FlinkJobOverview{
+			JobID: jobID,
+			State: client.Running,
+		}, nil
+	}
+
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (e error) {
+		assert.Equal(t, "old-hash", hash)
+		cancelInvoked = true
+
+		return nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+		application := object.(*v1beta1.FlinkApplication)
+		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
+		return nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+
+	assert.True(t, cancelInvoked)
+}
+
+func TestHandleApplicationCancelFailedWithMaxRetries(t *testing.T) {
+
+	retryableErr := client.GetRetryableError(errors.New("blah"), "ForceCancelJob", "FAILED", 5)
+	app := v1beta1.FlinkApplication{
+		Spec: v1beta1.FlinkApplicationSpec{
+			SavepointDisabled: true,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:         v1beta1.FlinkApplicationCancelling,
+			DeployHash:    "old-hash",
+			LastSeenError: retryableErr.(*v1beta1.FlinkApplicationError),
+		},
+	}
+
+	app.Status.LastSeenError.LastErrorUpdateTime = nil
+	updateInvoked := false
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
+		// given we maxed out on retries, we should never have come here
+		assert.False(t, true)
+		return nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+		updateInvoked = true
+		application := object.(*v1beta1.FlinkApplication)
+		assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
+		return nil
+	}
+
+	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
+	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
+		return true
+	}
+	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
+		return false
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+
+	assert.True(t, updateInvoked)
+}
+
 func TestHandleStartingDual(t *testing.T) {
 	updateInvoked := false
 	stateMachineForTest := getTestStateMachine()
@@ -313,7 +447,7 @@ func TestSubmittingToRunning(t *testing.T) {
 		assert.Equal(t, app.Spec.EntryClass, entryClass)
 		assert.Equal(t, app.Spec.ProgramArgs, programArgs)
 		assert.Equal(t, app.Spec.AllowNonRestoredState, allowNonRestoredState)
-		assert.Equal(t, app.Spec.SavepointPath, savepointPath)
+		assert.Equal(t, app.Status.SavepointPath, savepointPath)
 
 		startCount++
 		return jobID, nil
