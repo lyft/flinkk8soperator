@@ -205,6 +205,8 @@ func (in *FlinkApplicationStatus) DeepCopyInto(out *FlinkApplicationStatus) {
 		in, out := &in.LastUpdatedAt, &out.LastUpdatedAt
 		*out = (*in).DeepCopy()
 	}
+	out.ClusterStatus = in.ClusterStatus
+	in.JobStatus.DeepCopyInto(&out.JobStatus)
 	if in.VersionStatuses != nil {
 		in, out := &in.VersionStatuses, &out.VersionStatuses
 		*out = make([]FlinkApplicationVersionStatus, len(*in))

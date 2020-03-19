@@ -176,10 +176,9 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta2.Fli
 			updateApplication, appErr = s.handleSubmittingJob(ctx, application)
 		case v1beta2.FlinkApplicationRunning, v1beta2.FlinkApplicationDeployFailed:
 			updateApplication, appErr = s.handleApplicationRunning(ctx, application)
-		case v1beta2.FlinkApplicationSavepointing:
-		case v1beta1.FlinkApplicationCancelling:
+		case v1beta2.FlinkApplicationCancelling:
 			updateApplication, appErr = s.handleApplicationCancelling(ctx, application)
-		case v1beta1.FlinkApplicationSavepointing:
+		case v1beta2.FlinkApplicationSavepointing:
 			updateApplication, appErr = s.handleApplicationSavepointing(ctx, application)
 		case v1beta2.FlinkApplicationRecovering:
 			updateApplication, appErr = s.handleApplicationRecovering(ctx, application)
