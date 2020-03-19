@@ -13,9 +13,9 @@ import (
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-resty/resty"
-	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
+	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
-	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta2"
+	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
 	"github.com/prometheus/common/log"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -348,7 +348,7 @@ func (f *TestUtil) ReadFlinkApplication(path string) (*flinkapp.FlinkApplication
 }
 
 func (f *TestUtil) FlinkApps() client.FlinkApplicationInterface {
-	return f.FlinkApplicationClient.FlinkV1beta2().FlinkApplications(f.Namespace.Name)
+	return f.FlinkApplicationClient.FlinkV1beta1().FlinkApplications(f.Namespace.Name)
 }
 
 func (f *TestUtil) CreateFlinkApplication(application *flinkapp.FlinkApplication) error {

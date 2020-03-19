@@ -3,14 +3,14 @@ package flink
 import (
 	"testing"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestHashForApplication(t *testing.T) {
-	app := v1beta2.FlinkApplication{}
+	app := v1beta1.FlinkApplication{}
 	taskSlots := int32(8)
 	app.Spec.TaskManagerConfig.TaskSlots = &taskSlots
 	app.Spec.Parallelism = 4
@@ -49,7 +49,7 @@ func TestHashForApplication(t *testing.T) {
 }
 
 func TestHashForDifferentResourceScales(t *testing.T) {
-	app1 := v1beta2.FlinkApplication{}
+	app1 := v1beta1.FlinkApplication{}
 	app1.Spec.TaskManagerConfig.Resources = &v1.ResourceRequirements{
 		Requests: v1.ResourceList{
 			v1.ResourceCPU:    resource.MustParse("0.5"),
@@ -61,7 +61,7 @@ func TestHashForDifferentResourceScales(t *testing.T) {
 		},
 	}
 
-	app2 := v1beta2.FlinkApplication{}
+	app2 := v1beta1.FlinkApplication{}
 	app2.Spec.TaskManagerConfig.Resources = &v1.ResourceRequirements{
 		Requests: v1.ResourceList{
 			v1.ResourceCPU:    resource.MustParse("500m"),

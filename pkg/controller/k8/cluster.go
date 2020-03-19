@@ -210,7 +210,7 @@ func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error
 			// the stored version of the CRD changes
 			// Example of error:
 			// K8s object update failed FlinkApplication.flink.k8s.io "operator-test-app" is invalid:
-			// apiVersion: Invalid value: "flink.k8s.io/v1beta1": must be flink.k8s.io/v1beta2
+			// apiVersion: Invalid value: "flink.k8s.io/v1beta1": must be flink.k8s.io/v1beta1
 			// app_name=operator-test-app ns=default phase=Running src="cluster.go:209"
 			// This should only ever be encountered once (per application)
 			// when a new CRD version is deployed and an older version of the application exists

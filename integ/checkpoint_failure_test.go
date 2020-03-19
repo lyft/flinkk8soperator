@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +17,7 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 	config.Name = testName + "job"
-	config.Spec.DeleteMode = v1beta2.DeleteModeForceCancel
+	config.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
 
 	config.ObjectMeta.Labels["integTest"] = testName
 
@@ -27,7 +27,7 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	// Cause it to fail
 	causeFailure()
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta2.FlinkApplicationRunning, v1beta2.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 
 	// wait a bit for it to start failing
 	time.Sleep(5 * time.Second)
@@ -40,7 +40,7 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	c.Assert(err, IsNil)
 
 	// because the checkpoint will fail, the app should move to deploy failed
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta2.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationDeployFailed), IsNil)
 
 	// And the job should not have been updated
 	newApp, err := s.Util.GetFlinkApplication(config.Name)

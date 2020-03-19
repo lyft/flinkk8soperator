@@ -7,7 +7,7 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/clock"
@@ -21,25 +21,25 @@ const (
 	NoRetries          = 0
 )
 
-func GetRetryableError(err error, method v1beta2.FlinkMethod, errorCode string, maxRetries int32) error {
+func GetRetryableError(err error, method v1beta1.FlinkMethod, errorCode string, maxRetries int32) error {
 	return GetRetryableErrorWithMessage(err, method, errorCode, maxRetries, "")
 }
 
-func GetRetryableErrorWithMessage(err error, method v1beta2.FlinkMethod, errorCode string, maxRetries int32, message string) error {
+func GetRetryableErrorWithMessage(err error, method v1beta1.FlinkMethod, errorCode string, maxRetries int32, message string) error {
 	appError := getErrorValue(err, method, errorCode, message)
 	return NewFlinkApplicationError(appError.Error(), method, errorCode, true, false, maxRetries)
 }
 
-func GetNonRetryableError(err error, method v1beta2.FlinkMethod, errorCode string) error {
+func GetNonRetryableError(err error, method v1beta1.FlinkMethod, errorCode string) error {
 	return GetNonRetryableErrorWithMessage(err, method, errorCode, "")
 }
 
-func GetNonRetryableErrorWithMessage(err error, method v1beta2.FlinkMethod, errorCode string, message string) error {
+func GetNonRetryableErrorWithMessage(err error, method v1beta1.FlinkMethod, errorCode string, message string) error {
 	appError := getErrorValue(err, method, errorCode, message)
 	return NewFlinkApplicationError(appError.Error(), method, errorCode, false, true, NoRetries)
 }
 
-func getErrorValue(err error, method v1beta2.FlinkMethod, errorCode string, message string) error {
+func getErrorValue(err error, method v1beta1.FlinkMethod, errorCode string, message string) error {
 	if err == nil {
 		return errors.New(fmt.Sprintf("%v call failed with status %v and message '%s'", method, errorCode, message))
 	}
@@ -76,7 +76,7 @@ func (r RetryHandler) IsErrorRetryable(err error) bool {
 	if err == nil {
 		return false
 	}
-	flinkAppError, ok := err.(*v1beta2.FlinkApplicationError)
+	flinkAppError, ok := err.(*v1beta1.FlinkApplicationError)
 	if ok && flinkAppError != nil {
 		return flinkAppError.IsRetryable
 	}
@@ -85,7 +85,7 @@ func (r RetryHandler) IsErrorRetryable(err error) bool {
 }
 
 func (r RetryHandler) IsRetryRemaining(err error, retryCount int32) bool {
-	flinkAppError, ok := err.(*v1beta2.FlinkApplicationError)
+	flinkAppError, ok := err.(*v1beta1.FlinkApplicationError)
 	if ok && flinkAppError != nil {
 		return retryCount <= flinkAppError.MaxRetries
 	}
@@ -112,7 +112,7 @@ func (r RetryHandler) IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time
 	return elapsedTime >= r.GetRetryDelay(retryCount)
 }
 
-func NewFlinkApplicationError(appError string, method v1beta2.FlinkMethod, errorCode string, isRetryable bool, isFailFast bool, maxRetries int32) *v1beta2.FlinkApplicationError {
+func NewFlinkApplicationError(appError string, method v1beta1.FlinkMethod, errorCode string, isRetryable bool, isFailFast bool, maxRetries int32) *v1beta1.FlinkApplicationError {
 	now := v1.Now()
-	return &v1beta2.FlinkApplicationError{AppError: appError, Method: method, ErrorCode: errorCode, IsRetryable: isRetryable, IsFailFast: isFailFast, MaxRetries: maxRetries, LastErrorUpdateTime: &now}
+	return &v1beta1.FlinkApplicationError{AppError: appError, Method: method, ErrorCode: errorCode, IsRetryable: isRetryable, IsFailFast: isFailFast, MaxRetries: maxRetries, LastErrorUpdateTime: &now}
 }

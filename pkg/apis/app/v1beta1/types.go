@@ -168,19 +168,36 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase              FlinkApplicationPhase  `json:"phase"`
-	StartedAt          *metav1.Time           `json:"startedAt,omitempty"`
-	LastUpdatedAt      *metav1.Time           `json:"lastUpdatedAt,omitempty"`
-	Reason             string                 `json:"reason,omitempty"`
-	ClusterStatus      FlinkClusterStatus     `json:"clusterStatus,omitempty"`
-	JobStatus          FlinkJobStatus         `json:"jobStatus"`
-	FailedDeployHash   string                 `json:"failedDeployHash,omitempty"`
-	RollbackHash       string                 `json:"rollbackHash,omitempty"`
-	DeployHash         string                 `json:"deployHash"`
-	SavepointTriggerID string                 `json:"savepointTriggerId,omitempty"`
-	SavepointPath      string                 `json:"savepointPath,omitempty"`
-	RetryCount         int32                  `json:"retryCount,omitempty"`
-	LastSeenError      *FlinkApplicationError `json:"lastSeenError,omitempty"`
+	Phase           FlinkApplicationPhase `json:"phase"`
+	StartedAt       *metav1.Time          `json:"startedAt,omitempty"`
+	LastUpdatedAt   *metav1.Time          `json:"lastUpdatedAt,omitempty"`
+	Reason          string                `json:"reason,omitempty"`
+	DeployVersion   string                `json:"deployVersion,omitempty"`
+	UpdatingVersion string                `json:"updatingVersion,omitempty"`
+	// To ensure backward compatibility, repeat ClusterStatus and JobStatus
+	ClusterStatus      FlinkClusterStatus              `json:"clusterStatus,omitempty"`
+	JobStatus          FlinkJobStatus                  `json:"jobStatus,omitempty"`
+	VersionStatuses    []FlinkApplicationVersionStatus `json:"versionStatuses,omitempty"`
+	FailedDeployHash   string                          `json:"failedDeployHash,omitempty"`
+	RollbackHash       string                          `json:"rollbackHash,omitempty"`
+	DeployHash         string                          `json:"deployHash"`
+	SavepointTriggerID string                          `json:"savepointTriggerId,omitempty"`
+	SavepointPath      string                          `json:"savepointPath,omitempty"`
+	RetryCount         int32                           `json:"retryCount,omitempty"`
+	LastSeenError      *FlinkApplicationError          `json:"lastSeenError,omitempty"`
+}
+
+type FlinkApplicationVersion string
+
+const (
+	BlueFlinkApplication  FlinkApplicationVersion = "Blue"
+	GreenFlinkApplication FlinkApplicationVersion = "Green"
+)
+
+type FlinkApplicationVersionStatus struct {
+	Version       FlinkApplicationVersion `json:"appVersion,omitempty"`
+	ClusterStatus FlinkClusterStatus      `json:"clusterStatus,omitempty"`
+	JobStatus     FlinkJobStatus          `json:"jobStatus,omitempty"`
 }
 
 func (in *FlinkApplicationStatus) GetPhase() FlinkApplicationPhase {
@@ -226,6 +243,8 @@ const (
 	FlinkApplicationRecovering      FlinkApplicationPhase = "Recovering"
 	FlinkApplicationRollingBackJob  FlinkApplicationPhase = "RollingBackJob"
 	FlinkApplicationDeployFailed    FlinkApplicationPhase = "DeployFailed"
+	FlinkApplicationDualRunning     FlinkApplicationPhase = "DualRunning"
+	FlinkApplicationTeardown        FlinkApplicationPhase = "Teardown"
 )
 
 var FlinkApplicationPhases = []FlinkApplicationPhase{
@@ -240,17 +259,35 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationRecovering,
 	FlinkApplicationDeployFailed,
 	FlinkApplicationRollingBackJob,
+	FlinkApplicationDualRunning,
+	FlinkApplicationTeardown,
 }
 
 func IsRunningPhase(phase FlinkApplicationPhase) bool {
 	return phase == FlinkApplicationRunning || phase == FlinkApplicationDeployFailed
 }
 
+func IsBlueGreenDeploymentMode(mode DeploymentMode) bool {
+	// Backaward compatibility between v1beta1 and v1beta1
+	if mode == DeploymentModeDual {
+		return false
+	}
+	return mode == DeploymentModeBlueGreen
+}
+
+func GetMaxRunningJobs(mode DeploymentMode) int32 {
+	if IsBlueGreenDeploymentMode(mode) {
+		return int32(2)
+	}
+	return int32(1)
+}
+
 type DeploymentMode string
 
 const (
-	DeploymentModeSingle DeploymentMode = "Single"
-	DeploymentModeDual   DeploymentMode = "Dual"
+	DeploymentModeSingle    DeploymentMode = "Single"
+	DeploymentModeDual      DeploymentMode = "Dual"
+	DeploymentModeBlueGreen DeploymentMode = "BlueGreen"
 )
 
 type DeleteMode string

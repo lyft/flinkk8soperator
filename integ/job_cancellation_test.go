@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func WaitUpdateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta2.FlinkApplication), failurePhase v1beta2.FlinkApplicationPhase) *v1beta2.FlinkApplication {
+func WaitUpdateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
 
 	// update with new appln image.
 	app, err := s.Util.Update(name, updateFn)
@@ -27,7 +27,7 @@ func WaitUpdateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	c.Assert(s.Util.WaitForPhase(name, v1beta2.FlinkApplicationRunning, failurePhase), IsNil)
+	c.Assert(s.Util.WaitForPhase(name, v1beta1.FlinkApplicationRunning, failurePhase), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(name), IsNil)
 
 	// check that the new job started from an empty savepoint.
@@ -59,7 +59,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 
 	config.Name = testName + "job"
-	config.Spec.DeleteMode = v1beta2.DeleteModeForceCancel
+	config.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
 	config.Spec.SavepointDisabled = true
 	config.ObjectMeta.Labels["integTest"] = testName
 	config.Finalizers = append(config.Finalizers, finalizer)
@@ -67,7 +67,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta2.FlinkApplicationRunning, v1beta2.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
@@ -79,9 +79,9 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	}
 
 	// test updating the app with a new image
-	newApp := WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta2.FlinkApplication) {
+	newApp := WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
-	}, v1beta2.FlinkApplicationDeployFailed)
+	}, v1beta1.FlinkApplicationDeployFailed)
 
 	c.Assert(newApp.Spec.Image, Equals, NewImage)
 	c.Assert(newApp.Status.SavepointPath, Equals, "")
@@ -96,7 +96,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 
 	// cleanup
 	c.Assert(s.Util.FlinkApps().Delete(newApp.Name, &v1.DeleteOptions{}), IsNil)
-	var app *v1beta2.FlinkApplication
+	var app *v1beta1.FlinkApplication
 	for {
 		app, err = s.Util.GetFlinkApplication(config.Name)
 		c.Assert(err, IsNil)
@@ -134,14 +134,14 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 
 	config.Name = testName + "job"
-	config.Spec.DeleteMode = v1beta2.DeleteModeForceCancel
+	config.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
 	config.Spec.SavepointDisabled = true
 	config.ObjectMeta.Labels["integTest"] = testName
 
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta2.FlinkApplicationRunning, v1beta2.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	currApp, _ := s.Util.GetFlinkApplication(config.Name)
@@ -160,7 +160,7 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	job = s.Util.GetJobOverview(currApp)
 	c.Assert(job["status"], Equals, "CANCELED")
 
-	newApp, err := s.Util.Update(config.Name, func(app *v1beta2.FlinkApplication) {
+	newApp, err := s.Util.Update(config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
 	})
 	c.Assert(err, IsNil)
@@ -177,7 +177,7 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	}
 
 	// we should end up in the Running of the new job
-	c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta2.FlinkApplicationRunning, v1beta2.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(newApp.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 
 	newApp, err = s.Util.GetFlinkApplication(newApp.Name)
 	c.Assert(err, IsNil)
@@ -211,25 +211,25 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 	config.Name = testName
 	config.ObjectMeta.Labels["integTest"] = testName
 	config.Finalizers = append(config.Finalizers, finalizer)
-	config.Spec.DeleteMode = v1beta2.DeleteModeForceCancel
+	config.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
 	config.Spec.SavepointDisabled = true
 
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta2.FlinkApplicationRunning, v1beta2.FlinkApplicationSavepointing), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationSavepointing), IsNil)
 
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 	currApp, _ := s.Util.GetFlinkApplication(config.Name)
 	c.Assert(currApp.Status.SavepointPath, Equals, "")
 
 	// Test updating the app with a bad jar name -- this should cause a failed deploy and roll back
-	_, err = s.Util.Update(config.Name, func(app *v1beta2.FlinkApplication) {
+	_, err = s.Util.Update(config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.JarName = "nonexistent.jar"
 		app.Spec.RestartNonce = "rollback"
 	})
 	c.Assert(err, IsNil)
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta2.FlinkApplicationDeployFailed, ""), IsNil)
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationDeployFailed, ""), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	// assert the restart of the job with a new job id and old deploy hash.
@@ -249,7 +249,7 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 	c.Assert(restored, IsNil)
 
 	// roll forward with the right config.
-	_ = WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta2.FlinkApplication) {
+	_ = WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.JarName = config.Spec.JarName
 		app.Spec.RestartNonce = "rollback2"
 		app.Spec.Image = NewImage
@@ -265,7 +265,7 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 
 	// delete the application and ensure everything is cleaned up successfully
 	c.Assert(s.Util.FlinkApps().Delete(config.Name, &v1.DeleteOptions{}), IsNil)
-	var app *v1beta2.FlinkApplication
+	var app *v1beta1.FlinkApplication
 	for {
 		app, err = s.Util.GetFlinkApplication(config.Name)
 		c.Assert(err, IsNil)

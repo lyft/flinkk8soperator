@@ -4,7 +4,6 @@ package versioned
 
 import (
 	flinkv1beta1 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
-	flinkv1beta2 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta2"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -13,7 +12,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	FlinkV1beta1() flinkv1beta1.FlinkV1beta1Interface
-	FlinkV1beta2() flinkv1beta2.FlinkV1beta2Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -21,17 +19,11 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	flinkV1beta1 *flinkv1beta1.FlinkV1beta1Client
-	flinkV1beta2 *flinkv1beta2.FlinkV1beta2Client
 }
 
 // FlinkV1beta1 retrieves the FlinkV1beta1Client
 func (c *Clientset) FlinkV1beta1() flinkv1beta1.FlinkV1beta1Interface {
 	return c.flinkV1beta1
-}
-
-// FlinkV1beta2 retrieves the FlinkV1beta2Client
-func (c *Clientset) FlinkV1beta2() flinkv1beta2.FlinkV1beta2Interface {
-	return c.flinkV1beta2
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -54,10 +46,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	cs.flinkV1beta2, err = flinkv1beta2.NewForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -71,7 +59,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.flinkV1beta1 = flinkv1beta1.NewForConfigOrDie(c)
-	cs.flinkV1beta2 = flinkv1beta2.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -81,7 +68,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.flinkV1beta1 = flinkv1beta1.New(c)
-	cs.flinkV1beta2 = flinkv1beta2.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs
