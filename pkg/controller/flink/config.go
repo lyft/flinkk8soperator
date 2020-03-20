@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 )
 
 const (
@@ -36,43 +36,43 @@ func getValidFraction(x *float64, y float64) float64 {
 	return y
 }
 
-func getTaskmanagerSlots(app *v1beta2.FlinkApplication) int32 {
+func getTaskmanagerSlots(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.TaskManagerConfig.TaskSlots, TaskManagerDefaultSlots)
 }
 
-func getJobmanagerReplicas(app *v1beta2.FlinkApplication) int32 {
+func getJobmanagerReplicas(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.JobManagerConfig.Replicas, JobManagerDefaultReplicaCount)
 }
 
-func getServiceAccountName(app *v1beta2.FlinkApplication) string {
+func getServiceAccountName(app *v1beta1.FlinkApplication) string {
 	return app.Spec.ServiceAccountName
 }
 
-func getRPCPort(app *v1beta2.FlinkApplication) int32 {
+func getRPCPort(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.RPCPort, RPCDefaultPort)
 }
 
-func getUIPort(app *v1beta2.FlinkApplication) int32 {
+func getUIPort(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.UIPort, UIDefaultPort)
 }
 
-func getQueryPort(app *v1beta2.FlinkApplication) int32 {
+func getQueryPort(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.QueryPort, QueryDefaultPort)
 }
 
-func getBlobPort(app *v1beta2.FlinkApplication) int32 {
+func getBlobPort(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.BlobPort, BlobDefaultPort)
 }
 
-func getInternalMetricsQueryPort(app *v1beta2.FlinkApplication) int32 {
+func getInternalMetricsQueryPort(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.MetricsQueryPort, MetricsQueryDefaultPort)
 }
 
-func getMaxCheckpointRestoreAgeSeconds(app *v1beta2.FlinkApplication) int32 {
+func getMaxCheckpointRestoreAgeSeconds(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.MaxCheckpointRestoreAgeSeconds, MaxCheckpointRestoreAgeSeconds)
 }
 
-func getTaskManagerMemory(application *v1beta2.FlinkApplication) int64 {
+func getTaskManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	tmResources := application.Spec.TaskManagerConfig.Resources
 	if tmResources == nil {
 		tmResources = &TaskManagerDefaultResources
@@ -81,7 +81,7 @@ func getTaskManagerMemory(application *v1beta2.FlinkApplication) int64 {
 	return tmMemory
 }
 
-func getJobManagerMemory(application *v1beta2.FlinkApplication) int64 {
+func getJobManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	jmResources := application.Spec.JobManagerConfig.Resources
 	if jmResources == nil {
 		jmResources = &JobManagerDefaultResources
@@ -95,13 +95,13 @@ func computeHeap(memoryInBytes float64, fraction float64) string {
 	return fmt.Sprintf("%dk", kbs)
 }
 
-func getTaskManagerHeapMemory(app *v1beta2.FlinkApplication) string {
+func getTaskManagerHeapMemory(app *v1beta1.FlinkApplication) string {
 	offHeapMemoryFrac := getValidFraction(app.Spec.TaskManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
 	tmMemory := float64(getTaskManagerMemory(app))
 	return computeHeap(tmMemory, offHeapMemoryFrac)
 }
 
-func getJobManagerHeapMemory(app *v1beta2.FlinkApplication) string {
+func getJobManagerHeapMemory(app *v1beta1.FlinkApplication) string {
 	offHeapMemoryFrac := getValidFraction(app.Spec.JobManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
 	jmMemory := float64(getJobManagerMemory(app))
 	return computeHeap(jmMemory, offHeapMemoryFrac)
@@ -109,10 +109,10 @@ func getJobManagerHeapMemory(app *v1beta2.FlinkApplication) string {
 
 // Renders the flink configuration overrides stored in FlinkApplication.FlinkConfig into a
 // YAML string suitable for interpolating into flink-conf.yaml.
-func renderFlinkConfig(app *v1beta2.FlinkApplication) (string, error) {
+func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	config := app.Spec.FlinkConfig.DeepCopy()
 	if config == nil {
-		config = &v1beta2.FlinkConfig{}
+		config = &v1beta1.FlinkConfig{}
 	}
 
 	// we will fill this in later using the versioned service
@@ -158,7 +158,7 @@ func renderFlinkConfig(app *v1beta2.FlinkApplication) (string, error) {
 	return s.String(), nil
 }
 
-func isHAEnabled(flinkConfig v1beta2.FlinkConfig) bool {
+func isHAEnabled(flinkConfig v1beta1.FlinkConfig) bool {
 	if val, ok := flinkConfig[HighAvailabilityKey]; ok {
 		value := val.(string)
 		if strings.ToLower(strings.TrimSpace(value)) != "none" {

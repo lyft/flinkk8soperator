@@ -8,6 +8,5 @@ vendor/k8s.io/code-generator/generate-groups.sh \
 deepcopy,client \
 github.com/lyft/flinkk8soperator/pkg/client \
 github.com/lyft/flinkk8soperator/pkg/apis \
-app:v1beta1,v1beta2 \
+app:v1beta1 \
 --go-header-file "./tmp/codegen/boilerplate.go.txt"
-

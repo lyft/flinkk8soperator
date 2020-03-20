@@ -3,7 +3,7 @@ package flink
 import (
 	"testing"
 
-	v1beta22 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
+	v1beta12 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 
@@ -46,7 +46,7 @@ func TestGetJobManagerPodName(t *testing.T) {
 
 func TestGetJobManagerPodNameWithVersion(t *testing.T) {
 	app := getFlinkTestApp()
-	app.Spec.DeploymentMode = v1beta22.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	assert.Equal(t, "app-name-"+testAppHash+"-jm-"+testVersion+"-pod", getJobManagerPodName(&app, testAppHash))
 }
@@ -94,7 +94,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, app.Spec.JobManagerConfig.Tolerations, deployment.Spec.Template.Spec.Tolerations)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
-			assert.Equal(t, "flink.k8s.io/v1beta2", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
 			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+
@@ -171,7 +171,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 			assert.Equal(t, expectedLabels, deployment.Labels)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
-			assert.Equal(t, "flink.k8s.io/v1beta2", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
 			assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1572864k\n"+
@@ -313,7 +313,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.JarName = testJarName
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
-	app.Spec.DeploymentMode = v1beta22.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
 		"key":                  "annotation",
@@ -344,7 +344,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 			assert.Equal(t, expectedLabels, deployment.Labels)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
-			assert.Equal(t, "flink.k8s.io/v1beta2", deployment.OwnerReferences[0].APIVersion)
+			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
 			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+

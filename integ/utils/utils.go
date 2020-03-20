@@ -13,9 +13,9 @@ import (
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-resty/resty"
-	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
+	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
-	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta2"
+	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
 	"github.com/prometheus/common/log"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -348,7 +348,7 @@ func (f *TestUtil) ReadFlinkApplication(path string) (*flinkapp.FlinkApplication
 }
 
 func (f *TestUtil) FlinkApps() client.FlinkApplicationInterface {
-	return f.FlinkApplicationClient.FlinkV1beta2().FlinkApplications(f.Namespace.Name)
+	return f.FlinkApplicationClient.FlinkV1beta1().FlinkApplications(f.Namespace.Name)
 }
 
 func (f *TestUtil) CreateFlinkApplication(application *flinkapp.FlinkApplication) error {
@@ -405,6 +405,30 @@ func (f *TestUtil) FlinkAPIGet(app *flinkapp.FlinkApplication, endpoint string) 
 	return result, nil
 }
 
+func (f *TestUtil) FlinkAPIPatch(app *flinkapp.FlinkApplication, endpoint string) (interface{}, error) {
+
+	url := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/"+
+		"services/%s:8081/proxy/%s",
+		f.Namespace.Name, app.Name, endpoint)
+
+	resp, err := resty.SetRedirectPolicy(resty.FlexibleRedirectPolicy(5)).R().Patch(url)
+	if err != nil {
+		return nil, err
+	}
+
+	if !resp.IsSuccess() {
+		return nil, fmt.Errorf("request failed with code %d", resp.StatusCode())
+	}
+
+	var result interface{}
+	err = json.Unmarshal(resp.Body(), &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 func vertexRunning(vertex map[string]interface{}) bool {
 	if vertex["status"] != "RUNNING" {
 		return false
@@ -429,7 +453,7 @@ func (f *TestUtil) WaitForAllTasksRunning(name string) error {
 		return err
 	}
 
-	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.VersionStatuses[f.GetCurrentStatusIndex(flinkApp)].JobStatus.JobID)
+	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.JobStatus.JobID)
 	for {
 		res, err := f.FlinkAPIGet(flinkApp, endpoint)
 		if err != nil {
@@ -483,11 +507,16 @@ func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplicat
 	}
 }
 
-func (f *TestUtil) GetCurrentStatusIndex(app *flinkapp.FlinkApplication) int32 {
-	desiredCount := flinkapp.GetMaxRunningJobs(app.Spec.DeploymentMode)
-	if app.Status.Phase != "Running" {
-		return 0
-	}
+func (f *TestUtil) GetJobOverview(app *flinkapp.FlinkApplication) map[string]interface{} {
 
-	return desiredCount - 1
+	jobs, _ := f.FlinkAPIGet(app, "/jobs")
+	jobMap := jobs.(map[string]interface{})
+	jobList := jobMap["jobs"].([]interface{})
+	for _, j := range jobList {
+		job := j.(map[string]interface{})
+		if job["id"] == app.Status.JobStatus.JobID {
+			return job
+		}
+	}
+	return nil
 }

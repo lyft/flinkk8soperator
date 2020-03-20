@@ -12,14 +12,11 @@ spec:
     shortNames:
       - flinkapp
   scope: Namespaced
-  version: v1beta2
+  version: v1beta1
   versions:
-    - name: v1beta2
-      served: true
-      storage: true
     - name: v1beta1
       served: true
-      storage: false
+      storage: true
     - name: v1alpha1
       served: true
       storage: false
@@ -117,6 +114,8 @@ spec:
                   type: string
             savepointPath:
               type: string
+            savepointDisabled:
+              type: boolean
             maxCheckpointRestoreAgeSeconds:
               type: integer
               minimum: 1
@@ -448,30 +447,26 @@ spec:
       type: string
       description: The current state machine phase for this FlinkApplication
       JSONPath: .status.phase
-    - name: Application Version
-      type: string
-      description: The version of the Flink cluster
-      JSONPath: .status.versionStatuses[*].version
     - name: Cluster Health
       type: string
       description: The health of the Flink cluster
-      JSONPath: .status.versionStatuses[*].clusterStatus.health
+      JSONPath: .status.clusterStatus.health
     - name: Job Health
       type: string
       description: The health of the Flink job
-      JSONPath: .status.versionStatuses[*].jobStatus.health
+      JSONPath: .status.jobStatus.health
     - name: Healthy TMs
       type: string
-      JSONPath: .status.versionStatuses[*].clusterStatus.healthyTaskManagers
+      JSONPath: ".status.clusterStatus.healthyTaskManagers"
       priority: 1
     - name: Total TMs
       type: string
-      JSONPath: .status.versionStatuses[*].clusterStatus.numberOfTaskManagers
+      JSONPath: ".status.clusterStatus.numberOfTaskManagers"
       priority: 1
     - name: Job Restarts
       type: integer
       description: Number of times the job has restarted
-      JSONPath: .status.versionStatuses[*].jobStatus.jobRestartCount
+      JSONPath: .status.jobStatus.jobRestartCount
     - name: Age
       type: date
       JSONPath: .metadata.creationTimestamp

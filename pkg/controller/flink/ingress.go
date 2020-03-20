@@ -3,7 +3,7 @@ package flink
 import (
 	"regexp"
 
-	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta2"
+	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"

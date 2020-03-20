@@ -3,7 +3,7 @@
 package fake
 
 import (
-	v1beta2 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta2"
+	v1beta1 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
@@ -12,7 +12,7 @@ type FakeFlinkV1beta2 struct {
 	*testing.Fake
 }
 
-func (c *FakeFlinkV1beta2) FlinkApplications(namespace string) v1beta2.FlinkApplicationInterface {
+func (c *FakeFlinkV1beta2) FlinkApplications(namespace string) v1beta1.FlinkApplicationInterface {
 	return &FakeFlinkApplications{c, namespace}
 }
 
