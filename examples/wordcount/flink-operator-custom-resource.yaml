@@ -2,12 +2,16 @@ apiVersion: flink.k8s.io/v1beta1
 kind: FlinkApplication
 metadata:
   name: wordcount-operator-example
-  namespace: flink-operator
   annotations:
   labels:
     environment: development
 spec:
   image: docker.io/lyft/wordcount-operator-example:{sha}
+  # Any ingress annotations can be set there
+  # ingressAnnotations:
+  #   kubernetes.io/ingress.class: nginx
+  # Declare the secret that stores the TLS key and cert
+  # ingressTLSSecretName: "tls-secret"
   deleteMode: None
   flinkConfig:
     taskmanager.heap.size: 200
