@@ -21,8 +21,8 @@ import (
 
 const (
 	JobManagerNameFormat                = "%s-%s-jm"
+	JobManagerVersionNameFormat         = "%s-%s-%s-jm"
 	JobManagerPodNameFormat             = "%s-%s-jm-pod"
-	JobManagerVersionPodNameFormat      = "%s-%s-jm-%s-pod"
 	JobManagerServiceName               = "%s"
 	JobManagerVersionServiceName        = "%s-%s"
 	JobManagerContainerName             = "jobmanager"
@@ -172,15 +172,15 @@ var JobManagerDefaultResources = coreV1.ResourceRequirements{
 
 func getJobManagerPodName(application *v1beta1.FlinkApplication, hash string) string {
 	applicationName := application.Name
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
-		applicationVersion := application.Status.UpdatingVersion
-		return fmt.Sprintf(JobManagerVersionPodNameFormat, applicationName, hash, applicationVersion)
-	}
 	return fmt.Sprintf(JobManagerPodNameFormat, applicationName, hash)
 }
 
 func getJobManagerName(application *v1beta1.FlinkApplication, hash string) string {
 	applicationName := application.Name
+	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		applicationVersion := application.Status.UpdatingVersion
+		return fmt.Sprintf(JobManagerVersionNameFormat, applicationName, hash, applicationVersion)
+	}
 	return fmt.Sprintf(JobManagerNameFormat, applicationName, hash)
 }
 

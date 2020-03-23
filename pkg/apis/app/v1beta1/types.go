@@ -192,8 +192,8 @@ type FlinkApplicationStatus struct {
 type FlinkApplicationVersion string
 
 const (
-	BlueFlinkApplication  FlinkApplicationVersion = "Blue"
-	GreenFlinkApplication FlinkApplicationVersion = "Green"
+	BlueFlinkApplication  FlinkApplicationVersion = "blue"
+	GreenFlinkApplication FlinkApplicationVersion = "green"
 )
 
 type FlinkApplicationVersionStatus struct {

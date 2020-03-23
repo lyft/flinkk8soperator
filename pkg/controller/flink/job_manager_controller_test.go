@@ -44,11 +44,11 @@ func TestGetJobManagerPodName(t *testing.T) {
 	assert.Equal(t, "app-name-"+testAppHash+"-jm-pod", getJobManagerPodName(&app, testAppHash))
 }
 
-func TestGetJobManagerPodNameWithVersion(t *testing.T) {
+func TestGetJobManagerNameWithVersion(t *testing.T) {
 	app := getFlinkTestApp()
 	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
-	assert.Equal(t, "app-name-"+testAppHash+"-jm-"+testVersion+"-pod", getJobManagerPodName(&app, testAppHash))
+	assert.Equal(t, "app-name-"+testAppHash+"-"+testVersion+"-jm", getJobManagerName(&app, testAppHash))
 }
 
 func TestJobManagerCreateSuccess(t *testing.T) {

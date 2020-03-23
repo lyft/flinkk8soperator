@@ -26,6 +26,7 @@ import (
 )
 
 const proxyURL = "http://localhost:%d/api/v1/namespaces/%s/services/%s:8081/proxy"
+const proxyVersionURL = "http://localhost:%d/api/v1/namespaces/%s/services/%s-%s:8081/proxy"
 const port = 8081
 const indexOffset = 1
 
@@ -168,33 +169,32 @@ func (f *Controller) getURLFromApp(application *v1beta1.FlinkApplication, hash s
 	return fmt.Sprintf("http://%s.%s:%d", service, application.Namespace, port)
 }
 
-func (f *Controller) getClusterOverviewURL(app *v1beta1.FlinkApplication) string {
-	externalURL := f.getExternalURLFromApp(app)
+func (f *Controller) getClusterOverviewURL(app *v1beta1.FlinkApplication, version string) string {
+	externalURL := f.getExternalURLFromApp(app, version)
 	if externalURL != "" {
 		return fmt.Sprintf(externalURL + client.WebUIAnchor + client.GetClusterOverviewURL)
 	}
 	return ""
 }
 
-func (f *Controller) getJobOverviewURL(ctx context.Context, app *v1beta1.FlinkApplication) string {
-	externalURL := f.getExternalURLFromApp(app)
+func (f *Controller) getJobOverviewURL(app *v1beta1.FlinkApplication, version string, jobID string) string {
+	externalURL := f.getExternalURLFromApp(app, version)
 	if externalURL != "" {
-		return fmt.Sprintf(externalURL+client.WebUIAnchor+client.GetJobsOverviewURL, f.GetLatestJobID(ctx, app))
+		return fmt.Sprintf(externalURL+client.WebUIAnchor+client.GetJobsOverviewURL, jobID)
 	}
 	return ""
 }
 
-func (f *Controller) getExternalURLFromApp(application *v1beta1.FlinkApplication) string {
+func (f *Controller) getExternalURLFromApp(application *v1beta1.FlinkApplication, version string) string {
 	cfg := controllerConfig.GetConfig()
-	ingressName := application.Name
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
-		ingressName = fmt.Sprintf(ingressName, "-", application.Status.UpdatingVersion)
-	}
 	// Local environment
 	if cfg.UseProxy {
+		if version != "" {
+			return fmt.Sprintf(proxyVersionURL, cfg.ProxyPort.Port, application.Namespace, application.Name, version)
+		}
 		return fmt.Sprintf(proxyURL, cfg.ProxyPort.Port, application.Namespace, application.Name)
 	}
-	return GetFlinkUIIngressURL(ingressName)
+	return GetFlinkUIIngressURL(application.Name)
 }
 
 func GetActiveFlinkJobs(jobs []client.FlinkJob) []client.FlinkJob {
@@ -412,7 +412,7 @@ func (f *Controller) GetCurrentDeploymentsForApp(ctx context.Context, applicatio
 	}
 
 	cur := listToFlinkDeployment(deployments.Items, curHash)
-	if cur != nil && application.Status.FailedDeployHash == "" &&
+	if cur != nil && application.Status.FailedDeployHash == "" && application.Status.TeardownHash == "" &&
 		(!f.deploymentMatches(ctx, cur.Jobmanager, application, curHash) || !f.deploymentMatches(ctx, cur.Taskmanager, application, curHash)) {
 		// we had a hash collision (i.e., the previous application has the same hash as the new one)
 		// this is *very* unlikely to occur (1/2^32)
@@ -518,7 +518,7 @@ func (f *Controller) LogEvent(ctx context.Context, app *v1beta1.FlinkApplication
 // Gets and updates the cluster status
 func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
 	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
-		return f.compareAndUpdateBlueGreenClusterStatus(ctx, application, hash)
+		return f.compareAndUpdateBlueGreenClusterStatus(ctx, application)
 	}
 	// Error retrieving cluster / taskmanagers overview (after startup/readiness) --> Red
 	// If there is an error this loop will return with Health set to Red
@@ -530,7 +530,7 @@ func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, applicat
 		return false, err
 	}
 
-	application.Status.ClusterStatus.ClusterOverviewURL = f.getClusterOverviewURL(application)
+	application.Status.ClusterStatus.ClusterOverviewURL = f.getClusterOverviewURL(application, "")
 	application.Status.ClusterStatus.NumberOfTaskManagers = deployment.Taskmanager.Status.AvailableReplicas
 	// Get Cluster overview
 	response, err := f.flinkClient.GetClusterOverview(ctx, f.getURLFromApp(application, hash))
@@ -575,7 +575,7 @@ func getHealthyTaskManagerCount(response *client.TaskManagersResponse) int32 {
 
 func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (bool, error) {
 	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
-		return f.compareAndUpdateBlueGreenJobStatus(ctx, app, hash)
+		return f.compareAndUpdateBlueGreenJobStatus(ctx, app)
 	}
 	if app.Status.JobStatus.LastFailingTime == nil {
 		initTime := metav1.NewTime(time.Time{})
@@ -594,7 +594,7 @@ func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1
 	}
 
 	// Job status
-	app.Status.JobStatus.JobOverviewURL = f.getJobOverviewURL(ctx, app)
+	app.Status.JobStatus.JobOverviewURL = f.getJobOverviewURL(app, "", app.Status.JobStatus.JobID)
 	app.Status.JobStatus.State = v1beta1.JobState(jobResponse.State)
 	jobStartTime := metav1.NewTime(time.Unix(jobResponse.StartTime/1000, 0))
 	app.Status.JobStatus.StartTime = &jobStartTime
@@ -738,13 +738,13 @@ func (f *Controller) UpdateLatestJobID(ctx context.Context, app *v1beta1.FlinkAp
 	app.Status.JobStatus.JobID = jobID
 }
 
-func (f *Controller) compareAndUpdateBlueGreenClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
+func (f *Controller) compareAndUpdateBlueGreenClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	isEqual := false
 	for currIndex := range application.Status.VersionStatuses {
 		if application.Status.VersionStatuses[currIndex].VersionHash == "" {
 			continue
 		}
-
+		hash := application.Status.VersionStatuses[currIndex].VersionHash
 		oldClusterStatus := application.Status.VersionStatuses[currIndex].ClusterStatus
 		application.Status.VersionStatuses[currIndex].ClusterStatus.Health = v1beta1.Red
 
@@ -753,7 +753,8 @@ func (f *Controller) compareAndUpdateBlueGreenClusterStatus(ctx context.Context,
 			return false, err
 		}
 
-		application.Status.VersionStatuses[currIndex].ClusterStatus.ClusterOverviewURL = f.getClusterOverviewURL(application)
+		version := string(application.Status.VersionStatuses[currIndex].Version)
+		application.Status.VersionStatuses[currIndex].ClusterStatus.ClusterOverviewURL = f.getClusterOverviewURL(application, version)
 		application.Status.VersionStatuses[currIndex].ClusterStatus.NumberOfTaskManagers = deployment.Taskmanager.Status.AvailableReplicas
 		// Get Cluster overview
 		response, err := f.flinkClient.GetClusterOverview(ctx, f.getURLFromApp(application, hash))
@@ -785,14 +786,14 @@ func (f *Controller) compareAndUpdateBlueGreenClusterStatus(ctx context.Context,
 	return isEqual, nil
 }
 
-func (f *Controller) compareAndUpdateBlueGreenJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (bool, error) {
+func (f *Controller) compareAndUpdateBlueGreenJobStatus(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	isEqual := false
 	var err error
 	for statusIndex := range app.Status.VersionStatuses {
 		if app.Status.VersionStatuses[statusIndex].JobStatus.JobID == "" {
 			continue
 		}
-
+		hash := app.Status.VersionStatuses[statusIndex].VersionHash
 		if app.Status.VersionStatuses[statusIndex].JobStatus.LastFailingTime == nil {
 			initTime := metav1.NewTime(time.Time{})
 			app.Status.VersionStatuses[statusIndex].JobStatus.LastFailingTime = &initTime
@@ -809,7 +810,8 @@ func (f *Controller) compareAndUpdateBlueGreenJobStatus(ctx context.Context, app
 		}
 
 		// Job status
-		app.Status.VersionStatuses[statusIndex].JobStatus.JobOverviewURL = f.getJobOverviewURL(ctx, app)
+		version := string(app.Status.VersionStatuses[statusIndex].Version)
+		app.Status.VersionStatuses[statusIndex].JobStatus.JobOverviewURL = f.getJobOverviewURL(app, version, app.Status.VersionStatuses[statusIndex].JobStatus.JobID)
 		app.Status.VersionStatuses[statusIndex].JobStatus.State = v1beta1.JobState(jobResponse.State)
 		jobStartTime := metav1.NewTime(time.Unix(jobResponse.StartTime/1000, 0))
 		app.Status.VersionStatuses[statusIndex].JobStatus.StartTime = &jobStartTime
@@ -898,8 +900,8 @@ func (f *Controller) DeleteResourcesForAppWithHash(ctx context.Context, app *v1b
 	for _, d := range deployments.Items {
 		if d.Labels[FlinkAppHash] == hash &&
 			// verify that this deployment matches the jobmanager or taskmanager naming format
-			(d.Name == fmt.Sprintf(JobManagerNameFormat, app.Name, d.Labels[FlinkAppHash]) ||
-				d.Name == fmt.Sprintf(TaskManagerNameFormat, app.Name, d.Labels[FlinkAppHash])) {
+			(d.Name == fmt.Sprintf(JobManagerVersionNameFormat, app.Name, d.Labels[FlinkAppHash], d.Labels[FlinkApplicationVersion]) ||
+				d.Name == fmt.Sprintf(TaskManagerVersionNameFormat, app.Name, d.Labels[FlinkAppHash], d.Labels[FlinkApplicationVersion])) {
 			oldObjects = append(oldObjects, d.DeepCopy())
 		}
 	}
