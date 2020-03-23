@@ -1834,3 +1834,58 @@ func TestBlueGreenUpdateWithError(t *testing.T) {
 	assert.Equal(t, "jobId", app.Status.VersionStatuses[0].JobStatus.JobID)
 
 }
+
+func TestBlueGreenDeployWithSavepointDisabled(t *testing.T) {
+	deployHash := "appHashTest"
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:           "job.jar",
+			Parallelism:       5,
+			EntryClass:        "com.my.Class",
+			ProgramArgs:       "--test",
+			DeploymentMode:    v1beta1.DeploymentModeBlueGreen,
+			SavepointDisabled: true,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:         v1beta1.FlinkApplicationClusterStarting,
+			DeployHash:    deployHash,
+			DeployVersion: v1beta1.GreenFlinkApplication,
+			VersionStatuses: []v1beta1.FlinkApplicationVersionStatus{
+				{
+					JobStatus: v1beta1.FlinkJobStatus{
+						JobID: "jobId",
+						State: v1beta1.Running,
+					},
+					VersionHash: deployHash,
+					Version:     v1beta1.GreenFlinkApplication,
+				},
+				{},
+			},
+		},
+	}
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		return &client.FlinkJobOverview{
+			JobID: "jobID2",
+			State: client.Running,
+		}, nil
+
+	}
+
+	mockFlinkController.IsClusterReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (b bool, err error) {
+		return true, nil
+	}
+
+	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (b bool, err error) {
+		return true, nil
+	}
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, app.Status.Phase)
+}

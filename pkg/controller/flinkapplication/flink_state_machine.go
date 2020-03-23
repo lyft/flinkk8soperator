@@ -305,8 +305,11 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
 	// TODO: in single mode move to submitting job
-	if application.Spec.SavepointDisabled {
+	if application.Spec.SavepointDisabled && !v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationCancelling)
+	} else if application.Spec.SavepointDisabled && v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		// Blue Green deployment and no savepoint required implies, we directly transition to submitting job
+		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 	} else {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSavepointing)
 	}
