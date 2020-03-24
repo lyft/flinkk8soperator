@@ -3,7 +3,7 @@ package flink
 import (
 	"testing"
 
-	v1beta12 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 
@@ -46,7 +46,7 @@ func TestGetJobManagerPodName(t *testing.T) {
 
 func TestGetJobManagerPodNameWithVersion(t *testing.T) {
 	app := getFlinkTestApp()
-	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = flinkapp.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	assert.Equal(t, "app-name-"+testAppHash+"-jm-"+testVersion+"-pod", getJobManagerPodName(&app, testAppHash))
 }
@@ -313,7 +313,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.JarName = testJarName
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
-	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = flinkapp.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
 		"key":                       "annotation",
