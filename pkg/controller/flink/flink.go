@@ -670,7 +670,7 @@ func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
 	// 2. First deploy ever
 	// 3. When the savepoint is being taken on the existing job
 	if v1beta1.IsRunningPhase(app.Status.Phase) || app.Status.DeployHash == "" ||
-		app.Status.Phase == v1beta1.FlinkApplicationSavepointing {
+		app.Status.Phase == v1beta1.FlinkApplicationSavepointing || app.Status.Phase == v1beta1.FlinkApplicationDeleting {
 		return 0
 	}
 
