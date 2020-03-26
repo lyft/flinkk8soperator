@@ -120,6 +120,8 @@ type ControllerInterface interface {
 	DeleteResourcesForAppWithHash(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
 	// Delete status for torn down cluster/job
 	DeleteStatusPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication)
+
+	GetJobToDeleteForApplication(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
 }
 
 func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
@@ -670,7 +672,7 @@ func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
 	// 2. First deploy ever
 	// 3. When the savepoint is being taken on the existing job
 	if v1beta1.IsRunningPhase(app.Status.Phase) || app.Status.DeployHash == "" ||
-		app.Status.Phase == v1beta1.FlinkApplicationSavepointing || app.Status.Phase == v1beta1.FlinkApplicationDeleting {
+		app.Status.Phase == v1beta1.FlinkApplicationSavepointing {
 		return 0
 	}
 
@@ -940,4 +942,23 @@ func (f *Controller) DeleteResourcesForAppWithHash(ctx context.Context, app *v1b
 func (f *Controller) DeleteStatusPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication) {
 	application.Status.VersionStatuses[0] = application.Status.VersionStatuses[1]
 	application.Status.VersionStatuses[1] = v1beta1.FlinkApplicationVersionStatus{}
+}
+
+func (f *Controller) GetJobToDeleteForApplication(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+	jobID := ""
+	for _, status := range app.Status.VersionStatuses {
+		if status.VersionHash == hash {
+			jobID = status.JobStatus.JobID
+		}
+	}
+	if jobID == "" {
+		return nil, nil
+	}
+
+	jobResponse, err := f.flinkClient.GetJobOverview(ctx, f.getURLFromApp(app, hash), jobID)
+	if err != nil {
+		return nil, err
+	}
+
+	return jobResponse, nil
 }

@@ -1889,3 +1889,120 @@ func TestBlueGreenDeployWithSavepointDisabled(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, app.Status.Phase)
 }
+
+func TestDeleteBlueGreenDeployment(t *testing.T) {
+	deployHash := "deployHashDelete"
+	updateHash := "updateHashDelete"
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:           "job.jar",
+			Parallelism:       5,
+			EntryClass:        "com.my.Class",
+			ProgramArgs:       "--test",
+			DeploymentMode:    v1beta1.DeploymentModeBlueGreen,
+			SavepointDisabled: true,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:           v1beta1.FlinkApplicationDeleting,
+			DeployHash:      deployHash,
+			DeployVersion:   v1beta1.GreenFlinkApplication,
+			UpdatingHash:    updateHash,
+			UpdatingVersion: v1beta1.BlueFlinkApplication,
+			VersionStatuses: []v1beta1.FlinkApplicationVersionStatus{
+				{
+					JobStatus: v1beta1.FlinkJobStatus{
+						JobID: "greenId",
+						State: v1beta1.Running,
+					},
+					VersionHash: deployHash,
+					Version:     v1beta1.GreenFlinkApplication,
+				},
+				{
+					JobStatus: v1beta1.FlinkJobStatus{
+						JobID: "blueId",
+						State: v1beta1.Running,
+					},
+					VersionHash: deployHash,
+					Version:     v1beta1.BlueFlinkApplication,
+				},
+			},
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+
+	jobCtr1 := 0
+	jobCtr2 := 0
+	mockFlinkController.GetJobToDeleteForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		if hash == deployHash {
+			jobCtr1++
+			if jobCtr1 <= 2 {
+				return &client.FlinkJobOverview{
+					JobID: "greenId",
+					State: client.Running,
+				}, nil
+			}
+			return &client.FlinkJobOverview{
+				JobID: "greenId",
+				State: client.Canceled,
+			}, nil
+		}
+
+		jobCtr2++
+		if jobCtr2 <= 2 {
+			return &client.FlinkJobOverview{
+				JobID: "blueId",
+				State: client.Running,
+			}, nil
+		}
+
+		return &client.FlinkJobOverview{
+			JobID: "blueId",
+			State: client.Canceled,
+		}, nil
+
+	}
+	triggerID := "t1"
+	savepointCtr := 0
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (string, error) {
+		return triggerID, nil
+	}
+
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+		if savepointCtr == 0 {
+			assert.Equal(t, deployHash, hash)
+		} else {
+			assert.Equal(t, updateHash, hash)
+		}
+		savepointCtr++
+		return &client.SavepointResponse{
+			SavepointStatus: client.SavepointStatusResponse{
+				Status: client.SavePointCompleted,
+			},
+			Operation: client.SavepointOperationResponse{
+				Location: testSavepointLocation + hash,
+			},
+		}, nil
+	}
+	// Go through deletes until both applications are deleted
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, savepointCtr)
+	assert.Empty(t, app.Finalizers)
+	assert.Equal(t, testSavepointLocation+updateHash, app.Status.SavepointPath)
+}

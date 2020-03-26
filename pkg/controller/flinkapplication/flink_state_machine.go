@@ -810,7 +810,9 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	if app.Spec.DeleteMode == v1beta1.DeleteModeNone || app.Status.DeployHash == "" {
 		return s.clearFinalizers(ctx, app)
 	}
-
+	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+		return s.deleteBlueGreenApplication(ctx, app)
+	}
 	job, err := s.flinkController.GetJobForApplication(ctx, app, app.Status.DeployHash)
 	if err != nil {
 		return statusUnchanged, err
@@ -994,6 +996,100 @@ func (s *FlinkStateMachine) handleTeardown(ctx context.Context, application *v1b
 	}
 	s.updateApplicationPhase(application, v1beta1.FlinkApplicationRunning)
 	return statusChanged, nil
+}
+
+func (s *FlinkStateMachine) deleteBlueGreenApplication(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
+	// Cancel deployed job
+	deployedJob, err := s.flinkController.GetJobToDeleteForApplication(ctx, app, app.Status.DeployHash)
+	if err != nil {
+		return statusUnchanged, nil
+	}
+	if !jobFinished(deployedJob) {
+		isFinished, err := s.cancelAndDeleteJob(ctx, app, deployedJob, app.Status.DeployHash)
+		if err != nil {
+			return statusUnchanged, nil
+		}
+		return isFinished, nil
+	}
+
+	deploySavepointPath := app.Status.SavepointPath
+	// Cancel Updating job
+	updatingJob, err := s.flinkController.GetJobToDeleteForApplication(ctx, app, app.Status.UpdatingHash)
+	if err != nil {
+		return statusUnchanged, nil
+	}
+	if !jobFinished(updatingJob) {
+		if app.Status.SavepointPath == deploySavepointPath {
+			app.Status.SavepointPath = ""
+		}
+		isFinished, err := s.cancelAndDeleteJob(ctx, app, updatingJob, app.Status.UpdatingHash)
+		if err != nil {
+			return statusUnchanged, nil
+		}
+		return isFinished, nil
+	}
+	if jobFinished(deployedJob) && jobFinished(updatingJob) {
+		return s.clearFinalizers(ctx, app)
+	}
+	return statusUnchanged, nil
+}
+
+func (s *FlinkStateMachine) cancelAndDeleteJob(ctx context.Context, app *v1beta1.FlinkApplication, job *client.FlinkJobOverview, hash string) (bool, error) {
+	switch app.Spec.DeleteMode {
+	case v1beta1.DeleteModeForceCancel:
+		if job.State == client.Cancelling {
+			// we've already cancelled the job, waiting for it to finish
+			return statusUnchanged, nil
+		} else if jobFinished(job) {
+			return statusUnchanged, nil
+		}
+
+		logger.Infof(ctx, "Force-cancelling job without a savepoint")
+		return statusUnchanged, s.flinkController.ForceCancel(ctx, app, hash)
+	case v1beta1.DeleteModeSavepoint, "":
+		if app.Status.SavepointPath != "" {
+			return statusChanged, nil
+		}
+
+		if app.Status.SavepointTriggerID == "" {
+			// delete with savepoint
+			triggerID, err := s.flinkController.Savepoint(ctx, app, hash, getCancelFlag(app))
+			if err != nil {
+				return statusUnchanged, err
+			}
+			s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "CancellingJob",
+				fmt.Sprintf("Cancelling job with savepoint %v", triggerID))
+			app.Status.SavepointTriggerID = triggerID
+		} else {
+			// we've already started savepointing; check the status
+			status, err := s.flinkController.GetSavepointStatus(ctx, app, hash)
+			if err != nil {
+				return statusUnchanged, err
+			}
+
+			if status.Operation.Location == "" && status.SavepointStatus.Status != client.SavePointInProgress {
+				// savepointing failed
+				s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "SavepointFailed",
+					fmt.Sprintf("Failed to take savepoint %v", status.Operation.FailureCause))
+				// clear the trigger id so that we can try again
+				app.Status.SavepointTriggerID = ""
+				return true, client.GetRetryableError(errors.New("failed to take savepoint"),
+					v1beta1.CancelJobWithSavepoint, "500", math.MaxInt32)
+			} else if status.SavepointStatus.Status == client.SavePointCompleted {
+				// we're done, clean up
+				s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "CanceledJob",
+					fmt.Sprintf("Cancelled job with savepoint '%s'", status.Operation.Location))
+				app.Status.SavepointPath = status.Operation.Location
+				app.Status.SavepointTriggerID = ""
+			}
+		}
+
+		return statusChanged, nil
+	default:
+		logger.Errorf(ctx, "Unsupported DeleteMode %s", app.Spec.DeleteMode)
+	}
+
+	return statusUnchanged, nil
 }
 
 func createRetryHandler() client.RetryHandlerInterface {
