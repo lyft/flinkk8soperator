@@ -11,11 +11,11 @@ import (
 
 type CreateClusterFunc func(ctx context.Context, application *v1beta1.FlinkApplication) error
 type DeleteOldResourcesForApp func(ctx context.Context, application *v1beta1.FlinkApplication) error
-type SavepointFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (string, error)
+type SavepointFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error)
 type ForceCancelFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
 type StartFlinkJobFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
 	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error)
-type GetSavepointStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error)
+type GetSavepointStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error)
 type IsClusterReadyFunc func(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error)
 type IsServiceReadyFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error)
 type GetJobsForApplicationFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error)
@@ -83,9 +83,9 @@ func (m *FlinkController) CreateCluster(ctx context.Context, application *v1beta
 	return nil
 }
 
-func (m *FlinkController) Savepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (string, error) {
+func (m *FlinkController) Savepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error) {
 	if m.SavepointFunc != nil {
-		return m.SavepointFunc(ctx, application, hash, isCancel)
+		return m.SavepointFunc(ctx, application, hash, isCancel, jobID)
 	}
 	return "", nil
 }
@@ -105,9 +105,9 @@ func (m *FlinkController) StartFlinkJob(ctx context.Context, application *v1beta
 	return "", nil
 }
 
-func (m *FlinkController) GetSavepointStatus(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+func (m *FlinkController) GetSavepointStatus(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error) {
 	if m.GetSavepointStatusFunc != nil {
-		return m.GetSavepointStatusFunc(ctx, application, hash)
+		return m.GetSavepointStatusFunc(ctx, application, hash, jobID)
 	}
 	return nil, nil
 }

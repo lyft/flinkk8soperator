@@ -256,7 +256,7 @@ func TestHandleApplicationSavepointingInitialDeploy(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (s string, e error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (s string, e error) {
 		// should not be called
 		assert.False(t, true)
 		return "", nil
@@ -291,14 +291,14 @@ func TestHandleApplicationSavepointingDual(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 
-	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (s string, e error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (s string, e error) {
 		assert.Equal(t, "old-hash", hash)
 		cancelInvoked = true
 
 		return "trigger", nil
 	}
 
-	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error) {
 		assert.Equal(t, "old-hash", hash)
 		return &client.SavepointResponse{
 			SavepointStatus: client.SavepointStatusResponse{
@@ -340,7 +340,7 @@ func TestHandleApplicationSavepointingFailed(t *testing.T) {
 	updateInvoked := false
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error) {
 		return &client.SavepointResponse{
 			SavepointStatus: client.SavepointStatusResponse{
 				Status: client.SavePointCompleted,
@@ -797,7 +797,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 	savepointPath := "s3:///path/to/savepoint"
 
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (string, error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error) {
 		return triggerID, nil
 	}
 
@@ -837,7 +837,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 	assert.NoError(t, err)
 
 	savepointStatusCount := 0
-	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error) {
 		savepointStatusCount++
 
 		if savepointStatusCount == 1 {
@@ -1097,7 +1097,7 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	retryableErr := client.GetRetryableError(errors.New("blah"), "GetClusterOverview", "FAILED", 3)
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.SavepointFunc = func(ctx context.Context, app *v1beta1.FlinkApplication, hash string, isCancel bool) (savepoint string, err error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, app *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (savepoint string, err error) {
 		return "", retryableErr
 	}
 
@@ -1452,7 +1452,7 @@ func TestCheckSavepointStatusFailing(t *testing.T) {
 
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error) {
 		return nil, retryableErr.(*v1beta1.FlinkApplicationError)
 	}
 
@@ -1506,10 +1506,10 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error) {
 		return nil, retryableErr.(*v1beta1.FlinkApplicationError)
 	}
-	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (s string, e error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (s string, e error) {
 		return "triggerId", nil
 	}
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
@@ -1623,13 +1623,13 @@ func TestRunningToDualRunning(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Handle Savepointing and move to SubmittingJob
-	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (s string, err error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (s string, err error) {
 		assert.False(t, isCancel)
 		return triggerID, nil
 	}
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
-	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (response *client.SavepointResponse, err error) {
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (response *client.SavepointResponse, err error) {
 		return &client.SavepointResponse{
 			SavepointStatus: client.SavepointStatusResponse{
 				Status: client.SavePointCompleted,
@@ -1969,15 +1969,17 @@ func TestDeleteBlueGreenDeployment(t *testing.T) {
 	}
 	triggerID := "t1"
 	savepointCtr := 0
-	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (string, error) {
+	mockFlinkController.SavepointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error) {
 		return triggerID, nil
 	}
 
-	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
+	mockFlinkController.GetSavepointStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error) {
 		if savepointCtr == 0 {
 			assert.Equal(t, deployHash, hash)
+			assert.Equal(t, "greenId", jobID)
 		} else {
 			assert.Equal(t, updateHash, hash)
+			assert.Equal(t, "blueId", jobID)
 		}
 		savepointCtr++
 		return &client.SavepointResponse{

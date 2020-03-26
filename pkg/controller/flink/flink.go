@@ -47,7 +47,7 @@ type ControllerInterface interface {
 	CreateCluster(ctx context.Context, application *v1beta1.FlinkApplication) error
 
 	// Cancels the running/active jobs in the Cluster for the Application after savepoint is created
-	Savepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (string, error)
+	Savepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error)
 
 	// Force cancels the running/active job without taking a savepoint
 	ForceCancel(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
@@ -59,7 +59,7 @@ type ControllerInterface interface {
 
 	// Savepoint creation is asynchronous.
 	// Polls the status of the Savepoint, using the triggerID
-	GetSavepointStatus(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error)
+	GetSavepointStatus(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error)
 
 	// Check if the Flink Kubernetes Cluster is Ready.
 	// Checks if all the pods of task and job managers are ready.
@@ -259,11 +259,7 @@ func (f *Controller) getJobIDForApplication(ctx context.Context, application *v1
 	return "", errors.New("active job id not available")
 }
 
-func (f *Controller) Savepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool) (string, error) {
-	jobID, err := f.getJobIDForApplication(ctx, application)
-	if err != nil {
-		return "", err
-	}
+func (f *Controller) Savepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error) {
 	return f.flinkClient.CancelJobWithSavepoint(ctx, f.getURLFromApp(application, hash), jobID, isCancel)
 }
 
@@ -325,11 +321,7 @@ func (f *Controller) StartFlinkJob(ctx context.Context, application *v1beta1.Fli
 	return response.JobID, nil
 }
 
-func (f *Controller) GetSavepointStatus(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.SavepointResponse, error) {
-	jobID, err := f.getJobIDForApplication(ctx, application)
-	if err != nil {
-		return nil, err
-	}
+func (f *Controller) GetSavepointStatus(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error) {
 	return f.flinkClient.CheckSavepointStatus(ctx, f.getURLFromApp(application, hash), jobID, application.Status.SavepointTriggerID)
 }
 

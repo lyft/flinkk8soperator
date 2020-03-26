@@ -357,7 +357,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	// TODO: figure out the idempotence of this
 	if application.Status.SavepointTriggerID == "" {
 		cancelFlag := getCancelFlag(application)
-		triggerID, err := s.flinkController.Savepoint(ctx, application, application.Status.DeployHash, cancelFlag)
+		triggerID, err := s.flinkController.Savepoint(ctx, application, application.Status.DeployHash, cancelFlag, s.flinkController.GetLatestJobID(ctx, application))
 		if err != nil {
 			return statusUnchanged, err
 		}
@@ -375,7 +375,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	}
 
 	// check the savepoints in progress
-	savepointStatusResponse, err := s.flinkController.GetSavepointStatus(ctx, application, application.Status.DeployHash)
+	savepointStatusResponse, err := s.flinkController.GetSavepointStatus(ctx, application, application.Status.DeployHash, s.flinkController.GetLatestJobID(ctx, application))
 	if err != nil {
 		return statusUnchanged, err
 	}
@@ -846,7 +846,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 
 		if app.Status.SavepointTriggerID == "" {
 			// delete with savepoint
-			triggerID, err := s.flinkController.Savepoint(ctx, app, app.Status.DeployHash, getCancelFlag(app))
+			triggerID, err := s.flinkController.Savepoint(ctx, app, app.Status.DeployHash, getCancelFlag(app), s.flinkController.GetLatestJobID(ctx, app))
 			if err != nil {
 				return statusUnchanged, err
 			}
@@ -855,7 +855,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 			app.Status.SavepointTriggerID = triggerID
 		} else {
 			// we've already started savepointing; check the status
-			status, err := s.flinkController.GetSavepointStatus(ctx, app, app.Status.DeployHash)
+			status, err := s.flinkController.GetSavepointStatus(ctx, app, app.Status.DeployHash, s.flinkController.GetLatestJobID(ctx, app))
 			if err != nil {
 				return statusUnchanged, err
 			}
@@ -1028,6 +1028,7 @@ func (s *FlinkStateMachine) deleteBlueGreenApplication(ctx context.Context, app 
 		}
 		return isFinished, nil
 	}
+
 	if jobFinished(deployedJob) && jobFinished(updatingJob) {
 		return s.clearFinalizers(ctx, app)
 	}
@@ -1048,12 +1049,15 @@ func (s *FlinkStateMachine) cancelAndDeleteJob(ctx context.Context, app *v1beta1
 		return statusUnchanged, s.flinkController.ForceCancel(ctx, app, hash)
 	case v1beta1.DeleteModeSavepoint, "":
 		if app.Status.SavepointPath != "" {
+			logger.Infof(ctx, "Inside savepoint path non-nil")
 			return statusChanged, nil
 		}
 
 		if app.Status.SavepointTriggerID == "" {
+			logger.Infof(ctx, "Inside trigger id nil")
+			logger.Infof(ctx, "Cancel flag %v", getCancelFlag(app))
 			// delete with savepoint
-			triggerID, err := s.flinkController.Savepoint(ctx, app, hash, getCancelFlag(app))
+			triggerID, err := s.flinkController.Savepoint(ctx, app, hash, getCancelFlag(app), job.JobID)
 			if err != nil {
 				return statusUnchanged, err
 			}
@@ -1062,7 +1066,7 @@ func (s *FlinkStateMachine) cancelAndDeleteJob(ctx context.Context, app *v1beta1
 			app.Status.SavepointTriggerID = triggerID
 		} else {
 			// we've already started savepointing; check the status
-			status, err := s.flinkController.GetSavepointStatus(ctx, app, hash)
+			status, err := s.flinkController.GetSavepointStatus(ctx, app, hash, job.JobID)
 			if err != nil {
 				return statusUnchanged, err
 			}
