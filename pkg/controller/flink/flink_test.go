@@ -39,6 +39,7 @@ const testFlinkVersion = "1.7"
 const testJarName = "test.jar"
 const testEntryClass = "com.test.MainClass"
 const testProgramArgs = "--test"
+const testVersion = "version"
 
 func getTestFlinkController() Controller {
 	testScope := mockScope.NewTestScope()
@@ -69,7 +70,6 @@ func getFlinkTestApp() v1beta1.FlinkApplication {
 	app.Status.JobStatus.JobID = testJobID
 	app.Spec.Image = testImage
 	app.Spec.FlinkVersion = testFlinkVersion
-
 	return app
 }
 
@@ -573,7 +573,7 @@ func TestGetJobsForApplicationErr(t *testing.T) {
 func TestFindExternalizedCheckpoint(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	flinkApp := getFlinkTestApp()
-	flinkApp.Status.JobStatus.JobID = "jobid"
+	flinkControllerForTest.UpdateLatestJobID(context.Background(), &flinkApp, "jobid")
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
 	mockJmClient.GetLatestCheckpointFunc = func(ctx context.Context, url string, jobId string) (*client.CheckpointStatistics, error) {
