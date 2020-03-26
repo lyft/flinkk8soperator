@@ -258,6 +258,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
 		return statusUnchanged, err
 	}
+
 	s.updateApplicationPhase(application, v1beta1.FlinkApplicationClusterStarting)
 	return statusChanged, nil
 }
@@ -285,6 +286,7 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 				"Flink cluster failed to become available: %s", reason))
 		return s.deployFailed(application)
 	}
+
 	// Wait for all to be running
 	clusterReady, err := s.flinkController.IsClusterReady(ctx, application)
 	if err != nil || !clusterReady {
@@ -340,7 +342,6 @@ func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, appl
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
 	if application.Status.SavepointPath != "" || application.Status.DeployHash == "" {
-		s.flinkController.UpdateLatestJobID(ctx, application, "")
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}
@@ -806,7 +807,6 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 
 	// If the delete mode is none or there's no deployhash set (which means we failed to submit the job on the
 	// first deploy) just delete the finalizer so the cluster can be torn down
-
 	if app.Spec.DeleteMode == v1beta1.DeleteModeNone || app.Status.DeployHash == "" {
 		return s.clearFinalizers(ctx, app)
 	}
