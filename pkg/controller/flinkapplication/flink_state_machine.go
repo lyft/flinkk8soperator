@@ -244,6 +244,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 		logger.Errorf(ctx, "Cluster creation failed with error: %v", err)
 		return statusUnchanged, err
 	}
+
 	s.updateApplicationPhase(application, v1beta1.FlinkApplicationClusterStarting)
 	return statusChanged, nil
 }
@@ -319,7 +320,6 @@ func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, appl
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
 	if application.Status.SavepointPath != "" || application.Status.DeployHash == "" {
-		s.flinkController.UpdateLatestJobID(ctx, application, "")
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}
