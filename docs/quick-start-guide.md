@@ -98,6 +98,9 @@ metadata:
   selfLink: v1beta1
   uid: a2855178-b29c-11e9-9a3b-025000000001
 spec:
+  ingressAnnotations:
+    kubernetes.io/ingress.class: nginx
+  ingressTLSSecretName: "wordcount-secret-tls"
   entryClass: org.apache.flink.WordCount
   flinkConfig:
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints

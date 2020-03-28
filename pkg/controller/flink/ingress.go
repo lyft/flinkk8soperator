@@ -27,9 +27,10 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 	podLabels = common.CopyMap(podLabels, k8.GetAppLabel(app.Name))
 
 	ingressMeta := v1.ObjectMeta{
-		Name:      app.Name,
-		Labels:    podLabels,
-		Namespace: app.Namespace,
+		Name:        app.Name,
+		Labels:      podLabels,
+		Annotations: app.Spec.IngressAnnotations,
+		Namespace:   app.Namespace,
 		OwnerReferences: []v1.OwnerReference{
 			*v1.NewControllerRef(app, app.GroupVersionKind()),
 		},
@@ -42,7 +43,6 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 			IntVal: getUIPort(app),
 		},
 	}
-
 	ingressSpec := v1beta1.IngressSpec{
 		Rules: []v1beta1.IngressRule{{
 			Host: GetFlinkUIIngressURL(app.Name),
@@ -54,6 +54,14 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 				},
 			},
 		}},
+	}
+	if app.Spec.IngressTLSSecretName != "" {
+		ingressSpec.TLS = []v1beta1.IngressTLS{
+			{
+				Hosts:      []string{GetFlinkUIIngressURL(app.Name)},
+				SecretName: app.Spec.IngressTLSSecretName,
+			},
+		}
 	}
 	return &v1beta1.Ingress{
 		ObjectMeta: ingressMeta,

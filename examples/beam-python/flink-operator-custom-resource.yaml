@@ -9,6 +9,11 @@ metadata:
 spec:
   #image: docker.io/lyft/flinkk8soperator-example-beam:{sha}
   image: flinkk8soperator-example-beam
+  # Any ingress annotations can be set there
+  # ingressAnnotations:
+  #   kubernetes.io/ingress.class: nginx
+  # Declare the secret that stores the TLS key and cert
+  # ingressTLSSecretName: "tls-secret"
   flinkConfig:
     taskmanager.network.memory.fraction: 0.1
     taskmanager.network.memory.min: 10m
