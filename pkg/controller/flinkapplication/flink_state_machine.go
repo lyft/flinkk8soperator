@@ -353,11 +353,10 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
 		return statusChanged, nil
 	}
-
+	cancelFlag := getCancelFlag(application)
 	// we haven't started savepointing yet; do so now
 	// TODO: figure out the idempotence of this
 	if application.Status.SavepointTriggerID == "" {
-		cancelFlag := getCancelFlag(application)
 		triggerID, err := s.flinkController.Savepoint(ctx, application, application.Status.DeployHash, cancelFlag, s.flinkController.GetLatestJobID(ctx, application))
 		if err != nil {
 			return statusUnchanged, err
@@ -392,9 +391,16 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
 		return statusChanged, nil
 	} else if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CanceledJob",
-			fmt.Sprintf("Canceled job with savepoint %s",
-				savepointStatusResponse.Operation.Location))
+		if cancelFlag {
+			s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CanceledJob",
+				fmt.Sprintf("Canceled job with savepoint %s",
+					savepointStatusResponse.Operation.Location))
+		} else {
+			s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "SavepointCompleted",
+				fmt.Sprintf("Completed savepoint at %s",
+					savepointStatusResponse.Operation.Location))
+		}
+
 		application.Status.SavepointPath = savepointStatusResponse.Operation.Location
 		// We haven't cancelled the job in this case, so don't reset job ID
 		if !v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {

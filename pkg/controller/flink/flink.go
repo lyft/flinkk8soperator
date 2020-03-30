@@ -27,6 +27,7 @@ import (
 
 const proxyURL = "http://localhost:%d/api/v1/namespaces/%s/services/%s:8081/proxy"
 const proxyVersionURL = "http://localhost:%d/api/v1/namespaces/%s/services/%s-%s:8081/proxy"
+const externalVersionURL = "%s-%s"
 const port = 8081
 const indexOffset = 1
 
@@ -195,6 +196,9 @@ func (f *Controller) getExternalURLFromApp(application *v1beta1.FlinkApplication
 			return fmt.Sprintf(proxyVersionURL, cfg.ProxyPort.Port, application.Namespace, application.Name, version)
 		}
 		return fmt.Sprintf(proxyURL, cfg.ProxyPort.Port, application.Namespace, application.Name)
+	}
+	if version != "" {
+		return GetFlinkUIIngressURL(fmt.Sprintf(externalVersionURL, application.Name, version))
 	}
 	return GetFlinkUIIngressURL(application.Name)
 }
