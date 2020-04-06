@@ -51,7 +51,7 @@ type ControllerInterface interface {
 	Savepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error)
 
 	// Force cancels the running/active job without taking a savepoint
-	ForceCancel(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
+	ForceCancel(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) error
 
 	// Starts the Job in the Flink Cluster
 	StartFlinkJob(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
@@ -121,8 +121,10 @@ type ControllerInterface interface {
 	DeleteResourcesForAppWithHash(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
 	// Delete status for torn down cluster/job
 	DeleteStatusPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication)
-
+	// Get job given hash
 	GetJobToDeleteForApplication(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
+	// Get hash given the version
+	GetHashAndJobIDForVersion(ctx context.Context, application *v1beta1.FlinkApplication, teardown v1beta1.FlinkApplicationVersion) (string, string, error)
 }
 
 func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
@@ -253,25 +255,11 @@ func (f *Controller) GetJobForApplication(ctx context.Context, application *v1be
 	return jobResponse, nil
 }
 
-// The operator for now assumes and is intended to run single application per Flink Cluster.
-// Once we move to run multiple applications, this has to be removed/updated
-func (f *Controller) getJobIDForApplication(ctx context.Context, application *v1beta1.FlinkApplication) (string, error) {
-	if f.GetLatestJobID(ctx, application) != "" {
-		return f.GetLatestJobID(ctx, application), nil
-	}
-
-	return "", errors.New("active job id not available")
-}
-
 func (f *Controller) Savepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error) {
 	return f.flinkClient.CancelJobWithSavepoint(ctx, f.getURLFromApp(application, hash), jobID, isCancel)
 }
 
-func (f *Controller) ForceCancel(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
-	jobID, err := f.getJobIDForApplication(ctx, application)
-	if err != nil {
-		return err
-	}
+func (f *Controller) ForceCancel(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) error {
 	return f.flinkClient.ForceCancelJob(ctx, f.getURLFromApp(application, hash), jobID)
 }
 
@@ -957,4 +945,20 @@ func (f *Controller) GetJobToDeleteForApplication(ctx context.Context, app *v1be
 	}
 
 	return jobResponse, nil
+}
+
+func (f *Controller) GetHashAndJobIDForVersion(ctx context.Context, app *v1beta1.FlinkApplication, version v1beta1.FlinkApplicationVersion) (string, string, error) {
+	hash := ""
+	jobID := ""
+	for _, status := range app.Status.VersionStatuses {
+		if status.Version == version {
+			hash = status.VersionHash
+			jobID = status.JobStatus.JobID
+		}
+	}
+	if hash == "" || jobID == "" {
+		return "", "", errors.New("could not find jobID and hash for application")
+	}
+
+	return hash, jobID, nil
 }

@@ -12,7 +12,7 @@ import (
 type CreateClusterFunc func(ctx context.Context, application *v1beta1.FlinkApplication) error
 type DeleteOldResourcesForApp func(ctx context.Context, application *v1beta1.FlinkApplication) error
 type SavepointFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error)
-type ForceCancelFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
+type ForceCancelFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) error
 type StartFlinkJobFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
 	jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error)
 type GetSavepointStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (*client.SavepointResponse, error)
@@ -34,6 +34,7 @@ type UpdateLatestVersionAndHashFunc func(application *v1beta1.FlinkApplication, 
 type DeleteResourcesForAppWithHashFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
 type DeleteStatusPostTeardownFunc func(ctx context.Context, application *v1beta1.FlinkApplication)
 type GetJobToDeleteForApplicationFunc func(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
+type GetHashAndJobIDForVersionFunc func(ctx context.Context, application *v1beta1.FlinkApplication, teardown v1beta1.FlinkApplicationVersion) (string, string, error)
 type FlinkController struct {
 	CreateClusterFunc                 CreateClusterFunc
 	DeleteOldResourcesForAppFunc      DeleteOldResourcesForApp
@@ -60,6 +61,7 @@ type FlinkController struct {
 	DeleteResourcesForAppWithHashFunc DeleteResourcesForAppWithHashFunc
 	DeleteStatusPostTeardownFunc      DeleteStatusPostTeardownFunc
 	GetJobToDeleteForApplicationFunc  GetJobToDeleteForApplicationFunc
+	GetHashAndJobIDForVersionFunc     GetHashAndJobIDForVersionFunc
 }
 
 func (m *FlinkController) GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
@@ -90,9 +92,9 @@ func (m *FlinkController) Savepoint(ctx context.Context, application *v1beta1.Fl
 	return "", nil
 }
 
-func (m *FlinkController) ForceCancel(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
+func (m *FlinkController) ForceCancel(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) error {
 	if m.ForceCancelFunc != nil {
-		return m.ForceCancelFunc(ctx, application, hash)
+		return m.ForceCancelFunc(ctx, application, hash, jobID)
 	}
 	return nil
 }
@@ -270,6 +272,13 @@ func (m *FlinkController) GetJobToDeleteForApplication(ctx context.Context, app 
 		return m.GetJobToDeleteForApplicationFunc(ctx, app, hash)
 	}
 	return nil, nil
+}
+
+func (m *FlinkController) GetHashAndJobIDForVersion(ctx context.Context, application *v1beta1.FlinkApplication, teardown v1beta1.FlinkApplicationVersion) (string, string, error) {
+	if m.GetHashAndJobIDForVersionFunc != nil {
+		return m.GetHashAndJobIDForVersionFunc(ctx, application, teardown)
+	}
+	return "", "", nil
 }
 
 func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {

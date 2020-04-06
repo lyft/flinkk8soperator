@@ -149,7 +149,7 @@ func TestHandleApplicationCancel(t *testing.T) {
 		}, nil
 	}
 
-	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (e error) {
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (e error) {
 		assert.Equal(t, "old-hash", hash)
 		cancelInvoked = true
 
@@ -187,7 +187,7 @@ func TestHandleApplicationCancelFailedWithMaxRetries(t *testing.T) {
 	updateInvoked := false
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
-	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) error {
 		// given we maxed out on retries, we should never have come here
 		assert.False(t, true)
 		return nil
@@ -972,7 +972,7 @@ func TestDeleteWithForceCancel(t *testing.T) {
 	}
 
 	cancelled := false
-	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) error {
 		cancelled = true
 		return nil
 	}
@@ -1038,7 +1038,7 @@ func TestDeleteModeNone(t *testing.T) {
 	}
 
 	cancelled := false
-	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) error {
 		cancelled = true
 		return nil
 	}
@@ -1536,7 +1536,7 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 		}, nil
 	}
 
-	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) error {
 		return nil
 	}
 	err = stateMachineForTest.Handle(context.Background(), &app)
@@ -1733,10 +1733,18 @@ func TestDualRunningToTeardown(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	mockFlinkController.DeleteResourcesForAppWithHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error {
+		assert.Equal(t, deployHash, hash)
 		return nil
 	}
-
-	app.Spec.Teardown = true
+	mockFlinkController.GetHashAndJobIDForVersionFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, version v1beta1.FlinkApplicationVersion) (string, string, error) {
+		assert.Equal(t, v1beta1.GreenFlinkApplication, version)
+		return deployHash, "jobId", nil
+	}
+	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (e error) {
+		assert.Equal(t, "jobId", jobID)
+		return nil
+	}
+	app.Spec.Teardown = v1beta1.GreenFlinkApplication
 	// Handle DualRunning and move to Teardown
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Equal(t, v1beta1.FlinkApplicationTeardown, app.Status.Phase)
