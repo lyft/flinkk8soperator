@@ -34,7 +34,7 @@ const (
 	FlinkJobProperties               = "flink-job-properties"
 	RestartNonce                     = "restart-nonce"
 	FlinkApplicationVersionEnv       = "FLINK_APPLICATION_VERSION"
-	FlinkApplicationVersion          = "flink-app-version"
+	FlinkApplicationVersion          = "flink-application-version"
 )
 
 func getFlinkContainerName(containerName string) string {

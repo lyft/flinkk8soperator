@@ -240,19 +240,19 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
-		"key":                  "annotation",
-		"flink-app-version":    testVersion,
-		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
+		"key":                       "annotation",
+		"flink-application-version": testVersion,
+		"flink-job-properties":      "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 
-	hash := "3b63e917"
+	hash := "5cb5943e"
 
 	app.Annotations = annotations
 	expectedLabels := map[string]string{
-		"flink-app":             "app-name",
-		"flink-app-hash":        hash,
-		"flink-deployment-type": "taskmanager",
-		"flink-app-version":     testVersion,
+		"flink-app":                 "app-name",
+		"flink-app-hash":            hash,
+		"flink-deployment-type":     "taskmanager",
+		"flink-application-version": testVersion,
 	}
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {

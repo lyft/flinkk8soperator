@@ -42,23 +42,23 @@ type FlinkApplicationSpec struct {
 	EntryClass         string                       `json:"entryClass,omitempty"`
 	ProgramArgs        string                       `json:"programArgs,omitempty"`
 	// Deprecated: use SavepointPath instead
-	SavepointInfo                  SavepointInfo           `json:"savepointInfo,omitempty"`
-	SavepointPath                  string                  `json:"savepointPath,omitempty"`
-	SavepointDisabled              bool                    `json:"savepointDisabled"`
-	DeploymentMode                 DeploymentMode          `json:"deploymentMode,omitempty"`
-	RPCPort                        *int32                  `json:"rpcPort,omitempty"`
-	BlobPort                       *int32                  `json:"blobPort,omitempty"`
-	QueryPort                      *int32                  `json:"queryPort,omitempty"`
-	UIPort                         *int32                  `json:"uiPort,omitempty"`
-	MetricsQueryPort               *int32                  `json:"metricsQueryPort,omitempty"`
-	Volumes                        []apiv1.Volume          `json:"volumes,omitempty"`
-	VolumeMounts                   []apiv1.VolumeMount     `json:"volumeMounts,omitempty"`
-	RestartNonce                   string                  `json:"restartNonce"`
-	DeleteMode                     DeleteMode              `json:"deleteMode,omitempty"`
-	AllowNonRestoredState          bool                    `json:"allowNonRestoredState,omitempty"`
-	ForceRollback                  bool                    `json:"forceRollback"`
-	MaxCheckpointRestoreAgeSeconds *int32                  `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
-	Teardown                       FlinkApplicationVersion `json:"teardown,omitempty"`
+	SavepointInfo                  SavepointInfo       `json:"savepointInfo,omitempty"`
+	SavepointPath                  string              `json:"savepointPath,omitempty"`
+	SavepointDisabled              bool                `json:"savepointDisabled"`
+	DeploymentMode                 DeploymentMode      `json:"deploymentMode,omitempty"`
+	RPCPort                        *int32              `json:"rpcPort,omitempty"`
+	BlobPort                       *int32              `json:"blobPort,omitempty"`
+	QueryPort                      *int32              `json:"queryPort,omitempty"`
+	UIPort                         *int32              `json:"uiPort,omitempty"`
+	MetricsQueryPort               *int32              `json:"metricsQueryPort,omitempty"`
+	Volumes                        []apiv1.Volume      `json:"volumes,omitempty"`
+	VolumeMounts                   []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
+	RestartNonce                   string              `json:"restartNonce"`
+	DeleteMode                     DeleteMode          `json:"deleteMode,omitempty"`
+	AllowNonRestoredState          bool                `json:"allowNonRestoredState,omitempty"`
+	ForceRollback                  bool                `json:"forceRollback"`
+	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
+	TearDownVersionHash            string              `json:"tearDownVersionHash,omitempty"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -247,7 +247,6 @@ const (
 	FlinkApplicationRollingBackJob  FlinkApplicationPhase = "RollingBackJob"
 	FlinkApplicationDeployFailed    FlinkApplicationPhase = "DeployFailed"
 	FlinkApplicationDualRunning     FlinkApplicationPhase = "DualRunning"
-	FlinkApplicationTeardown        FlinkApplicationPhase = "Teardown"
 )
 
 var FlinkApplicationPhases = []FlinkApplicationPhase{
@@ -263,7 +262,6 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationDeployFailed,
 	FlinkApplicationRollingBackJob,
 	FlinkApplicationDualRunning,
-	FlinkApplicationTeardown,
 }
 
 func IsRunningPhase(phase FlinkApplicationPhase) bool {
@@ -353,4 +351,5 @@ const (
 	GetTaskManagers        FlinkMethod = "GetTaskManagers"
 	GetCheckpointCounts    FlinkMethod = "GetCheckpointCounts"
 	GetJobOverview         FlinkMethod = "GetJobOverview"
+	SavepointJob           FlinkMethod = "SavepointJob"
 )

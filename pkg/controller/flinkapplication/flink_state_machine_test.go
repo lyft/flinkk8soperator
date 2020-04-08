@@ -1549,7 +1549,7 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 
 func TestRunningToDualRunning(t *testing.T) {
 	deployHash := "appHash"
-	updatingHash := "68d96966"
+	updatingHash := "2845d780"
 	triggerID := "trigger"
 	savepointPath := "savepointPath"
 	app := v1beta1.FlinkApplication{
@@ -1686,10 +1686,10 @@ func TestRunningToDualRunning(t *testing.T) {
 
 }
 
-func TestDualRunningToTeardown(t *testing.T) {
+func TestDualRunningToRunning(t *testing.T) {
 	deployHash := "appHash"
-	updatingHash := "68d96966"
-	teardownHash := "d555be26"
+	updatingHash := "2845d780"
+	teardownHash := "9dc7d91b"
 
 	app := v1beta1.FlinkApplication{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1736,23 +1736,19 @@ func TestDualRunningToTeardown(t *testing.T) {
 		assert.Equal(t, deployHash, hash)
 		return nil
 	}
-	mockFlinkController.GetHashAndJobIDForVersionFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, version v1beta1.FlinkApplicationVersion) (string, string, error) {
-		assert.Equal(t, v1beta1.GreenFlinkApplication, version)
-		return deployHash, "jobId", nil
+	mockFlinkController.GetVersionAndJobIDForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, string, error) {
+		assert.Equal(t, deployHash, hash)
+		return string(v1beta1.GreenFlinkApplication), "jobId", nil
 	}
 	mockFlinkController.ForceCancelFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) (e error) {
 		assert.Equal(t, "jobId", jobID)
 		return nil
 	}
-	app.Spec.Teardown = v1beta1.GreenFlinkApplication
-	// Handle DualRunning and move to Teardown
-	err := stateMachineForTest.Handle(context.Background(), &app)
-	assert.Equal(t, v1beta1.FlinkApplicationTeardown, app.Status.Phase)
-	assert.Nil(t, err)
-
-	// Handle Teardown and move to Running
+	app.Spec.TearDownVersionHash = deployHash
 	expectedVersionStatus := app.Status.VersionStatuses[1]
-	err = stateMachineForTest.Handle(context.Background(), &app)
+	// Handle DualRunning and move to Running
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
 	assert.Equal(t, v1beta1.FlinkApplicationRunning, app.Status.Phase)
 	assert.Nil(t, err)
 	assert.Empty(t, app.Status.VersionStatuses[1])

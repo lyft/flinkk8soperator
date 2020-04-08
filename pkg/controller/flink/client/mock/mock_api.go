@@ -6,7 +6,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 )
 
-type CancelJobWithSavepointFunc func(ctx context.Context, url string, jobID string, isCancel bool) (string, error)
+type CancelJobWithSavepointFunc func(ctx context.Context, url string, jobID string) (string, error)
 type ForceCancelJobFunc func(ctx context.Context, url string, jobID string) error
 type SubmitJobFunc func(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error)
 type CheckSavepointStatusFunc func(ctx context.Context, url string, jobID, triggerID string) (*client.SavepointResponse, error)
@@ -17,7 +17,7 @@ type GetJobConfigFunc func(ctx context.Context, url string, jobID string) (*clie
 type GetTaskManagersFunc func(ctx context.Context, url string) (*client.TaskManagersResponse, error)
 type GetCheckpointCountsFunc func(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error)
 type GetJobOverviewFunc func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error)
-
+type SavepointJobFunc func(ctx context.Context, url string, jobID string) (string, error)
 type JobManagerClient struct {
 	CancelJobWithSavepointFunc CancelJobWithSavepointFunc
 	ForceCancelJobFunc         ForceCancelJobFunc
@@ -30,6 +30,7 @@ type JobManagerClient struct {
 	GetTaskManagersFunc        GetTaskManagersFunc
 	GetCheckpointCountsFunc    GetCheckpointCountsFunc
 	GetJobOverviewFunc         GetJobOverviewFunc
+	SavepointJobFunc           SavepointJobFunc
 }
 
 func (m *JobManagerClient) SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
@@ -39,9 +40,9 @@ func (m *JobManagerClient) SubmitJob(ctx context.Context, url string, jarID stri
 	return nil, nil
 }
 
-func (m *JobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobID string, isCancel bool) (string, error) {
+func (m *JobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error) {
 	if m.CancelJobWithSavepointFunc != nil {
-		return m.CancelJobWithSavepointFunc(ctx, url, jobID, isCancel)
+		return m.CancelJobWithSavepointFunc(ctx, url, jobID)
 	}
 	return "", nil
 }
@@ -107,4 +108,12 @@ func (m *JobManagerClient) GetJobOverview(ctx context.Context, url string, jobID
 		return m.GetJobOverviewFunc(ctx, url, jobID)
 	}
 	return nil, nil
+}
+
+func (m *JobManagerClient) SavepointJob(ctx context.Context, url string, jobID string) (string, error) {
+	if m.SavepointJobFunc != nil {
+		return m.SavepointJobFunc(ctx, url, jobID)
+	}
+
+	return "", nil
 }

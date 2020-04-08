@@ -47,7 +47,8 @@ const programInvocationException = "org.apache.flink.client.program.ProgramInvoc
 const jobSubmissionException = "org.apache.flink.runtime.client.JobSubmissionException"
 
 type FlinkAPIInterface interface {
-	CancelJobWithSavepoint(ctx context.Context, url string, jobID string, cancel bool) (string, error)
+	CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error)
+	SavepointJob(ctx context.Context, url string, jobID string) (string, error)
 	ForceCancelJob(ctx context.Context, url string, jobID string) error
 	SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest SubmitJobRequest) (*SubmitJobResponse, error)
 	CheckSavepointStatus(ctx context.Context, url string, jobID, triggerID string) (*SavepointResponse, error)
@@ -82,6 +83,8 @@ type flinkJobManagerClientMetrics struct {
 	getClusterFailureCounter     labeled.Counter
 	getCheckpointsSuccessCounter labeled.Counter
 	getCheckpointsFailureCounter labeled.Counter
+	savepointJobSuccessCounter   labeled.Counter
+	savepointJobFailureCounter   labeled.Counter
 }
 
 func newFlinkJobManagerClientMetrics(scope promutils.Scope) *flinkJobManagerClientMetrics {
@@ -104,6 +107,8 @@ func newFlinkJobManagerClientMetrics(scope promutils.Scope) *flinkJobManagerClie
 		getClusterFailureCounter:     labeled.NewCounter("get_cluster_failure", "Get cluster overview failed", flinkJmClientScope),
 		getCheckpointsSuccessCounter: labeled.NewCounter("get_checkpoints_success", "Get checkpoint request succeeded", flinkJmClientScope),
 		getCheckpointsFailureCounter: labeled.NewCounter("get_checkpoints_failed", "Get checkpoint request failed", flinkJmClientScope),
+		savepointJobSuccessCounter:   labeled.NewCounter("savepoint_job_success", "Savepoint job request succeeded", flinkJmClientScope),
+		savepointJobFailureCounter:   labeled.NewCounter("savepoint_job_failed", "Savepoint job request failed", flinkJmClientScope),
 	}
 }
 
@@ -177,12 +182,12 @@ func (c *FlinkJobManagerClient) executeRequest(ctx context.Context,
 	return resp, err
 }
 
-func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobID string, cancel bool) (string, error) {
+func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url string, jobID string) (string, error) {
 	path := fmt.Sprintf(savepointURL, jobID)
 
 	url = url + path
-	cancelJobRequest := CancelJobRequest{
-		CancelJob: cancel,
+	cancelJobRequest := SavepointJobRequest{
+		CancelJob: true,
 	}
 	response, err := c.executeRequest(ctx, httpPost, url, cancelJobRequest)
 	if err != nil {
@@ -194,7 +199,7 @@ func (c *FlinkJobManagerClient) CancelJobWithSavepoint(ctx context.Context, url 
 		logger.Errorf(ctx, fmt.Sprintf("Cancel job failed with response %v", response))
 		return "", GetRetryableError(err, v1beta1.CancelJobWithSavepoint, response.Status(), 5)
 	}
-	var cancelJobResponse CancelJobResponse
+	var cancelJobResponse SavepointJobResponse
 	if err = json.Unmarshal(response.Body(), &cancelJobResponse); err != nil {
 		logger.Errorf(ctx, "Unable to Unmarshal cancelJobResponse %v, err: %v", response, err)
 		return "", GetRetryableError(err, v1beta1.CancelJobWithSavepoint, JSONUnmarshalError, 5)
@@ -382,6 +387,32 @@ func (c *FlinkJobManagerClient) GetJobOverview(ctx context.Context, url string, 
 	}
 
 	return &jobOverviewResponse, nil
+}
+
+func (c *FlinkJobManagerClient) SavepointJob(ctx context.Context, url string, jobID string) (string, error) {
+	path := fmt.Sprintf(savepointURL, jobID)
+
+	url = url + path
+	savepointJobRequest := SavepointJobRequest{
+		CancelJob: false,
+	}
+	response, err := c.executeRequest(ctx, httpPost, url, savepointJobRequest)
+	if err != nil {
+		c.metrics.savepointJobFailureCounter.Inc(ctx)
+		return "", GetRetryableError(err, v1beta1.CancelJobWithSavepoint, GlobalFailure, 5)
+	}
+	if response != nil && !response.IsSuccess() {
+		c.metrics.cancelJobFailureCounter.Inc(ctx)
+		logger.Errorf(ctx, fmt.Sprintf("Savepointing job failed with response %v", response))
+		return "", GetRetryableError(err, v1beta1.SavepointJob, response.Status(), 5)
+	}
+	var savepointJobResponse SavepointJobResponse
+	if err = json.Unmarshal(response.Body(), &savepointJobResponse); err != nil {
+		logger.Errorf(ctx, "Unable to Unmarshal savepointJobResponse %v, err: %v", response, err)
+		return "", GetRetryableError(err, v1beta1.SavepointJob, JSONUnmarshalError, 5)
+	}
+	c.metrics.savepointJobSuccessCounter.Inc(ctx)
+	return savepointJobResponse.TriggerID, nil
 }
 
 func NewFlinkJobManagerClient(config config.RuntimeConfig) FlinkAPIInterface {

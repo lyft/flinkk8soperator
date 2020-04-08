@@ -34,7 +34,7 @@ type UpdateLatestVersionAndHashFunc func(application *v1beta1.FlinkApplication, 
 type DeleteResourcesForAppWithHashFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
 type DeleteStatusPostTeardownFunc func(ctx context.Context, application *v1beta1.FlinkApplication)
 type GetJobToDeleteForApplicationFunc func(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
-type GetHashAndJobIDForVersionFunc func(ctx context.Context, application *v1beta1.FlinkApplication, teardown v1beta1.FlinkApplicationVersion) (string, string, error)
+type GetVersionAndJobIDForHashFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, string, error)
 type FlinkController struct {
 	CreateClusterFunc                 CreateClusterFunc
 	DeleteOldResourcesForAppFunc      DeleteOldResourcesForApp
@@ -61,7 +61,7 @@ type FlinkController struct {
 	DeleteResourcesForAppWithHashFunc DeleteResourcesForAppWithHashFunc
 	DeleteStatusPostTeardownFunc      DeleteStatusPostTeardownFunc
 	GetJobToDeleteForApplicationFunc  GetJobToDeleteForApplicationFunc
-	GetHashAndJobIDForVersionFunc     GetHashAndJobIDForVersionFunc
+	GetVersionAndJobIDForHashFunc     GetVersionAndJobIDForHashFunc
 }
 
 func (m *FlinkController) GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
@@ -274,9 +274,9 @@ func (m *FlinkController) GetJobToDeleteForApplication(ctx context.Context, app 
 	return nil, nil
 }
 
-func (m *FlinkController) GetHashAndJobIDForVersion(ctx context.Context, application *v1beta1.FlinkApplication, teardown v1beta1.FlinkApplicationVersion) (string, string, error) {
-	if m.GetHashAndJobIDForVersionFunc != nil {
-		return m.GetHashAndJobIDForVersionFunc(ctx, application, teardown)
+func (m *FlinkController) GetVersionAndJobIDForHash(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, string, error) {
+	if m.GetVersionAndJobIDForHashFunc != nil {
+		return m.GetVersionAndJobIDForHashFunc(ctx, application, hash)
 	}
 	return "", "", nil
 }

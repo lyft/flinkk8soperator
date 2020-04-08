@@ -405,14 +405,14 @@ func TestCancelJobHappyCase(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	ctx := context.Background()
-	response := CancelJobResponse{
+	response := SavepointJobResponse{
 		TriggerID: "133",
 	}
 	responder, _ := httpmock.NewJsonResponder(203, response)
 	httpmock.RegisterResponder("POST", fakeCancelURL, responder)
 
 	client := getTestJobManagerClient()
-	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1", true)
+	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1")
 	assert.Equal(t, response.TriggerID, resp)
 	assert.NoError(t, err)
 }
@@ -425,7 +425,7 @@ func TestCancelJobInvalidResponse(t *testing.T) {
 	httpmock.RegisterResponder("POST", fakeCancelURL, responder)
 
 	client := getTestJobManagerClient()
-	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1", true)
+	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1")
 	assert.Empty(t, resp)
 	assert.NotNil(t, err)
 }
@@ -438,7 +438,7 @@ func TestCancelJob500Response(t *testing.T) {
 	httpmock.RegisterResponder("POST", fakeCancelURL, responder)
 
 	client := getTestJobManagerClient()
-	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1", true)
+	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1")
 	assert.Empty(t, resp)
 	assert.EqualError(t, err, "CancelJobWithSavepoint call failed with status 500 and message ''")
 }
@@ -450,7 +450,7 @@ func TestCancelJobError(t *testing.T) {
 	httpmock.RegisterResponder("POST", fakeCancelURL, nil)
 
 	client := getTestJobManagerClient()
-	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1", true)
+	resp, err := client.CancelJobWithSavepoint(ctx, testURL, "1")
 	assert.Empty(t, resp)
 	assert.NotNil(t, err)
 	assert.True(t, strings.HasPrefix(err.Error(), "CancelJobWithSavepoint call failed with status FAILED"))

@@ -78,12 +78,13 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(newApp.Status.UpdatingVersion, Equals, v1beta1.BlueFlinkApplication)
 	c.Assert(newApp.Status.DeployVersion, Equals, v1beta1.GreenFlinkApplication)
 
-	// Teardown
+	// TearDownVersionHash
 	teardownVersion := newApp.Status.DeployVersion
+	hashToTeardown := newApp.Status.DeployHash
 	oldHash := newApp.Status.DeployHash
 	log.Infof("Tearing down version %s", teardownVersion)
 	newApp = WaitForUpdate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
-		app.Spec.Teardown = teardownVersion
+		app.Spec.TearDownVersionHash = hashToTeardown
 	}, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed)
 
 	// wait for the old cluster to be cleaned up
@@ -107,7 +108,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 		List(v1.ListOptions{LabelSelector: "flink-app-hash=" + oldHash})
 	for _, pod := range pods.Items {
 		log.Infof("Pod name %s", pod.Name)
-		c.Assert(pod.Labels["flink-app-version"], Not(Equals), teardownVersion)
+		c.Assert(pod.Labels["flink-application-version"], Not(Equals), teardownVersion)
 	}
 
 	c.Assert(err, IsNil)

@@ -560,7 +560,7 @@ func (f *TestUtil) GetCurrentStatusIndex(app *flinkapp.FlinkApplication) int32 {
 		return 1
 	}
 
-	// activeJobs and maxRunningJobs would be different once a Teardown has happened and
+	// activeJobs and maxRunningJobs would be different once a TearDownVersionHash has happened and
 	// the app has moved back to a Running state.
 	activeJobs := int32(len(app.Status.VersionStatuses))
 	maxRunningJobs := flinkapp.GetMaxRunningJobs(app.Spec.DeploymentMode)

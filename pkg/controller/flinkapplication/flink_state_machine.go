@@ -188,8 +188,6 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 			updateApplication, appErr = s.handleApplicationDeleting(ctx, application)
 		case v1beta1.FlinkApplicationDualRunning:
 			updateApplication, appErr = s.handleDualRunning(ctx, application)
-		case v1beta1.FlinkApplicationTeardown:
-			updateApplication, appErr = s.handleTeardown(ctx, application)
 
 		}
 
@@ -942,26 +940,23 @@ func getCancelFlag(app *v1beta1.FlinkApplication) bool {
 // Two applications are running in this phase. This phase is only ever reached when the
 // DeploymentMode is set to BlueGreen
 func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
-	if application.Spec.Teardown != "" {
+	if application.Spec.TearDownVersionHash != "" {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "TeardownInitated",
 			fmt.Sprintf("Tearing down application with hash %s and version %v", application.Status.DeployHash,
 				application.Status.DeployVersion))
-		s.updateApplicationPhase(application, v1beta1.FlinkApplicationTeardown)
-		return statusChanged, nil
+		return s.teardownApplicationVersion(ctx, application)
 	}
 
 	// Update status of the cluster
 	hasClusterStatusChanged, clusterErr := s.flinkController.CompareAndUpdateClusterStatus(ctx, application, application.Status.DeployHash)
 	if clusterErr != nil {
 		logger.Errorf(ctx, "Updating cluster status failed with %v", clusterErr)
-		return statusUnchanged, clusterErr
 	}
 
 	// Update status of jobs on the cluster
 	hasJobStatusChanged, jobsErr := s.flinkController.CompareAndUpdateJobStatus(ctx, application, application.Status.DeployHash)
 	if jobsErr != nil {
 		logger.Errorf(ctx, "Updating jobs status failed with %v", jobsErr)
-		return statusUnchanged, jobsErr
 	}
 
 	// Update k8s object if either job or cluster status has changed
@@ -971,34 +966,34 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 	return statusUnchanged, nil
 }
 
-func (s *FlinkStateMachine) handleTeardown(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+func (s *FlinkStateMachine) teardownApplicationVersion(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	oldDeployHash := application.Status.DeployHash
 	oldDeployVersion := application.Status.DeployVersion
-	versionToTeardown := application.Spec.Teardown
-	versionHash, jobID, err := s.flinkController.GetHashAndJobIDForVersion(ctx, application, versionToTeardown)
+	versionHashToTeardown := application.Spec.TearDownVersionHash
+	versionToTeardown, jobID, err := s.flinkController.GetVersionAndJobIDForHash(ctx, application, versionHashToTeardown)
 
 	if err != nil {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
 			fmt.Sprintf("Failed to find application version %v; manual intervention may be needed",
-				versionToTeardown))
+				versionHashToTeardown))
 		return statusUnchanged, err
 	}
 
 	// Force-cancel job first
 	s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "ForceCanceling",
 		fmt.Sprintf("Force-canceling application with version %v and hash %s",
-			versionToTeardown, versionHash))
+			versionToTeardown, versionHashToTeardown))
 
-	err = s.flinkController.ForceCancel(ctx, application, versionHash, jobID)
+	err = s.flinkController.ForceCancel(ctx, application, versionHashToTeardown, jobID)
 	if err != nil {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
 			fmt.Sprintf("Failed to force-cancel application version %v and hash %s; manual intervention may be needed: %s",
-				versionToTeardown, versionHash, err))
+				versionToTeardown, versionHashToTeardown, err))
 		return statusUnchanged, err
 	}
 
 	// Delete all resources associated with the teardown version
-	err = s.flinkController.DeleteResourcesForAppWithHash(ctx, application, versionHash)
+	err = s.flinkController.DeleteResourcesForAppWithHash(ctx, application, versionHashToTeardown)
 	if err != nil {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
 			fmt.Sprintf("Failed to teardown application with hash %s and version %v, manual intervention needed: %s", oldDeployHash,

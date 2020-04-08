@@ -124,7 +124,7 @@ type ControllerInterface interface {
 	// Get job given hash
 	GetJobToDeleteForApplication(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
 	// Get hash given the version
-	GetHashAndJobIDForVersion(ctx context.Context, application *v1beta1.FlinkApplication, teardown v1beta1.FlinkApplicationVersion) (string, string, error)
+	GetVersionAndJobIDForHash(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, string, error)
 }
 
 func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
@@ -256,7 +256,10 @@ func (f *Controller) GetJobForApplication(ctx context.Context, application *v1be
 }
 
 func (f *Controller) Savepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, isCancel bool, jobID string) (string, error) {
-	return f.flinkClient.CancelJobWithSavepoint(ctx, f.getURLFromApp(application, hash), jobID, isCancel)
+	if isCancel {
+		return f.flinkClient.CancelJobWithSavepoint(ctx, f.getURLFromApp(application, hash), jobID)
+	}
+	return f.flinkClient.SavepointJob(ctx, f.getURLFromApp(application, hash), jobID)
 }
 
 func (f *Controller) ForceCancel(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jobID string) error {
@@ -497,6 +500,12 @@ func isCheckpointOldToRecover(checkpointTime int64, maxCheckpointRecoveryAgeSec 
 }
 
 func (f *Controller) LogEvent(ctx context.Context, app *v1beta1.FlinkApplication, eventType string, reason string, message string) {
+	// Augment message with version for blue-green deployments
+	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+		version := app.Status.UpdatingVersion
+		message = fmt.Sprintf("%s for version %s", message, version)
+	}
+
 	f.eventRecorder.Event(app, eventType, reason, message)
 	logger.Infof(ctx, "Logged %s event: %s: %s", eventType, reason, message)
 }
@@ -664,7 +673,7 @@ func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {
 		return 1
 	}
 
-	// activeJobs and maxRunningJobs would be different once a Teardown has happened and
+	// activeJobs and maxRunningJobs would be different once a TearDownVersionHash has happened and
 	// the app has moved back to a Running state.
 	activeJobs := int32(len(app.Status.VersionStatuses))
 	maxRunningJobs := v1beta1.GetMaxRunningJobs(app.Spec.DeploymentMode)
@@ -947,12 +956,12 @@ func (f *Controller) GetJobToDeleteForApplication(ctx context.Context, app *v1be
 	return jobResponse, nil
 }
 
-func (f *Controller) GetHashAndJobIDForVersion(ctx context.Context, app *v1beta1.FlinkApplication, version v1beta1.FlinkApplicationVersion) (string, string, error) {
-	hash := ""
+func (f *Controller) GetVersionAndJobIDForHash(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (string, string, error) {
+	version := ""
 	jobID := ""
 	for _, status := range app.Status.VersionStatuses {
-		if status.Version == version {
-			hash = status.VersionHash
+		if status.VersionHash == hash {
+			version = string(status.Version)
 			jobID = status.JobStatus.JobID
 		}
 	}
@@ -960,5 +969,5 @@ func (f *Controller) GetHashAndJobIDForVersion(ctx context.Context, app *v1beta1
 		return "", "", errors.New("could not find jobID and hash for application")
 	}
 
-	return hash, jobID, nil
+	return version, jobID, nil
 }

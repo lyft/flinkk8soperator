@@ -513,7 +513,7 @@ func TestCancelWithSavepoint(t *testing.T) {
 	flinkApp := getFlinkTestApp()
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
-	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobID string, isCancel bool) (string, error) {
+	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobID string) (string, error) {
 		assert.Equal(t, url, "http://app-name-hash.ns:8081")
 		assert.Equal(t, jobID, testJobID)
 		return "t1", nil
@@ -528,7 +528,7 @@ func TestSavepointErr(t *testing.T) {
 	flinkApp := getFlinkTestApp()
 
 	mockJmClient := flinkControllerForTest.flinkClient.(*clientMock.JobManagerClient)
-	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobID string, isCancel bool) (string, error) {
+	mockJmClient.CancelJobWithSavepointFunc = func(ctx context.Context, url string, jobID string) (string, error) {
 		return "", errors.New("cancel error")
 	}
 	triggerID, err := flinkControllerForTest.Savepoint(context.Background(), &flinkApp, "hash", true, testJobID)
