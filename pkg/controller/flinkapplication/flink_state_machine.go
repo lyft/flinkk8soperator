@@ -716,9 +716,8 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	// do the update, move to the cluster starting phase to create the new cluster
 	if cur == nil {
 		if s.isIncompatibleDeploymentModeChange(application) {
-			errorMessage := fmt.Sprintf("Changing deployment mode from %s to %s is unsupported", application.Status.DeploymentMode, application.Spec.DeploymentMode)
 			s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "UnsupportedChange",
-				fmt.Sprintf(errorMessage))
+				fmt.Sprintf("Changing deployment mode from %s to %s is unsupported", application.Status.DeploymentMode, application.Spec.DeploymentMode))
 			return s.deployFailed(application)
 		}
 		logger.Infof(ctx, "Application resource has changed. Moving to Updating")

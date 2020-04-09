@@ -2043,6 +2043,7 @@ func TestIncompatibleDeploymentModeSwitch(t *testing.T) {
 	app.Status.Phase = v1beta1.FlinkApplicationRunning
 	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
 	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
 	assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, app.Status.Phase)
 
 	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
@@ -2056,5 +2057,6 @@ func TestIncompatibleDeploymentModeSwitch(t *testing.T) {
 	app.Status.Phase = v1beta1.FlinkApplicationRunning
 	app.Spec.DeploymentMode = v1beta1.DeploymentModeDual
 	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
 	assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, app.Status.Phase)
 }
