@@ -53,6 +53,7 @@ func TestGetTaskManagerPodName(t *testing.T) {
 func TestGetTaskManagerPodNameWithVersion(t *testing.T) {
 	app := getFlinkTestApp()
 	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
+	app.Status.DeploymentMode = v1beta1.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	assert.Equal(t, "app-name-"+testAppHash+"-"+testVersion+"-tm", getTaskManagerName(&app, testAppHash))
 }
@@ -238,6 +239,7 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
 	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
+	app.Status.DeploymentMode = v1beta1.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
 		"key":                       "annotation",

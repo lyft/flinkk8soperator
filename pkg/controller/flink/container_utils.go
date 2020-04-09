@@ -48,7 +48,7 @@ func getFlinkContainerName(containerName string) string {
 
 func getCommonAppLabels(app *v1beta1.FlinkApplication) map[string]string {
 	labels := common.DuplicateMap(k8.GetAppLabel(app.Name))
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		labels[FlinkApplicationVersion] = string(app.Status.UpdatingVersion)
 	}
 	return labels
@@ -62,7 +62,7 @@ func getCommonAnnotations(app *v1beta1.FlinkApplication) map[string]string {
 	if app.Spec.RestartNonce != "" {
 		annotations[RestartNonce] = app.Spec.RestartNonce
 	}
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		annotations[FlinkApplicationVersion] = string(app.Status.UpdatingVersion)
 	}
 	return annotations
@@ -231,7 +231,7 @@ func InjectOperatorCustomizedConfig(deployment *appsv1.Deployment, app *v1beta1.
 
 // Injects labels and environment variables required for blue green deploys
 func GetDeploySpecificEnv(app *v1beta1.FlinkApplication) []v1.EnvVar {
-	if !v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if !v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		return []v1.EnvVar{}
 	}
 

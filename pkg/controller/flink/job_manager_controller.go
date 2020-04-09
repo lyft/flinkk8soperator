@@ -177,7 +177,7 @@ func getJobManagerPodName(application *v1beta1.FlinkApplication, hash string) st
 
 func getJobManagerName(application *v1beta1.FlinkApplication, hash string) string {
 	applicationName := application.Name
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		applicationVersion := application.Status.UpdatingVersion
 		return fmt.Sprintf(JobManagerVersionNameFormat, applicationName, hash, applicationVersion)
 	}
@@ -213,7 +213,7 @@ func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, hash string)
 func getJobManagerServiceName(app *v1beta1.FlinkApplication) string {
 	serviceName := app.Name
 	versionName := app.Status.UpdatingVersion
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		return fmt.Sprintf(JobManagerVersionServiceName, serviceName, versionName)
 	}
 	return serviceName

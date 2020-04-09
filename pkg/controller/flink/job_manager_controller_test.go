@@ -47,6 +47,7 @@ func TestGetJobManagerPodName(t *testing.T) {
 func TestGetJobManagerNameWithVersion(t *testing.T) {
 	app := getFlinkTestApp()
 	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
+	app.Status.DeploymentMode = v1beta12.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	assert.Equal(t, "app-name-"+testAppHash+"-"+testVersion+"-jm", getJobManagerName(&app, testAppHash))
 }
@@ -314,6 +315,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
 	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
+	app.Status.DeploymentMode = v1beta12.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
 		"key":                       "annotation",

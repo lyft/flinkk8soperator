@@ -148,7 +148,7 @@ func getTaskManagerPodName(application *v1beta1.FlinkApplication, hash string) s
 
 func getTaskManagerName(application *v1beta1.FlinkApplication, hash string) string {
 	applicationName := application.Name
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		applicationVersion := application.Status.UpdatingVersion
 		return fmt.Sprintf(TaskManagerVersionNameFormat, applicationName, hash, applicationVersion)
 	}

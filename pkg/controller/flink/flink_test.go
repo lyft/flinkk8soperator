@@ -1051,6 +1051,7 @@ func TestDeleteResourcesForAppWithHash(t *testing.T) {
 	flinkControllerForTest := getTestFlinkController()
 	app := getFlinkTestApp()
 	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
+	app.Status.DeploymentMode = v1beta1.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	jmDeployment := FetchTaskMangerDeploymentCreateObj(&app, "oldhash")
 	tmDeployment := FetchJobMangerDeploymentCreateObj(&app, "oldhash")

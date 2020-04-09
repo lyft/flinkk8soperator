@@ -241,7 +241,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 		return s.deployFailed(application)
 	}
 	// Update version if blue/green deploy
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		application.Status.UpdatingVersion = getUpdatingVersion(application)
 		// First deploy both versions are the same
 		if application.Status.DeployHash == "" {
@@ -297,7 +297,7 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 		return statusUnchanged, nil
 	}
 
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		// Update hashes
 		s.flinkController.UpdateLatestVersionAndHash(application, application.Status.UpdatingVersion, flink.HashForApplication(application))
 
@@ -305,9 +305,9 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
 	// TODO: in single mode move to submitting job
-	if application.Spec.SavepointDisabled && !v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if application.Spec.SavepointDisabled && !v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationCancelling)
-	} else if application.Spec.SavepointDisabled && v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	} else if application.Spec.SavepointDisabled && v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		// Blue Green deployment and no savepoint required implies, we directly transition to submitting job
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 	} else {
@@ -317,7 +317,7 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 }
 
 func (s *FlinkStateMachine) initializeAppStatusIfEmpty(application *v1beta1.FlinkApplication) {
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		if len(application.Status.VersionStatuses) == 0 {
 			application.Status.VersionStatuses = make([]v1beta1.FlinkApplicationVersionStatus, v1beta1.GetMaxRunningJobs(application.Spec.DeploymentMode))
 		}
@@ -392,7 +392,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 
 		application.Status.SavepointPath = savepointStatusResponse.Operation.Location
 		// We haven't cancelled the job in this case, so don't reset job ID
-		if !v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+		if !v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 			s.flinkController.UpdateLatestJobID(ctx, application, "")
 		}
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
@@ -628,7 +628,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		// Update the application status with the running job info
 		app.Status.SavepointPath = ""
 		app.Status.SavepointTriggerID = ""
-		if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) && app.Status.DeployHash != "" {
+		if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) && app.Status.DeployHash != "" {
 			s.updateApplicationPhase(app, v1beta1.FlinkApplicationDualRunning)
 			return statusChanged, nil
 		}
@@ -656,7 +656,7 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 
 	// In the case of blue green deploys, we don't try to submit a new job
 	// and instead transition to a deploy failed state
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) && app.Status.DeployHash != "" {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) && app.Status.DeployHash != "" {
 		return s.deployFailed(app)
 	}
 	// TODO: handle single mode
@@ -810,7 +810,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	if app.Spec.DeleteMode == v1beta1.DeleteModeNone || app.Status.DeployHash == "" {
 		return s.clearFinalizers(ctx, app)
 	}
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		return s.deleteBlueGreenApplication(ctx, app)
 	}
 	job, err := s.flinkController.GetJobForApplication(ctx, app, app.Status.DeployHash)
@@ -927,7 +927,7 @@ func getDeployedVersion(application *v1beta1.FlinkApplication) v1beta1.FlinkAppl
 }
 
 func getCancelFlag(app *v1beta1.FlinkApplication) bool {
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) && app.Status.Phase != v1beta1.FlinkApplicationDeleting {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) && app.Status.Phase != v1beta1.FlinkApplicationDeleting {
 		return false
 	}
 	return true

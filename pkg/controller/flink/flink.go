@@ -501,7 +501,7 @@ func isCheckpointOldToRecover(checkpointTime int64, maxCheckpointRecoveryAgeSec 
 
 func (f *Controller) LogEvent(ctx context.Context, app *v1beta1.FlinkApplication, eventType string, reason string, message string) {
 	// Augment message with version for blue-green deployments
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		version := app.Status.UpdatingVersion
 		message = fmt.Sprintf("%s for version %s", message, version)
 	}
@@ -512,7 +512,7 @@ func (f *Controller) LogEvent(ctx context.Context, app *v1beta1.FlinkApplication
 
 // Gets and updates the cluster status
 func (f *Controller) CompareAndUpdateClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		return f.compareAndUpdateBlueGreenClusterStatus(ctx, application)
 	}
 	// Error retrieving cluster / taskmanagers overview (after startup/readiness) --> Red
@@ -569,7 +569,7 @@ func getHealthyTaskManagerCount(response *client.TaskManagersResponse) int32 {
 }
 
 func (f *Controller) CompareAndUpdateJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (bool, error) {
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		return f.compareAndUpdateBlueGreenJobStatus(ctx, app)
 	}
 	if app.Status.JobStatus.LastFailingTime == nil {
@@ -689,14 +689,14 @@ func Min(x, y int32) int32 {
 }
 
 func (f *Controller) GetLatestClusterStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkClusterStatus {
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		return application.Status.VersionStatuses[getCurrentStatusIndex(application)].ClusterStatus
 	}
 	return application.Status.ClusterStatus
 }
 
 func (f *Controller) GetLatestJobStatus(ctx context.Context, application *v1beta1.FlinkApplication) v1beta1.FlinkJobStatus {
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus
 	}
 	return application.Status.JobStatus
@@ -704,7 +704,7 @@ func (f *Controller) GetLatestJobStatus(ctx context.Context, application *v1beta
 }
 
 func (f *Controller) UpdateLatestJobStatus(ctx context.Context, app *v1beta1.FlinkApplication, jobStatus v1beta1.FlinkJobStatus) {
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		app.Status.VersionStatuses[getCurrentStatusIndex(app)].JobStatus = jobStatus
 		return
 	}
@@ -712,7 +712,7 @@ func (f *Controller) UpdateLatestJobStatus(ctx context.Context, app *v1beta1.Fli
 }
 
 func (f *Controller) UpdateLatestClusterStatus(ctx context.Context, app *v1beta1.FlinkApplication, clusterStatus v1beta1.FlinkClusterStatus) {
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		app.Status.VersionStatuses[getCurrentStatusIndex(app)].ClusterStatus = clusterStatus
 		return
 	}
@@ -720,14 +720,14 @@ func (f *Controller) UpdateLatestClusterStatus(ctx context.Context, app *v1beta1
 }
 
 func (f *Controller) GetLatestJobID(ctx context.Context, application *v1beta1.FlinkApplication) string {
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		return application.Status.VersionStatuses[getCurrentStatusIndex(application)].JobStatus.JobID
 	}
 	return application.Status.JobStatus.JobID
 }
 
 func (f *Controller) UpdateLatestJobID(ctx context.Context, app *v1beta1.FlinkApplication, jobID string) {
-	if v1beta1.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		app.Status.VersionStatuses[getCurrentStatusIndex(app)].JobStatus.JobID = jobID
 	}
 	app.Status.JobStatus.JobID = jobID
