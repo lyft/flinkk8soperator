@@ -1042,7 +1042,7 @@ func TestDeleteStatusPostTeardown(t *testing.T) {
 		},
 	}
 	expectedStatus := app.Status.VersionStatuses[1]
-	controller.DeleteStatusPostTeardown(context.Background(), &app)
+	controller.DeleteStatusPostTeardown(context.Background(), &app, "blue-hash")
 	assert.Equal(t, expectedStatus, app.Status.VersionStatuses[0])
 	assert.Empty(t, app.Status.VersionStatuses[1])
 }

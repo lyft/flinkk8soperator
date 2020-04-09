@@ -738,8 +738,16 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		logger.Debugf(ctx, "Application running with job %v", job.JobID)
 	}
 
-	// If there are old resources left-over from a previous version, clean them up
-	err = s.flinkController.DeleteOldResourcesForApp(ctx, application)
+	// For blue-green deploys, specify the hash to be deleted
+	if application.Status.FailedDeployHash != "" && v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
+		err = s.flinkController.DeleteResourcesForAppWithHash(ctx, application, application.Status.FailedDeployHash)
+		// Delete status object for the failed hash
+		s.flinkController.DeleteStatusPostTeardown(ctx, application, application.Status.FailedDeployHash)
+	} else if !v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
+		// If there are old resources left-over from a previous version, clean them up
+		err = s.flinkController.DeleteOldResourcesForApp(ctx, application)
+	}
+
 	if err != nil {
 		logger.Warn(ctx, "Failed to clean up old resources: %v", err)
 	}
@@ -937,9 +945,6 @@ func getCancelFlag(app *v1beta1.FlinkApplication) bool {
 // DeploymentMode is set to BlueGreen
 func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	if application.Spec.TearDownVersionHash != "" {
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "TeardownInitated",
-			fmt.Sprintf("Tearing down application with hash %s and version %v", application.Status.DeployHash,
-				application.Status.DeployVersion))
 		return s.teardownApplicationVersion(ctx, application)
 	}
 
@@ -963,18 +968,19 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 }
 
 func (s *FlinkStateMachine) teardownApplicationVersion(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
-	oldDeployHash := application.Status.DeployHash
-	oldDeployVersion := application.Status.DeployVersion
 	versionHashToTeardown := application.Spec.TearDownVersionHash
 	versionToTeardown, jobID, err := s.flinkController.GetVersionAndJobIDForHash(ctx, application, versionHashToTeardown)
 
 	if err != nil {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
-			fmt.Sprintf("Failed to find application version %v; manual intervention may be needed",
+			fmt.Sprintf("Failed to find application version %v",
 				versionHashToTeardown))
-		return statusUnchanged, err
+		return statusUnchanged, nil
 	}
 
+	s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "TeardownInitated",
+		fmt.Sprintf("Tearing down application with hash %s and version %v", versionHashToTeardown,
+			versionToTeardown))
 	// Force-cancel job first
 	s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "ForceCanceling",
 		fmt.Sprintf("Force-canceling application with version %v and hash %s",
@@ -983,33 +989,29 @@ func (s *FlinkStateMachine) teardownApplicationVersion(ctx context.Context, appl
 	err = s.flinkController.ForceCancel(ctx, application, versionHashToTeardown, jobID)
 	if err != nil {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
-			fmt.Sprintf("Failed to force-cancel application version %v and hash %s; manual intervention may be needed: %s",
+			fmt.Sprintf("Failed to force-cancel application version %v and hash %s; will attempt to tear down cluster immediately: %s",
 				versionToTeardown, versionHashToTeardown, err))
-		return statusUnchanged, err
 	}
 
 	// Delete all resources associated with the teardown version
 	err = s.flinkController.DeleteResourcesForAppWithHash(ctx, application, versionHashToTeardown)
 	if err != nil {
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
-			fmt.Sprintf("Failed to teardown application with hash %s and version %v, manual intervention needed: %s", oldDeployHash,
-				oldDeployVersion, err))
+			fmt.Sprintf("Failed to teardown application with hash %s and version %v, manual intervention needed: %s", versionHashToTeardown,
+				versionToTeardown, err))
 		return statusUnchanged, err
 	}
-	// Blue green deploy specific hash updates once teardown is complete
-	// We've successfully torn down the previous version
-	application.Status.DeployVersion = application.Status.UpdatingVersion
-	application.Status.UpdatingVersion = ""
-	application.Status.TeardownHash = flink.HashForApplication(application)
-	s.flinkController.DeleteStatusPostTeardown(ctx, application)
 	s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownCompleted",
-		fmt.Sprintf("Tore down application with hash %s and version %v", oldDeployHash,
-			oldDeployVersion))
+		fmt.Sprintf("Tore down application with hash %s and version %v", versionHashToTeardown,
+			versionToTeardown))
 
-	logger.Infof(ctx, "Updating deployHash %s to %s", oldDeployHash, application.Status.UpdatingHash)
-	application.Status.DeployHash = application.Status.UpdatingHash
+	s.flinkController.DeleteStatusPostTeardown(ctx, application, versionHashToTeardown)
+	versionPostTeardown, versionHashPostTeardown := s.flinkController.GetVersionAndHashPostTeardown(ctx, application)
+	application.Status.DeployVersion = versionPostTeardown
+	application.Status.UpdatingVersion = ""
+	application.Status.DeployHash = versionHashPostTeardown
 	application.Status.UpdatingHash = ""
-
+	application.Status.TeardownHash = flink.HashForApplication(application)
 	s.updateApplicationPhase(application, v1beta1.FlinkApplicationRunning)
 	return statusChanged, nil
 }
@@ -1065,13 +1067,10 @@ func (s *FlinkStateMachine) cancelAndDeleteJob(ctx context.Context, app *v1beta1
 		return statusUnchanged, s.flinkController.ForceCancel(ctx, app, hash, s.flinkController.GetLatestJobID(ctx, app))
 	case v1beta1.DeleteModeSavepoint, "":
 		if app.Status.SavepointPath != "" {
-			logger.Infof(ctx, "Inside savepoint path non-nil")
 			return statusChanged, nil
 		}
 
 		if app.Status.SavepointTriggerID == "" {
-			logger.Infof(ctx, "Inside trigger id nil")
-			logger.Infof(ctx, "Cancel flag %v", getCancelFlag(app))
 			// delete with savepoint
 			triggerID, err := s.flinkController.Savepoint(ctx, app, hash, getCancelFlag(app), job.JobID)
 			if err != nil {

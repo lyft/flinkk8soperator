@@ -32,9 +32,10 @@ type UpdateLatestJobStatusFunc func(ctx context.Context, app *v1beta1.FlinkAppli
 type UpdateLatestClusterStatusFunc func(ctx context.Context, app *v1beta1.FlinkApplication, clusterStatus v1beta1.FlinkClusterStatus)
 type UpdateLatestVersionAndHashFunc func(application *v1beta1.FlinkApplication, version v1beta1.FlinkApplicationVersion, hash string)
 type DeleteResourcesForAppWithHashFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
-type DeleteStatusPostTeardownFunc func(ctx context.Context, application *v1beta1.FlinkApplication)
+type DeleteStatusPostTeardownFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string)
 type GetJobToDeleteForApplicationFunc func(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
 type GetVersionAndJobIDForHashFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, string, error)
+type GetVersionAndHashPostTeardownFunc func(ctx context.Context, application *v1beta1.FlinkApplication) (v1beta1.FlinkApplicationVersion, string)
 type FlinkController struct {
 	CreateClusterFunc                 CreateClusterFunc
 	DeleteOldResourcesForAppFunc      DeleteOldResourcesForApp
@@ -62,6 +63,7 @@ type FlinkController struct {
 	DeleteStatusPostTeardownFunc      DeleteStatusPostTeardownFunc
 	GetJobToDeleteForApplicationFunc  GetJobToDeleteForApplicationFunc
 	GetVersionAndJobIDForHashFunc     GetVersionAndJobIDForHashFunc
+	GetVersionAndHashPostTeardownFunc GetVersionAndHashPostTeardownFunc
 }
 
 func (m *FlinkController) GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
@@ -259,9 +261,9 @@ func (m *FlinkController) DeleteResourcesForAppWithHash(ctx context.Context, app
 	return nil
 }
 
-func (m *FlinkController) DeleteStatusPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication) {
+func (m *FlinkController) DeleteStatusPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication, hash string) {
 	if m.DeleteStatusPostTeardownFunc != nil {
-		m.DeleteStatusPostTeardownFunc(ctx, application)
+		m.DeleteStatusPostTeardownFunc(ctx, application, hash)
 	}
 	application.Status.VersionStatuses[0] = application.Status.VersionStatuses[1]
 	application.Status.VersionStatuses[1] = v1beta1.FlinkApplicationVersionStatus{}
@@ -279,6 +281,13 @@ func (m *FlinkController) GetVersionAndJobIDForHash(ctx context.Context, applica
 		return m.GetVersionAndJobIDForHashFunc(ctx, application, hash)
 	}
 	return "", "", nil
+}
+
+func (m *FlinkController) GetVersionAndHashPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication) (v1beta1.FlinkApplicationVersion, string) {
+	if m.GetVersionAndHashPostTeardownFunc != nil {
+		return m.GetVersionAndHashPostTeardownFunc(ctx, application)
+	}
+	return application.Status.VersionStatuses[0].Version, application.Status.VersionStatuses[0].VersionHash
 }
 
 func getCurrentStatusIndex(app *v1beta1.FlinkApplication) int32 {

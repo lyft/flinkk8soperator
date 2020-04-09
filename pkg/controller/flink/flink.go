@@ -120,11 +120,13 @@ type ControllerInterface interface {
 	// Delete Resources with Hash
 	DeleteResourcesForAppWithHash(ctx context.Context, application *v1beta1.FlinkApplication, hash string) error
 	// Delete status for torn down cluster/job
-	DeleteStatusPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication)
+	DeleteStatusPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication, hash string)
 	// Get job given hash
 	GetJobToDeleteForApplication(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
 	// Get hash given the version
 	GetVersionAndJobIDForHash(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, string, error)
+	// Get version and hash after teardown is complete
+	GetVersionAndHashPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication) (v1beta1.FlinkApplicationVersion, string)
 }
 
 func NewController(k8sCluster k8.ClusterInterface, eventRecorder record.EventRecorder, config controllerConfig.RuntimeConfig) ControllerInterface {
@@ -384,6 +386,7 @@ func getCurrentHash(app *v1beta1.FlinkApplication) string {
 	if appHash == app.Status.FailedDeployHash || appHash == app.Status.TeardownHash {
 		return app.Status.DeployHash
 	}
+
 	return appHash
 }
 
@@ -932,8 +935,14 @@ func (f *Controller) DeleteResourcesForAppWithHash(ctx context.Context, app *v1b
 	return nil
 }
 
-func (f *Controller) DeleteStatusPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication) {
-	application.Status.VersionStatuses[0] = application.Status.VersionStatuses[1]
+func (f *Controller) DeleteStatusPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication, hash string) {
+	var indexToDelete int
+	for index, status := range application.Status.VersionStatuses {
+		if status.VersionHash == hash {
+			indexToDelete = index
+		}
+	}
+	application.Status.VersionStatuses[0] = application.Status.VersionStatuses[indexOffset-indexToDelete]
 	application.Status.VersionStatuses[1] = v1beta1.FlinkApplicationVersionStatus{}
 }
 
@@ -970,4 +979,9 @@ func (f *Controller) GetVersionAndJobIDForHash(ctx context.Context, app *v1beta1
 	}
 
 	return version, jobID, nil
+}
+
+func (f *Controller) GetVersionAndHashPostTeardown(ctx context.Context, application *v1beta1.FlinkApplication) (v1beta1.FlinkApplicationVersion, string) {
+	versionStatus := application.Status.VersionStatuses[0]
+	return versionStatus.Version, versionStatus.VersionHash
 }

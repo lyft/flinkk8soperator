@@ -1750,19 +1750,13 @@ func TestDualRunningToRunning(t *testing.T) {
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 	assert.Equal(t, v1beta1.FlinkApplicationRunning, app.Status.Phase)
-	assert.Nil(t, err)
 	assert.Empty(t, app.Status.VersionStatuses[1])
 	assert.Equal(t, teardownHash, app.Status.TeardownHash)
 	assert.Equal(t, expectedVersionStatus, app.Status.VersionStatuses[0])
-
-	// Handle Running
-	err = stateMachineForTest.Handle(context.Background(), &app)
-	assert.Nil(t, err)
 	assert.Equal(t, "", app.Status.UpdatingHash)
 	assert.Equal(t, updatingHash, app.Status.DeployHash)
 	assert.Equal(t, "", string(app.Status.UpdatingVersion))
 	assert.Equal(t, v1beta1.BlueFlinkApplication, app.Status.DeployVersion)
-	assert.Equal(t, teardownHash, app.Status.TeardownHash)
 }
 
 func TestBlueGreenUpdateWithError(t *testing.T) {
