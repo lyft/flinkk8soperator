@@ -2012,3 +2012,49 @@ func TestDeleteBlueGreenDeployment(t *testing.T) {
 	assert.Empty(t, app.Finalizers)
 	assert.Equal(t, testSavepointLocation+updateHash, app.Status.SavepointPath)
 }
+
+func TestIncompatibleDeploymentModeSwitch(t *testing.T) {
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:        "job.jar",
+			Parallelism:    5,
+			EntryClass:     "com.my.Class",
+			ProgramArgs:    "--test",
+			DeploymentMode: v1beta1.DeploymentModeDual,
+		},
+	}
+
+	app.Status.Phase = v1beta1.FlinkApplicationRunning
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.GetCurrentDeploymentsForAppFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
+		return nil, nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, v1beta1.DeploymentModeDual, app.Status.DeploymentMode)
+
+	// Try to switch from Dual to BlueGreen
+	app.Status.Phase = v1beta1.FlinkApplicationRunning
+	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, app.Status.Phase)
+
+	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
+	app.Status.Phase = v1beta1.FlinkApplicationRunning
+	app.Status.DeploymentMode = ""
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, v1beta1.DeploymentModeBlueGreen, app.Status.DeploymentMode)
+
+	// Try to switch from BlueGreen to Dual
+	app.Status.Phase = v1beta1.FlinkApplicationRunning
+	app.Spec.DeploymentMode = v1beta1.DeploymentModeDual
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, app.Status.Phase)
+}

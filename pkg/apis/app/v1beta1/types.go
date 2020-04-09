@@ -187,6 +187,9 @@ type FlinkApplicationStatus struct {
 	SavepointPath      string                          `json:"savepointPath,omitempty"`
 	RetryCount         int32                           `json:"retryCount,omitempty"`
 	LastSeenError      *FlinkApplicationError          `json:"lastSeenError,omitempty"`
+	// We store deployment mode in the status to prevent incompatible migrations from
+	// Dual --> BlueGreen and BlueGreen --> Dual
+	DeploymentMode DeploymentMode `json:"deploymentMode,omitempty"`
 }
 
 type FlinkApplicationVersion string

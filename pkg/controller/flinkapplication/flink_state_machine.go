@@ -154,7 +154,7 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 	updateLastSeenError := false
 	appPhase := application.Status.Phase
 	// initialize application status array if it's not yet been initialized
-	s.initializeAppStatusIfEmpty(ctx, application)
+	s.initializeAppStatusIfEmpty(application)
 
 	if !application.ObjectMeta.DeletionTimestamp.IsZero() && appPhase != v1beta1.FlinkApplicationDeleting {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationDeleting)
@@ -316,24 +316,15 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	return statusChanged, nil
 }
 
-func (s *FlinkStateMachine) initializeAppStatusIfEmpty(ctx context.Context, application *v1beta1.FlinkApplication) {
+func (s *FlinkStateMachine) initializeAppStatusIfEmpty(application *v1beta1.FlinkApplication) {
 	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
 		if len(application.Status.VersionStatuses) == 0 {
 			application.Status.VersionStatuses = make([]v1beta1.FlinkApplicationVersionStatus, v1beta1.GetMaxRunningJobs(application.Spec.DeploymentMode))
 		}
-		// If an application is moving from a Dual to BlueGreen deployment mode,
-		// We pre-populate the version statuses array with the current Job and Cluster Status
-		// And reset top-level ClusterStatus and JobStatus to empty structs
-		// as they'll no longer get updated
-		if application.Status.JobStatus != (v1beta1.FlinkJobStatus{}) {
-			s.flinkController.UpdateLatestJobStatus(ctx, application, application.Status.JobStatus)
-			application.Status.JobStatus = v1beta1.FlinkJobStatus{}
-		}
-
-		if application.Status.ClusterStatus != (v1beta1.FlinkClusterStatus{}) {
-			s.flinkController.UpdateLatestClusterStatus(ctx, application, application.Status.ClusterStatus)
-			application.Status.ClusterStatus = v1beta1.FlinkClusterStatus{}
-		}
+	}
+	// Set the deployment mode if it's never been set
+	if application.Status.DeploymentMode == "" {
+		application.Status.DeploymentMode = application.Spec.DeploymentMode
 	}
 }
 
@@ -724,6 +715,12 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 	// If the application has changed (i.e., there are no current deployments), and we haven't already failed trying to
 	// do the update, move to the cluster starting phase to create the new cluster
 	if cur == nil {
+		if s.isIncompatibleDeploymentModeChange(application) {
+			errorMessage := fmt.Sprintf("Changing deployment mode from %s to %s is unsupported", application.Status.DeploymentMode, application.Spec.DeploymentMode)
+			s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "UnsupportedChange",
+				fmt.Sprintf(errorMessage))
+			return s.deployFailed(application)
+		}
 		logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 		// TODO: handle single mode
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
@@ -1114,6 +1111,10 @@ func (s *FlinkStateMachine) cancelAndDeleteJob(ctx context.Context, app *v1beta1
 	}
 
 	return statusUnchanged, nil
+}
+
+func (s *FlinkStateMachine) isIncompatibleDeploymentModeChange(application *v1beta1.FlinkApplication) bool {
+	return application.Spec.DeploymentMode != application.Status.DeploymentMode
 }
 
 func createRetryHandler() client.RetryHandlerInterface {
