@@ -7,9 +7,9 @@ Typically this will involve traversing the state machine. The final desired stat
 healthy Flink cluster has been started and the Flink job has been successfully submitted.
 
 The state machine for a `Dual` deployment mode  (default) looks like this:
-![Flink operator state machine for Dual deployment mode](state_machine.png)
+![Flink operator state machine for Dual deployment mode](dual_state_machine.png)
 The state machine for a `BlueGreen` deployment mode looks like this: 
-![Flink operator state machine for BlueGreen deployment mode](state_machine.png)
+![Flink operator state machine for BlueGreen deployment mode](blue_green_state_machine.png)
 # States
 
 ### New / Updating
