@@ -991,6 +991,7 @@ func (s *FlinkStateMachine) teardownApplicationVersion(ctx context.Context, appl
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
 			fmt.Sprintf("Failed to force-cancel application version %v and hash %s; will attempt to tear down cluster immediately: %s",
 				versionToTeardown, versionHashToTeardown, err))
+		return s.deployFailed(application)
 	}
 
 	// Delete all resources associated with the teardown version
@@ -999,7 +1000,7 @@ func (s *FlinkStateMachine) teardownApplicationVersion(ctx context.Context, appl
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
 			fmt.Sprintf("Failed to teardown application with hash %s and version %v, manual intervention needed: %s", versionHashToTeardown,
 				versionToTeardown, err))
-		return statusUnchanged, err
+		return s.deployFailed(application)
 	}
 	s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownCompleted",
 		fmt.Sprintf("Tore down application with hash %s and version %v", versionHashToTeardown,
