@@ -3,7 +3,7 @@ package flink
 import (
 	"testing"
 
-	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
+	v1beta12 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 
@@ -44,11 +44,12 @@ func TestGetJobManagerPodName(t *testing.T) {
 	assert.Equal(t, "app-name-"+testAppHash+"-jm-pod", getJobManagerPodName(&app, testAppHash))
 }
 
-func TestGetJobManagerPodNameWithVersion(t *testing.T) {
+func TestGetJobManagerNameWithVersion(t *testing.T) {
 	app := getFlinkTestApp()
-	app.Spec.DeploymentMode = flinkapp.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
+	app.Status.DeploymentMode = v1beta12.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
-	assert.Equal(t, "app-name-"+testAppHash+"-jm-"+testVersion+"-pod", getJobManagerPodName(&app, testAppHash))
+	assert.Equal(t, "app-name-"+testAppHash+"-"+testVersion+"-jm", getJobManagerName(&app, testAppHash))
 }
 
 func TestJobManagerCreateSuccess(t *testing.T) {
@@ -313,7 +314,8 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.JarName = testJarName
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
-	app.Spec.DeploymentMode = flinkapp.DeploymentModeBlueGreen
+	app.Spec.DeploymentMode = v1beta12.DeploymentModeBlueGreen
+	app.Status.DeploymentMode = v1beta12.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
 		"key":                       "annotation",
@@ -321,11 +323,12 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 		"flink-job-properties":      "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
 	app.Annotations = annotations
-	hash := "f0bd1679"
+	hash := "5cb5943e"
 	expectedLabels := map[string]string{
-		"flink-app":             "app-name",
-		"flink-app-hash":        hash,
-		"flink-deployment-type": "jobmanager",
+		"flink-app":                 "app-name",
+		"flink-app-hash":            hash,
+		"flink-deployment-type":     "jobmanager",
+		"flink-application-version": testVersion,
 	}
 	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
@@ -358,21 +361,21 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 				"FLINK_APPLICATION_VERSION").Value)
 		case 2:
 			service := object.(*coreV1.Service)
-			assert.Equal(t, app.Name, service.Name)
+			assert.Equal(t, app.Name+"-"+testVersion, service.Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager", "flink-application-version": testVersion}, service.Spec.Selector)
 		case 3:
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name+"-"+hash, service.Name)
 			assert.Equal(t, "app-name", service.OwnerReferences[0].Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-application-version": testVersion, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
 		case 4:
 			labels := map[string]string{
 				"flink-app": "app-name",
 			}
 			ingress := object.(*v1beta1.Ingress)
-			assert.Equal(t, app.Name, ingress.Name)
+			assert.Equal(t, app.Name+"-"+testVersion, ingress.Name)
 			assert.Equal(t, app.Namespace, ingress.Namespace)
 			assert.Equal(t, labels, ingress.Labels)
 		}

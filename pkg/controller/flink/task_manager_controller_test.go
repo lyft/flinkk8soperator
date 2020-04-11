@@ -53,8 +53,9 @@ func TestGetTaskManagerPodName(t *testing.T) {
 func TestGetTaskManagerPodNameWithVersion(t *testing.T) {
 	app := getFlinkTestApp()
 	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
+	app.Status.DeploymentMode = v1beta1.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
-	assert.Equal(t, "app-name-"+testAppHash+"-tm-"+testVersion+"-pod", getTaskManagerPodName(&app, testAppHash))
+	assert.Equal(t, "app-name-"+testAppHash+"-"+testVersion+"-tm", getTaskManagerName(&app, testAppHash))
 }
 
 func TestTaskManagerCreateSuccess(t *testing.T) {
@@ -238,6 +239,7 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 	app.Spec.EntryClass = testEntryClass
 	app.Spec.ProgramArgs = testProgramArgs
 	app.Spec.DeploymentMode = v1beta1.DeploymentModeBlueGreen
+	app.Status.DeploymentMode = v1beta1.DeploymentModeBlueGreen
 	app.Status.UpdatingVersion = testVersion
 	annotations := map[string]string{
 		"key":                       "annotation",
@@ -245,13 +247,14 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 		"flink-job-properties":      "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 
-	hash := "f0bd1679"
+	hash := "5cb5943e"
 
 	app.Annotations = annotations
 	expectedLabels := map[string]string{
-		"flink-app":             "app-name",
-		"flink-app-hash":        hash,
-		"flink-deployment-type": "taskmanager",
+		"flink-app":                 "app-name",
+		"flink-app-hash":            hash,
+		"flink-deployment-type":     "taskmanager",
+		"flink-application-version": testVersion,
 	}
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {

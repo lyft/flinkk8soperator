@@ -103,10 +103,12 @@ Below is the list of fields in the custom resource and their description
     Optional map of flink configuration, which passed on to the deployment as environment variable with `OPERATOR_FLINK_CONFIG`
 
   * **deploymentMode** `type:DeploymentMode`
-    Indicates the type of deployment that operator should perform if the custom resource is updated. Currently only Dual is supported.
+    Indicates the type of deployment that operator should perform if the custom resource is updated. Currently two deployment modes, Dual and BlueGreen are supported.
 
     `Dual` This deployment mode is intended for applications where downtime during deployment needs to be as minimal as possible. In this deployment mode, the operator brings up a second Flink cluster with the new image, while the original Flink cluster is still active. Once the pods and containers in the new flink cluster are ready, the Operator cancels the job in the first Cluster with savepoint, deletes the cluster and starts the job in the second cluster. (More information in the state machine section below). This mode is suitable for real time processing applications.
-
+    `BlueGreen` This deployment mode is intended for applications where downtime during deployment needs to be zero. In this mode, the operator brings up a whole new flink job/cluster along side the original Flink job. The two versions of Flink jobs are differentiated by a color: blue/green. Once the new Flink application version is created, the application transitions to a `DualRunning` phase. To transition back from the `DualRunning` phase to a single application version, users must
+    set a `tearDownVersionHash` that enables the operator to teardown the version corresponding to the hash specified.
+  
   * **deleteMode** `type:DeleteMode`
     Indicates how Flink jobs are torn down when the FlinkApplication resource is deleted
 
@@ -134,3 +136,8 @@ Below is the list of fields in the custom resource and their description
     is used during the operator update workflow. This default exists only
     to protect one from accidentally restarting the application using a very old checkpoint (which might put your application
     under huge load). **Note:** this doesn't affect the flink application's checkpointing mechanism in anyway.
+  
+  * **tearDownVersionHash** `type:string`
+    Used **only** with the BlueGreen deployment mode. This is set typically once a FlinkApplication successfully transitions to the `DualRunning` phase.
+    Once set, the application version corresponding to the hash is torn down. On successful teardown, the FlinkApplication transitions to a `Running` phase.
+    

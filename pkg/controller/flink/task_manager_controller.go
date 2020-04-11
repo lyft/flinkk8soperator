@@ -20,12 +20,12 @@ import (
 )
 
 const (
-	TaskManagerNameFormat           = "%s-%s-tm"
-	TaskManagerPodNameFormat        = "%s-%s-tm-pod"
-	TaskManagerVersionPodNameFormat = "%s-%s-tm-%s-pod"
-	TaskManagerContainerName        = "taskmanager"
-	TaskManagerArg                  = "taskmanager"
-	TaskManagerHostnameEnvVar       = "TASKMANAGER_HOSTNAME"
+	TaskManagerNameFormat        = "%s-%s-tm"
+	TaskManagerVersionNameFormat = "%s-%s-%s-tm"
+	TaskManagerPodNameFormat     = "%s-%s-tm-pod"
+	TaskManagerContainerName     = "taskmanager"
+	TaskManagerArg               = "taskmanager"
+	TaskManagerHostnameEnvVar    = "TASKMANAGER_HOSTNAME"
 )
 
 type TaskManagerControllerInterface interface {
@@ -143,15 +143,15 @@ func FetchTaskManagerContainerObj(application *v1beta1.FlinkApplication) *coreV1
 
 func getTaskManagerPodName(application *v1beta1.FlinkApplication, hash string) string {
 	applicationName := application.Name
-	if v1beta1.IsBlueGreenDeploymentMode(application.Spec.DeploymentMode) {
-		applicationVersion := application.Status.UpdatingVersion
-		return fmt.Sprintf(TaskManagerVersionPodNameFormat, applicationName, hash, applicationVersion)
-	}
 	return fmt.Sprintf(TaskManagerPodNameFormat, applicationName, hash)
 }
 
 func getTaskManagerName(application *v1beta1.FlinkApplication, hash string) string {
 	applicationName := application.Name
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
+		applicationVersion := application.Status.UpdatingVersion
+		return fmt.Sprintf(TaskManagerVersionNameFormat, applicationName, hash, applicationVersion)
+	}
 	return fmt.Sprintf(TaskManagerNameFormat, applicationName, hash)
 }
 

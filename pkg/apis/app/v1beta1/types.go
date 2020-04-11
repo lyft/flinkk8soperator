@@ -58,6 +58,7 @@ type FlinkApplicationSpec struct {
 	AllowNonRestoredState          bool                `json:"allowNonRestoredState,omitempty"`
 	ForceRollback                  bool                `json:"forceRollback"`
 	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
+	TearDownVersionHash            string              `json:"tearDownVersionHash,omitempty"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -168,30 +169,34 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase           FlinkApplicationPhase `json:"phase"`
-	StartedAt       *metav1.Time          `json:"startedAt,omitempty"`
-	LastUpdatedAt   *metav1.Time          `json:"lastUpdatedAt,omitempty"`
-	Reason          string                `json:"reason,omitempty"`
-	DeployVersion   string                `json:"deployVersion,omitempty"`
-	UpdatingVersion string                `json:"updatingVersion,omitempty"`
-	// To ensure backward compatibility, repeat ClusterStatus and JobStatus
+	Phase              FlinkApplicationPhase           `json:"phase"`
+	StartedAt          *metav1.Time                    `json:"startedAt,omitempty"`
+	LastUpdatedAt      *metav1.Time                    `json:"lastUpdatedAt,omitempty"`
+	Reason             string                          `json:"reason,omitempty"`
+	DeployVersion      FlinkApplicationVersion         `json:"deployVersion,omitempty"`
+	UpdatingVersion    FlinkApplicationVersion         `json:"updatingVersion,omitempty"`
 	ClusterStatus      FlinkClusterStatus              `json:"clusterStatus,omitempty"`
 	JobStatus          FlinkJobStatus                  `json:"jobStatus,omitempty"`
 	VersionStatuses    []FlinkApplicationVersionStatus `json:"versionStatuses,omitempty"`
 	FailedDeployHash   string                          `json:"failedDeployHash,omitempty"`
 	RollbackHash       string                          `json:"rollbackHash,omitempty"`
 	DeployHash         string                          `json:"deployHash"`
+	UpdatingHash       string                          `json:"updatingHash,omitempty"`
+	TeardownHash       string                          `json:"teardownHash,omitempty"`
 	SavepointTriggerID string                          `json:"savepointTriggerId,omitempty"`
 	SavepointPath      string                          `json:"savepointPath,omitempty"`
 	RetryCount         int32                           `json:"retryCount,omitempty"`
 	LastSeenError      *FlinkApplicationError          `json:"lastSeenError,omitempty"`
+	// We store deployment mode in the status to prevent incompatible migrations from
+	// Dual --> BlueGreen and BlueGreen --> Dual
+	DeploymentMode DeploymentMode `json:"deploymentMode,omitempty"`
 }
 
 type FlinkApplicationVersion string
 
 const (
-	BlueFlinkApplication  FlinkApplicationVersion = "Blue"
-	GreenFlinkApplication FlinkApplicationVersion = "Green"
+	BlueFlinkApplication  FlinkApplicationVersion = "blue"
+	GreenFlinkApplication FlinkApplicationVersion = "green"
 )
 
 type FlinkApplicationVersionStatus struct {
@@ -245,7 +250,6 @@ const (
 	FlinkApplicationRollingBackJob  FlinkApplicationPhase = "RollingBackJob"
 	FlinkApplicationDeployFailed    FlinkApplicationPhase = "DeployFailed"
 	FlinkApplicationDualRunning     FlinkApplicationPhase = "DualRunning"
-	FlinkApplicationTeardown        FlinkApplicationPhase = "Teardown"
 )
 
 var FlinkApplicationPhases = []FlinkApplicationPhase{
@@ -261,7 +265,6 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationDeployFailed,
 	FlinkApplicationRollingBackJob,
 	FlinkApplicationDualRunning,
-	FlinkApplicationTeardown,
 }
 
 func IsRunningPhase(phase FlinkApplicationPhase) bool {
@@ -351,4 +354,5 @@ const (
 	GetTaskManagers        FlinkMethod = "GetTaskManagers"
 	GetCheckpointCounts    FlinkMethod = "GetCheckpointCounts"
 	GetJobOverview         FlinkMethod = "GetJobOverview"
+	SavepointJob           FlinkMethod = "SavepointJob"
 )
