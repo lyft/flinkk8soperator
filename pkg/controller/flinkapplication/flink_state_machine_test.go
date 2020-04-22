@@ -1667,6 +1667,7 @@ func TestRunningToDualRunning(t *testing.T) {
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (s string, err error) {
 		return "jobID2", nil
 	}
+
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 	assert.Equal(t, "jobID2", app.Status.VersionStatuses[1].JobStatus.JobID)
@@ -1683,6 +1684,24 @@ func TestRunningToDualRunning(t *testing.T) {
 	assert.Equal(t, updatingHash, app.Status.UpdatingHash)
 	assert.Equal(t, v1beta1.GreenFlinkApplication, app.Status.DeployVersion)
 	assert.Equal(t, v1beta1.BlueFlinkApplication, app.Status.UpdatingVersion)
+
+	// Set an obsolete tearDownVersionHash and ensure that the application continues to run in DualRunning
+	// And updates all status fields
+	mockFlinkController.GetVersionAndJobIDForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (version string, s string, err error) {
+		return "", "", errors.New("no version found")
+	}
+	mockFlinkController.CompareAndUpdateJobStatusFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
+		assert.Equal(t, deployHash, application.Status.VersionStatuses[0].VersionHash)
+		assert.Equal(t, updatingHash, application.Status.VersionStatuses[1].VersionHash)
+		return true, nil
+	}
+
+	app.Spec.TearDownVersionHash = "obsoleteHash"
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	assert.Equal(t, v1beta1.FlinkApplicationDualRunning, app.Status.Phase)
+	assert.Equal(t, "jobId", app.Status.VersionStatuses[0].JobStatus.JobID)
+	assert.Equal(t, "jobID2", app.Status.VersionStatuses[1].JobStatus.JobID)
 
 }
 
