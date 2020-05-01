@@ -292,6 +292,18 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	}
 	return statusChanged, nil
 }
+func (s *FlinkStateMachine) handleApplicationSavepointingWithCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	checkpointPath, err := s.flinkController.FindExternalizedCheckpointForSavepoint(ctx, application, application.Status.DeployHash)
+	if err != nil {
+		return statusUnchanged, err
+	}
+
+	application.Status.SavepointPath = checkpointPath
+	application.Status.JobStatus.JobID = ""
+	s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
+	return statusChanged, nil
+
+}
 
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
@@ -306,6 +318,10 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		application.Status.RetryCount = 0
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
 		return statusChanged, nil
+	}
+	// use of checkpoints in the place of savepoints
+	if application.Spec.SavepointWithCheckpoint {
+		return s.handleApplicationSavepointingWithCheckpoint(ctx, application)
 	}
 
 	// we haven't started savepointing yet; do so now

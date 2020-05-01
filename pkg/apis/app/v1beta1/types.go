@@ -45,6 +45,7 @@ type FlinkApplicationSpec struct {
 	SavepointInfo                  SavepointInfo       `json:"savepointInfo,omitempty"`
 	SavepointPath                  string              `json:"savepointPath,omitempty"`
 	SavepointDisabled              bool                `json:"savepointDisabled"`
+	SavepointWithCheckpoint        bool                `json:"savepointWithCheckpoint,omitempty"`
 	DeploymentMode                 DeploymentMode      `json:"deploymentMode,omitempty"`
 	RPCPort                        *int32              `json:"rpcPort,omitempty"`
 	BlobPort                       *int32              `json:"blobPort,omitempty"`
@@ -58,6 +59,7 @@ type FlinkApplicationSpec struct {
 	AllowNonRestoredState          bool                `json:"allowNonRestoredState,omitempty"`
 	ForceRollback                  bool                `json:"forceRollback"`
 	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
+	MaxCheckpointDeployAgeSeconds  *int32              `json:"maxCheckpointDeployAgeSeconds,omitempty"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -312,5 +314,6 @@ const (
 	GetJobConfig           FlinkMethod = "GetJobConfig"
 	GetTaskManagers        FlinkMethod = "GetTaskManagers"
 	GetCheckpointCounts    FlinkMethod = "GetCheckpointCounts"
+	GetCheckpointConfig    FlinkMethod = "GetCheckpointConfig"
 	GetJobOverview         FlinkMethod = "GetJobOverview"
 )

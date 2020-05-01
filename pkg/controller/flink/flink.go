@@ -82,6 +82,9 @@ type ControllerInterface interface {
 	// able to savepoint for some reason.
 	FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error)
 
+	// Ensures that application is configured to externalize and *not* delete checkpoints on cancel.
+	FindExternalizedCheckpointForSavepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error)
+
 	// Logs an event to the FlinkApplication resource and to the operator log
 	LogEvent(ctx context.Context, app *v1beta1.FlinkApplication, eventType string, reason string, message string)
 
@@ -445,7 +448,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 	return nil
 }
 
-func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
+func (f *Controller) findExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, checkpointMaxAge int32) (string, error) {
 	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, getURLFromApp(application, hash), application.Status.JobStatus.JobID)
 	var checkpointPath string
 	var checkpointTime int64
@@ -466,12 +469,27 @@ func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application
 		return "", nil
 	}
 
-	if isCheckpointOldToRecover(checkpointTime, getMaxCheckpointRestoreAgeSeconds(application)) {
+	if isCheckpointOldToRecover(checkpointTime, checkpointMaxAge) {
 		logger.Info(ctx, "Found checkpoint to restore from, but was too old")
 		return "", nil
 	}
 
 	return checkpointPath, nil
+
+}
+func (f *Controller) FindExternalizedCheckpointForSavepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
+	checkpointConfig, err := f.flinkClient.GetCheckpointConfig(ctx, getURLFromApp(application, hash), application.Status.JobStatus.JobID)
+	if err != nil {
+		return "", err
+	}
+	if !(checkpointConfig.Externalization.Enabled && !checkpointConfig.Externalization.DeleteOnCancellation) {
+		return "", fmt.Errorf("Checkpoint configuration not compatable for starting from checkpoints")
+	}
+	return f.findExternalizedCheckpoint(ctx, application, hash, getMaxCheckpointDeployAgeSeconds(application))
+}
+
+func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
+	return f.findExternalizedCheckpoint(ctx, application, hash, getMaxCheckpointRestoreAgeSeconds(application))
 }
 
 func isCheckpointOldToRecover(checkpointTime int64, maxCheckpointRecoveryAgeSec int32) bool {

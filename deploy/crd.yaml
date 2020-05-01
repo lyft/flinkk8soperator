@@ -116,6 +116,11 @@ spec:
               type: string
             savepointDisabled:
               type: boolean
+            savepointWithCheckpoint:
+              type: boolean
+            maxCheckpointDeployAgeSeconds:
+              type: integer
+              minimum: 1
             maxCheckpointRestoreAgeSeconds:
               type: integer
               minimum: 1
