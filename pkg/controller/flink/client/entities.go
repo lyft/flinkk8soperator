@@ -31,7 +31,7 @@ const (
 	Reconciling JobState = "RECONCILING"
 )
 
-type CancelJobRequest struct {
+type SavepointJobRequest struct {
 	CancelJob       bool   `json:"cancel-job"`
 	TargetDirectory string `json:"target-directory,omitempty"`
 }
@@ -63,7 +63,7 @@ type FailureCause struct {
 	StackTrace string `json:"stack-trace"`
 }
 
-type CancelJobResponse struct {
+type SavepointJobResponse struct {
 	TriggerID string `json:"request-id"`
 }
 

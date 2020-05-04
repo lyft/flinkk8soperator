@@ -10,7 +10,7 @@ import (
 
 type GetDeploymentsWithLabelFunc func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
 type CreateK8ObjectFunc func(ctx context.Context, object runtime.Object) error
-type GetServiceFunc func(ctx context.Context, namespace string, name string) (*corev1.Service, error)
+type GetServiceFunc func(ctx context.Context, namespace string, name string, version string) (*corev1.Service, error)
 type GetServiceWithLabelFunc func(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.ServiceList, error)
 type UpdateK8ObjectFunc func(ctx context.Context, object runtime.Object) error
 type UpdateStatusFunc func(ctx context.Context, object runtime.Object) error
@@ -40,9 +40,9 @@ func (m *K8Cluster) GetServicesWithLabel(ctx context.Context, namespace string, 
 	return nil, nil
 }
 
-func (m *K8Cluster) GetService(ctx context.Context, namespace string, name string) (*corev1.Service, error) {
+func (m *K8Cluster) GetService(ctx context.Context, namespace string, name string, version string) (*corev1.Service, error) {
 	if m.GetServiceFunc != nil {
-		return m.GetServiceFunc(ctx, namespace, name)
+		return m.GetServiceFunc(ctx, namespace, name, version)
 	}
 	return nil, nil
 }

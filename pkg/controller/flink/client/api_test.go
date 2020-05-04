@@ -405,7 +405,7 @@ func TestCancelJobHappyCase(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	ctx := context.Background()
-	response := CancelJobResponse{
+	response := SavepointJobResponse{
 		TriggerID: "133",
 	}
 	responder, _ := httpmock.NewJsonResponder(203, response)

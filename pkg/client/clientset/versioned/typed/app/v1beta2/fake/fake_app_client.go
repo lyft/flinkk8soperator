@@ -3,22 +3,22 @@
 package fake
 
 import (
-	v1alpha1 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1alpha1"
+	v1beta1 "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeFlinkV1alpha1 struct {
+type FakeFlinkV1beta2 struct {
 	*testing.Fake
 }
 
-func (c *FakeFlinkV1alpha1) FlinkApplications(namespace string) v1alpha1.FlinkApplicationInterface {
+func (c *FakeFlinkV1beta2) FlinkApplications(namespace string) v1beta1.FlinkApplicationInterface {
 	return &FakeFlinkApplications{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeFlinkV1alpha1) RESTClient() rest.Interface {
+func (c *FakeFlinkV1beta2) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

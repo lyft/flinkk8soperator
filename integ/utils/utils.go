@@ -386,7 +386,10 @@ func (f *TestUtil) FlinkAPIGet(app *flinkapp.FlinkApplication, endpoint string) 
 	url := fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/"+
 		"services/%s:8081/proxy/%s",
 		f.Namespace.Name, app.Name, endpoint)
+	if flinkapp.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+		url = f.getURLForBlueGreenDeployment(app, endpoint)
 
+	}
 	resp, err := resty.SetRedirectPolicy(resty.FlexibleRedirectPolicy(5)).R().Get(url)
 	if err != nil {
 		return nil, err
@@ -403,6 +406,17 @@ func (f *TestUtil) FlinkAPIGet(app *flinkapp.FlinkApplication, endpoint string) 
 	}
 
 	return result, nil
+}
+
+func (f *TestUtil) getURLForBlueGreenDeployment(app *flinkapp.FlinkApplication, endpoint string) string {
+	versionSuffix := string(app.Status.UpdatingVersion)
+	if versionSuffix == "" {
+		versionSuffix = string(app.Status.DeployVersion)
+	}
+	return fmt.Sprintf("http://localhost:8001/api/v1/namespaces/%s/"+
+		"services/%s-%s:8081/proxy/%s",
+		f.Namespace.Name, app.Name, versionSuffix, endpoint)
+
 }
 
 func (f *TestUtil) FlinkAPIPatch(app *flinkapp.FlinkApplication, endpoint string) (interface{}, error) {
@@ -453,7 +467,7 @@ func (f *TestUtil) WaitForAllTasksRunning(name string) error {
 		return err
 	}
 
-	endpoint := fmt.Sprintf("jobs/%s", flinkApp.Status.JobStatus.JobID)
+	endpoint := fmt.Sprintf("jobs/%s", f.GetJobID(flinkApp))
 	for {
 		res, err := f.FlinkAPIGet(flinkApp, endpoint)
 		if err != nil {
@@ -514,9 +528,42 @@ func (f *TestUtil) GetJobOverview(app *flinkapp.FlinkApplication) map[string]int
 	jobList := jobMap["jobs"].([]interface{})
 	for _, j := range jobList {
 		job := j.(map[string]interface{})
-		if job["id"] == app.Status.JobStatus.JobID {
+		if job["id"] == f.GetJobID(app) {
 			return job
 		}
 	}
 	return nil
+}
+
+func (f *TestUtil) Min(x, y int32) int32 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func (f *TestUtil) GetJobID(app *flinkapp.FlinkApplication) string {
+	if flinkapp.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+		return app.Status.VersionStatuses[f.GetCurrentStatusIndex(app)].JobStatus.JobID
+	}
+
+	return app.Status.JobStatus.JobID
+}
+
+func (f *TestUtil) GetCurrentStatusIndex(app *flinkapp.FlinkApplication) int32 {
+	if flinkapp.IsRunningPhase(app.Status.Phase) || app.Status.DeployHash == "" ||
+		app.Status.Phase == flinkapp.FlinkApplicationSavepointing || app.Status.Phase == flinkapp.FlinkApplicationDeleting {
+		return 0
+	}
+
+	if app.Status.Phase == flinkapp.FlinkApplicationDualRunning {
+		return 1
+	}
+
+	// activeJobs and maxRunningJobs would be different once a TearDownVersionHash has happened and
+	// the app has moved back to a Running state.
+	activeJobs := int32(len(app.Status.VersionStatuses))
+	maxRunningJobs := flinkapp.GetMaxRunningJobs(app.Spec.DeploymentMode)
+	index := f.Min(activeJobs, maxRunningJobs) - 1
+	return index
 }

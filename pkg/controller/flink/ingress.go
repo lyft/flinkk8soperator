@@ -1,6 +1,7 @@
 package flink
 
 import (
+	"fmt"
 	"regexp"
 
 	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
@@ -11,6 +12,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+const AppIngressName = "%s-%s"
 
 var inputRegex = regexp.MustCompile(`{{[$]jobCluster}}`)
 
@@ -27,7 +30,7 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 	podLabels = common.CopyMap(podLabels, k8.GetAppLabel(app.Name))
 
 	ingressMeta := v1.ObjectMeta{
-		Name:      app.Name,
+		Name:      getJobManagerServiceName(app),
 		Labels:    podLabels,
 		Namespace: app.Namespace,
 		OwnerReferences: []v1.OwnerReference{
@@ -36,7 +39,7 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 	}
 
 	backend := v1beta1.IngressBackend{
-		ServiceName: app.Name,
+		ServiceName: getJobManagerServiceName(app),
 		ServicePort: intstr.IntOrString{
 			Type:   intstr.Int,
 			IntVal: getUIPort(app),
@@ -45,7 +48,7 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 
 	ingressSpec := v1beta1.IngressSpec{
 		Rules: []v1beta1.IngressRule{{
-			Host: GetFlinkUIIngressURL(app.Name),
+			Host: GetFlinkUIIngressURL(getIngressName(app)),
 			IngressRuleValue: v1beta1.IngressRuleValue{
 				HTTP: &v1beta1.HTTPIngressRuleValue{
 					Paths: []v1beta1.HTTPIngressPath{{
@@ -64,4 +67,11 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 		Spec: ingressSpec,
 	}
 
+}
+
+func getIngressName(app *flinkapp.FlinkApplication) string {
+	if flinkapp.IsBlueGreenDeploymentMode(app.Spec.DeploymentMode) {
+		return fmt.Sprintf(AppIngressName, app.Name, string(app.Status.UpdatingVersion))
+	}
+	return app.Name
 }

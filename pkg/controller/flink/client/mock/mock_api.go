@@ -18,7 +18,7 @@ type GetTaskManagersFunc func(ctx context.Context, url string) (*client.TaskMana
 type GetCheckpointCountsFunc func(ctx context.Context, url string, jobID string) (*client.CheckpointResponse, error)
 type GetCheckpointConfigFunc func(ctx context.Context, url string, jobID string) (*client.CheckpointConfigResponse, error)
 type GetJobOverviewFunc func(ctx context.Context, url string, jobID string) (*client.FlinkJobOverview, error)
-
+type SavepointJobFunc func(ctx context.Context, url string, jobID string) (string, error)
 type JobManagerClient struct {
 	CancelJobWithSavepointFunc CancelJobWithSavepointFunc
 	ForceCancelJobFunc         ForceCancelJobFunc
@@ -32,6 +32,7 @@ type JobManagerClient struct {
 	GetCheckpointCountsFunc    GetCheckpointCountsFunc
 	GetCheckpointConfigFunc    GetCheckpointConfigFunc
 	GetJobOverviewFunc         GetJobOverviewFunc
+	SavepointJobFunc           SavepointJobFunc
 }
 
 func (m *JobManagerClient) SubmitJob(ctx context.Context, url string, jarID string, submitJobRequest client.SubmitJobRequest) (*client.SubmitJobResponse, error) {
@@ -116,4 +117,12 @@ func (m *JobManagerClient) GetJobOverview(ctx context.Context, url string, jobID
 		return m.GetJobOverviewFunc(ctx, url, jobID)
 	}
 	return nil, nil
+}
+
+func (m *JobManagerClient) SavepointJob(ctx context.Context, url string, jobID string) (string, error) {
+	if m.SavepointJobFunc != nil {
+		return m.SavepointJobFunc(ctx, url, jobID)
+	}
+
+	return "", nil
 }

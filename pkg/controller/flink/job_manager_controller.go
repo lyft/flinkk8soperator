@@ -21,7 +21,10 @@ import (
 
 const (
 	JobManagerNameFormat                = "%s-%s-jm"
+	JobManagerVersionNameFormat         = "%s-%s-%s-jm"
 	JobManagerPodNameFormat             = "%s-%s-jm-pod"
+	JobManagerServiceName               = "%s"
+	JobManagerVersionServiceName        = "%s-%s"
 	JobManagerContainerName             = "jobmanager"
 	JobManagerArg                       = "jobmanager"
 	JobManagerReadinessPath             = "/overview"
@@ -174,11 +177,15 @@ func getJobManagerPodName(application *v1beta1.FlinkApplication, hash string) st
 
 func getJobManagerName(application *v1beta1.FlinkApplication, hash string) string {
 	applicationName := application.Name
+	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
+		applicationVersion := application.Status.UpdatingVersion
+		return fmt.Sprintf(JobManagerVersionNameFormat, applicationName, hash, applicationVersion)
+	}
 	return fmt.Sprintf(JobManagerNameFormat, applicationName, hash)
 }
 
 func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, hash string) *coreV1.Service {
-	jmServiceName := app.Name
+	jmServiceName := getJobManagerServiceName(app)
 	serviceLabels := getCommonAppLabels(app)
 	serviceLabels[FlinkAppHash] = hash
 	serviceLabels[FlinkDeploymentType] = FlinkDeploymentTypeJobmanager
@@ -201,6 +208,15 @@ func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, hash string)
 			Selector: serviceLabels,
 		},
 	}
+}
+
+func getJobManagerServiceName(app *v1beta1.FlinkApplication) string {
+	serviceName := app.Name
+	versionName := app.Status.UpdatingVersion
+	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
+		return fmt.Sprintf(JobManagerVersionServiceName, serviceName, versionName)
+	}
+	return serviceName
 }
 
 func getJobManagerServicePorts(app *v1beta1.FlinkApplication) []coreV1.ServicePort {
