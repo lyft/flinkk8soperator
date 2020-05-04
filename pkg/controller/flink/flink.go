@@ -472,7 +472,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 }
 
 func (f *Controller) findExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string, checkpointMaxAge int32) (string, error) {
-	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, getURLFromApp(application, hash), application.Status.JobStatus.JobID)
+	checkpoint, err := f.flinkClient.GetLatestCheckpoint(ctx, f.getURLFromApp(application, hash), application.Status.JobStatus.JobID)
 	var checkpointPath string
 	var checkpointTime int64
 	if err != nil {
@@ -507,7 +507,7 @@ func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application
 }
 
 func (f *Controller) FindExternalizedCheckpointForSavepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
-	checkpointConfig, err := f.flinkClient.GetCheckpointConfig(ctx, getURLFromApp(application, hash), application.Status.JobStatus.JobID)
+	checkpointConfig, err := f.flinkClient.GetCheckpointConfig(ctx, f.getURLFromApp(application, hash), application.Status.JobStatus.JobID)
 	if err != nil {
 		return "", err
 	}
@@ -515,10 +515,6 @@ func (f *Controller) FindExternalizedCheckpointForSavepoint(ctx context.Context,
 		return "", fmt.Errorf("Checkpoint configuration not compatable for starting from checkpoints")
 	}
 	return f.findExternalizedCheckpoint(ctx, application, hash, getMaxCheckpointDeployAgeSeconds(application))
-}
-
-func (f *Controller) FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
-	return f.findExternalizedCheckpoint(ctx, application, hash, getMaxCheckpointRestoreAgeSeconds(application))
 }
 
 func isCheckpointOldToRecover(checkpointTime int64, maxCheckpointRecoveryAgeSec int32) bool {

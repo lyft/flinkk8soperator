@@ -50,7 +50,7 @@ func TestHandleNewOrCreate(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8ClusteBasagoitia’sr.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationClusterStarting, application.Status.Phase)
 		return nil
