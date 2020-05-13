@@ -511,7 +511,7 @@ func (f *Controller) FindExternalizedCheckpointForSavepoint(ctx context.Context,
 	if err != nil {
 		return "", err
 	}
-	if !(checkpointConfig.Externalization.Enabled && !checkpointConfig.Externalization.DeleteOnCancellation) {
+	if checkpointConfig.Externalization.Enabled && !checkpointConfig.Externalization.DeleteOnCancellation {
 		return "", fmt.Errorf("Checkpoint configuration not compatable for starting from checkpoints")
 	}
 	return f.findExternalizedCheckpoint(ctx, application, hash, getMaxCheckpointDeployAgeSeconds(application))
