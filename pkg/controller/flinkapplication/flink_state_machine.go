@@ -321,11 +321,17 @@ func (s *FlinkStateMachine) handleApplicationSavepointingWithCheckpoint(ctx cont
 		return statusUnchanged, err
 	}
 
-	application.Status.SavepointPath = checkpointPath
+	jobID := s.flinkController.GetLatestJobID(ctx, application)
+	if err := s.flinkController.ForceCancel(ctx, application, application.Status.DeployHash, jobID); err != nil {
+		return statusUnchanged, err
+	}
+
+	s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CancellingJob",
+		fmt.Sprintf("Cancelling job job %s with a final checkpoint", jobID))
 	application.Status.JobStatus.JobID = ""
+	application.Status.SavepointPath = checkpointPath
 	s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 	return statusChanged, nil
-
 }
 
 func (s *FlinkStateMachine) initializeAppStatusIfEmpty(application *v1beta1.FlinkApplication) {
