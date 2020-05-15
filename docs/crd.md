@@ -132,10 +132,7 @@ Below is the list of fields in the custom resource and their description
     If an application is successfully rolled back, it is moved to a *DeployFailed* phase. Un-setting or setting `ForceRollback` to `False` will allow updates to progress normally.
 
   * **maxCheckpointRestoreAgeSeconds** `type:int32`
-    Used to prevent the application from restoring state from a checkpoint whose age (in seconds) is greater than the value set. It defaults to 1 hour (3600 seconds). This config
-    is used during the operator update workflow. This default exists only
-    to protect one from accidentally restarting the application using a very old checkpoint (which might put your application
-    under huge load). **Note:** this doesn't affect the flink application's checkpointing mechanism in anyway.
+    If the operator is unable to successfully take a savepoint of the existing job when updating, it may fall back to instead using the job's most recent checkpoint. This parameter determines the maximum checkpoint age (in seconds) that is eligible for use during update; the operator won't automatically roll back the application state to a checkpoint older than this. This check is done prior to cancelling the existing job; if no savepoint or valid checkpoint is available, deploy will fail and leave the existing job running. It defaults to 1 hour (3600 seconds), to protect one from accidentally restarting the application using a very old checkpoint (which might put your application under huge load / result in lots of duplicate data). **Note:** This doesn't affect the flink application's checkpointing mechanism in anyway.
   
   * **tearDownVersionHash** `type:string`
     Used **only** with the BlueGreen deployment mode. This is set typically once a FlinkApplication successfully transitions to the `DualRunning` phase.
