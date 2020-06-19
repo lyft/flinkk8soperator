@@ -40,6 +40,12 @@ spec:
                 properties:
                   name:
                     type: string
+            serviceAnnotations:
+              description: May be used to configure the service objects
+              type: object
+            serviceType:
+              description: May be used to configure the service Type
+              type: string
             serviceAccountName:
               type: string
             securityContext:

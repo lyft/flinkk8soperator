@@ -198,6 +198,7 @@ func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, hash string)
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      jmServiceName,
 			Namespace: app.Namespace,
+			Annotations: app.Spec.ServiceAnnotations,
 			OwnerReferences: []metaV1.OwnerReference{
 				*metaV1.NewControllerRef(app, app.GroupVersionKind()),
 			},
@@ -206,7 +207,16 @@ func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, hash string)
 		Spec: coreV1.ServiceSpec{
 			Ports:    getJobManagerServicePorts(app),
 			Selector: serviceLabels,
+			Type:     getJobManagerServiceType(app),
 		},
+	}
+}
+
+func getJobManagerServiceType(app *v1beta1.FlinkApplication) coreV1.ServiceType {
+	if app.Spec.ServiceType == "NodePort" {
+		return coreV1.ServiceTypeNodePort
+	} else {
+		return coreV1.ServiceTypeClusterIP
 	}
 }
 
