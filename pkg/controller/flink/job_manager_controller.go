@@ -215,7 +215,7 @@ func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, hash string)
 func getJobManagerServiceType(app *v1beta1.FlinkApplication) coreV1.ServiceType {
 	if app.Spec.ServiceType == "NodePort" {
 		return coreV1.ServiceTypeNodePort
-	} 
+	}
 	return coreV1.ServiceTypeClusterIP
 }
 
