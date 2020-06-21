@@ -33,7 +33,7 @@ type FlinkApplicationSpec struct {
 	ImagePullSecrets   []apiv1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
 	ServiceAccountName string                       `json:"serviceAccountName,omitempty"`
 	ServiceAnnotations map[string]string            `json:"serviceAnnotations,omitempty"`
-	ServiceType				 string                       `json:"serviceType,omitempty"`
+	ServiceType        string                       `json:"serviceType,omitempty"`
 	SecurityContext    *apiv1.PodSecurityContext    `json:"securityContext,omitempty"`
 	FlinkConfig        FlinkConfig                  `json:"flinkConfig"`
 	FlinkVersion       string                       `json:"flinkVersion"`

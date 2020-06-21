@@ -601,7 +601,7 @@ func TestRollingBack(t *testing.T) {
 			DeployHash:    "old-hash",
 			SavepointPath: "file:///savepoint",
 			VersionStatuses: []v1beta1.FlinkApplicationVersionStatus{
-				v1beta1.FlinkApplicationVersionStatus{
+				{
 					JobStatus: v1beta1.FlinkJobStatus{
 						JarName:     "old-job.jar",
 						Parallelism: 10,
@@ -784,7 +784,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 			Phase:      v1beta1.FlinkApplicationDeleting,
 			DeployHash: "deployhash",
 			VersionStatuses: []v1beta1.FlinkApplicationVersionStatus{
-				v1beta1.FlinkApplicationVersionStatus{
+				{
 					JobStatus: v1beta1.FlinkJobStatus{
 						JobID: jobID,
 					},
@@ -900,7 +900,7 @@ func TestDeleteWithSavepointAndFinishedJob(t *testing.T) {
 			DeployHash:    "deployhash",
 			SavepointPath: "file:///savepoint",
 			VersionStatuses: []v1beta1.FlinkApplicationVersionStatus{
-				v1beta1.FlinkApplicationVersionStatus{
+				{
 					JobStatus: v1beta1.FlinkJobStatus{
 						JobID: jobID,
 					},
@@ -951,7 +951,7 @@ func TestDeleteWithForceCancel(t *testing.T) {
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase: v1beta1.FlinkApplicationDeleting,
 			VersionStatuses: []v1beta1.FlinkApplicationVersionStatus{
-				v1beta1.FlinkApplicationVersionStatus{
+				{
 					JobStatus: v1beta1.FlinkJobStatus{
 						JobID: jobID,
 					},
