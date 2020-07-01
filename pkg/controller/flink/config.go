@@ -20,7 +20,6 @@ const (
 	OffHeapMemoryDefaultFraction   = 0.5
 	HighAvailabilityKey            = "high-availability"
 	MaxCheckpointRestoreAgeSeconds = 3600
-	MaxCheckpointDeployAgeSeconds  = 90
 )
 
 func firstNonNil(x *int32, y int32) int32 {
@@ -72,10 +71,6 @@ func getInternalMetricsQueryPort(app *v1beta1.FlinkApplication) int32 {
 func getMaxCheckpointRestoreAgeSeconds(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.MaxCheckpointRestoreAgeSeconds, MaxCheckpointRestoreAgeSeconds)
 }
-func getMaxCheckpointDeployAgeSeconds(app *v1beta1.FlinkApplication) int32 {
-	return firstNonNil(app.Spec.MaxCheckpointDeployAgeSeconds, MaxCheckpointDeployAgeSeconds)
-}
-
 func getTaskManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	tmResources := application.Spec.TaskManagerConfig.Resources
 	if tmResources == nil {

@@ -45,7 +45,6 @@ type FlinkApplicationSpec struct {
 	SavepointInfo                  SavepointInfo       `json:"savepointInfo,omitempty"`
 	SavepointPath                  string              `json:"savepointPath,omitempty"`
 	SavepointDisabled              bool                `json:"savepointDisabled"`
-	SavepointWithCheckpoint        bool                `json:"savepointWithCheckpoint,omitempty"`
 	DeploymentMode                 DeploymentMode      `json:"deploymentMode,omitempty"`
 	RPCPort                        *int32              `json:"rpcPort,omitempty"`
 	BlobPort                       *int32              `json:"blobPort,omitempty"`
@@ -55,12 +54,19 @@ type FlinkApplicationSpec struct {
 	Volumes                        []apiv1.Volume      `json:"volumes,omitempty"`
 	VolumeMounts                   []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
 	RestartNonce                   string              `json:"restartNonce"`
+	UpdateMode                     UpdateMode          `json:"updateMode,omitempty"`
 	DeleteMode                     DeleteMode          `json:"deleteMode,omitempty"`
 	AllowNonRestoredState          bool                `json:"allowNonRestoredState,omitempty"`
 	ForceRollback                  bool                `json:"forceRollback"`
 	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
-	MaxCheckpointDeployAgeSeconds  *int32              `json:"maxCheckpointDeployAgeSeconds,omitempty"`
 	TearDownVersionHash            string              `json:"tearDownVersionHash,omitempty"`
+}
+
+func (spec FlinkApplicationSpec) SavepointingDisabled() bool {
+	if spec.SavepointDisabled {
+		return spec.SavepointDisabled
+	}
+	return spec.UpdateMode == UpdateModeNoState
 }
 
 type FlinkConfig map[string]interface{}
@@ -302,6 +308,14 @@ const (
 	DeleteModeSavepoint   DeleteMode = "Savepoint"
 	DeleteModeForceCancel DeleteMode = "ForceCancel"
 	DeleteModeNone        DeleteMode = "None"
+)
+
+type UpdateMode string
+
+const (
+	UpdateModeSavepoint  UpdateMode = "Savepoint"
+	UpdateModeCheckpoint UpdateMode = "Checkpoint"
+	UpdateModeNoState    UpdateMode = "NoStateRestore"
 )
 
 type HealthStatus string

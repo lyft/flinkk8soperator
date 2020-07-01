@@ -233,6 +233,7 @@ func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1beta1.FlinkApplic
 
 // In this state we create a new cluster, either due to an entirely new FlinkApplication or due to an update.
 func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+
 	// TODO: add up-front validation on the FlinkApplication resource
 	if rollback, reason := s.shouldRollback(ctx, application); rollback {
 		// we've failed to make progress; move to deploy failed
@@ -305,9 +306,9 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
 	// TODO: in single mode move to submitting job
-	if application.Spec.SavepointDisabled && !v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
+	if application.Spec.SavepointingDisabled() && !v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationCancelling)
-	} else if application.Spec.SavepointDisabled && v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
+	} else if application.Spec.SavepointingDisabled() && v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		// Blue Green deployment and no savepoint required implies, we directly transition to submitting job
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 	} else {
@@ -361,7 +362,7 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		return statusChanged, nil
 	}
 	// use of checkpoints in the place of savepoints
-	if application.Spec.SavepointWithCheckpoint {
+	if application.Spec.UpdateMode == v1beta1.UpdateModeCheckpoint {
 		return s.handleApplicationSavepointingWithCheckpoint(ctx, application)
 	}
 

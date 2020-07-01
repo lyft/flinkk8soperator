@@ -78,6 +78,9 @@ spec:
             parallelism:
               type: integer
               minimum: 1
+            updateMode:
+              type: string
+              enum: [Savepoint, Checkpoint, NoStateRestore]
             deleteMode:
               type: string
               enum: [Savepoint, None, ForceCancel]
@@ -116,11 +119,6 @@ spec:
               type: string
             savepointDisabled:
               type: boolean
-            savepointWithCheckpoint:
-              type: boolean
-            maxCheckpointDeployAgeSeconds:
-              type: integer
-              minimum: 1
             maxCheckpointRestoreAgeSeconds:
               type: integer
               minimum: 1
