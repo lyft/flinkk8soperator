@@ -55,6 +55,7 @@ type FlinkApplicationSpec struct {
 	VolumeMounts                   []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
 	RestartNonce                   string              `json:"restartNonce"`
 	DeleteMode                     DeleteMode          `json:"deleteMode,omitempty"`
+	ScaleMode                      ScaleMode           `json:"scaleMode,omitempty"`
 	AllowNonRestoredState          bool                `json:"allowNonRestoredState,omitempty"`
 	ForceRollback                  bool                `json:"forceRollback"`
 	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
@@ -240,6 +241,7 @@ func (p FlinkApplicationPhase) VerboseString() string {
 const (
 	FlinkApplicationNew             FlinkApplicationPhase = ""
 	FlinkApplicationUpdating        FlinkApplicationPhase = "Updating"
+	FlinkApplicationRescaling       FlinkApplicationPhase = "Rescaling"
 	FlinkApplicationClusterStarting FlinkApplicationPhase = "ClusterStarting"
 	FlinkApplicationSubmittingJob   FlinkApplicationPhase = "SubmittingJob"
 	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
@@ -255,6 +257,7 @@ const (
 var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationNew,
 	FlinkApplicationUpdating,
+	FlinkApplicationRescaling,
 	FlinkApplicationClusterStarting,
 	FlinkApplicationSubmittingJob,
 	FlinkApplicationRunning,
@@ -300,6 +303,12 @@ const (
 	DeleteModeSavepoint   DeleteMode = "Savepoint"
 	DeleteModeForceCancel DeleteMode = "ForceCancel"
 	DeleteModeNone        DeleteMode = "None"
+)
+
+type ScaleMode string
+const (
+	ScaleModeNormal  ScaleMode = "Normal"
+	ScaleModeInPlace ScaleMode = "InPlace"
 )
 
 type HealthStatus string

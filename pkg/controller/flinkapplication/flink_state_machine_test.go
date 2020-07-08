@@ -2073,3 +2073,39 @@ func TestIncompatibleDeploymentModeSwitch(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, app.Status.Phase)
 }
+
+func TestIsScaleUp(t *testing.T) {
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:        "job.jar",
+			Parallelism:    100,
+			EntryClass:     "com.my.Class",
+			ProgramArgs:    "--test",
+			DeploymentMode: v1beta1.DeploymentModeDual,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:              "Running",
+			JobStatus:          v1beta1.FlinkJobStatus{
+				Parallelism:              100,
+			},
+		},
+	}
+
+	hash := flink.HashForApplication(&app)
+	app.Status.DeployHash = hash
+
+
+	app.Spec.Parallelism = 150
+	assert.True(t, isScaleUp(&app))
+
+	app.Spec.Parallelism = 90
+	assert.False(t, isScaleUp(&app))
+
+	app.Spec.Parallelism = 150
+	app.Spec.RestartNonce = "blah"
+	assert.False(t, isScaleUp(&app))
+}

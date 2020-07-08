@@ -170,6 +170,8 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 		case v1beta1.FlinkApplicationNew, v1beta1.FlinkApplicationUpdating:
 			// Currently just transitions to the next state
 			updateApplication, appErr = s.handleNewOrUpdating(ctx, application)
+		case v1beta1.FlinkApplicationRescaling:
+			updateApplication, appErr = s.handleRescaling(ctx, application)
 		case v1beta1.FlinkApplicationClusterStarting:
 			updateApplication, appErr = s.handleClusterStarting(ctx, application)
 		case v1beta1.FlinkApplicationSubmittingJob:
@@ -261,6 +263,11 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	return statusChanged, nil
 }
 
+// In this phase we attempt to increase the scale of the application in-place without creating a new cluster
+func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
+	return false, nil
+}
+
 func (s *FlinkStateMachine) deployFailed(app *v1beta1.FlinkApplication) (bool, error) {
 	hash := flink.HashForApplication(app)
 	app.Status.FailedDeployHash = hash
@@ -300,7 +307,6 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		// Update hashes
 		s.flinkController.UpdateLatestVersionAndHash(application, application.Status.UpdatingVersion, flink.HashForApplication(application))
-
 	}
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
@@ -722,6 +728,13 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		}
 		logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 		// TODO: handle single mode
+
+		// if our scale mode is InPlace and this is a suitable update (the only change is an increase in parallelism)
+		// move to Rescaling
+		if application.Spec.ScaleMode == v1beta1.ScaleModeInPlace && isScaleUp(application) {
+			s.updateApplicationPhase(application, v1beta1.FlinkApplicationRescaling)
+		}
+
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
 		return statusChanged, nil
 	}
@@ -1113,6 +1126,19 @@ func (s *FlinkStateMachine) cancelAndDeleteJob(ctx context.Context, app *v1beta1
 
 func (s *FlinkStateMachine) isIncompatibleDeploymentModeChange(application *v1beta1.FlinkApplication) bool {
 	return application.Spec.DeploymentMode != application.Status.DeploymentMode
+}
+
+// Returns true if the only change between the current status and spec is an _increase_ in parallelism
+func isScaleUp(app *v1beta1.FlinkApplication) bool {
+	if app.Spec.Parallelism > app.Status.JobStatus.Parallelism {
+		appWithOldScale := app.DeepCopy()
+		appWithOldScale.Spec.Parallelism = app.Status.JobStatus.Parallelism
+		hash := flink.HashForApplication(appWithOldScale)
+
+		// this implies that everything _except_ for parallelism is the same
+		return hash == app.Status.DeployHash
+	}
+	return false
 }
 
 func createRetryHandler() client.RetryHandlerInterface {
