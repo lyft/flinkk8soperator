@@ -265,7 +265,65 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 
 // In this phase we attempt to increase the scale of the application in-place without creating a new cluster
 func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
-	return false, nil
+	if rollback, reason := s.shouldRollback(ctx, app); rollback {
+		// we've failed to make progress; move to deploy failed
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "ClusterScaleUpFailed",
+			fmt.Sprintf(
+				"New taskmanagers failed to become available: %s", reason))
+		return s.deployFailed(app)
+	}
+
+	// Update the scale if necessary
+	// TODO: not sure if DeployHash is sufficient here -- need to think through
+	deployments, err := s.flinkController.GetDeploymentsForHash(ctx, app, app.Status.DeployHash)
+	if err != nil {
+		return statusUnchanged, err
+	}
+
+	tmCount := flink.ComputeTaskManagerReplicas(app)
+	if *deployments.Taskmanager.Spec.Replicas != tmCount {
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "ClusterScaleUp",
+			fmt.Sprintf(
+				"Increasing TaskManager replica count from %d to %d in preparation for scale up",
+				*deployments.Taskmanager.Spec.Replicas, tmCount))
+
+		newHash := flink.HashForApplication(app)
+		*deployments.Taskmanager.Spec.Replicas = tmCount
+
+		// update hashes to transform these into our new "current" set of deployments
+		flink.UpdateDeployHash(deployments.Taskmanager, newHash)
+		flink.UpdateDeployHash(deployments.Jobmanager, newHash)
+
+		err := s.k8Cluster.UpdateK8Object(ctx, deployments.Jobmanager)
+		if err != nil {
+			return statusUnchanged, err
+		}
+
+		return statusUnchanged, s.k8Cluster.UpdateK8Object(ctx, deployments.Taskmanager)
+	}
+
+	// Wait for all to be running
+	clusterReady, err := s.flinkController.IsClusterReady(ctx, app)
+	if err != nil || !clusterReady {
+		return statusUnchanged, err
+	}
+
+	// Wait for all TMs to be registered with the JobManager
+	serviceReady, _ := s.flinkController.IsServiceReady(ctx, app, flink.HashForApplication(app))
+	if !serviceReady {
+		return statusUnchanged, nil
+	}
+
+	// once we're ready, continue on to job submission
+	// TODO: should think more about how this should interact with blue/green, since doing things this way violates
+	//       the normal blue/green non-downtime guarantee
+	if app.Spec.SavepointDisabled {
+		s.updateApplicationPhase(app, v1beta1.FlinkApplicationCancelling)
+	} else {
+		s.updateApplicationPhase(app, v1beta1.FlinkApplicationSavepointing)
+	}
+
+	return statusChanged, nil
 }
 
 func (s *FlinkStateMachine) deployFailed(app *v1beta1.FlinkApplication) (bool, error) {
@@ -726,16 +784,18 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 				fmt.Sprintf("Changing deployment mode from %s to %s is unsupported", application.Status.DeploymentMode, application.Spec.DeploymentMode))
 			return s.deployFailed(application)
 		}
-		logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 		// TODO: handle single mode
 
 		// if our scale mode is InPlace and this is a suitable update (the only change is an increase in parallelism)
 		// move to Rescaling
 		if application.Spec.ScaleMode == v1beta1.ScaleModeInPlace && isScaleUp(application) {
+			logger.Infof(ctx, "Application scale has increased. Moving to Rescaling.")
 			s.updateApplicationPhase(application, v1beta1.FlinkApplicationRescaling)
+		} else {
+			logger.Infof(ctx, "Application resource has changed. Moving to Updating")
+			s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
 		}
 
-		s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
 		return statusChanged, nil
 	}
 

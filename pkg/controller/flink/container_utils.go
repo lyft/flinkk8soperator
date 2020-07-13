@@ -243,3 +243,9 @@ func GetDeploySpecificEnv(app *v1beta1.FlinkApplication) []v1.EnvVar {
 	}
 
 }
+
+// Updates the app-hash label and selector for this deployment
+func UpdateDeployHash(deployment *appsv1.Deployment, hash string) {
+	deployment.Spec.Template.Labels[FlinkAppHash] = hash
+	deployment.Spec.Selector.MatchLabels[FlinkAppHash] = hash
+}

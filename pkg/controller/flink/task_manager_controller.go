@@ -155,7 +155,7 @@ func getTaskManagerName(application *v1beta1.FlinkApplication, hash string) stri
 	return fmt.Sprintf(TaskManagerNameFormat, applicationName, hash)
 }
 
-func computeTaskManagerReplicas(application *v1beta1.FlinkApplication) int32 {
+func ComputeTaskManagerReplicas(application *v1beta1.FlinkApplication) int32 {
 	slots := getTaskmanagerSlots(application)
 	parallelism := application.Spec.Parallelism
 	return int32(math.Ceil(float64(parallelism) / float64(slots)))
@@ -180,7 +180,7 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 
 	taskContainer := FetchTaskManagerContainerObj(app)
 
-	replicas := computeTaskManagerReplicas(app)
+	replicas := ComputeTaskManagerReplicas(app)
 
 	deployment := &v1.Deployment{
 		TypeMeta: metaV1.TypeMeta{

@@ -78,6 +78,9 @@ type ControllerInterface interface {
 	// Returns the pair of deployments (tm/jm) for the current version of the application
 	GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error)
 
+	// Returns the pair of deployments (tm/jm) for a given version of the application
+	GetDeploymentsForHash(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*common.FlinkDeployment, error)
+
 	// Deletes all old resources (deployments and services) for the app
 	DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.FlinkApplication) error
 
@@ -394,18 +397,21 @@ func getCurrentHash(app *v1beta1.FlinkApplication) string {
 // that matches the FlinkApplication, unless the FailedDeployHash is set, in which case it will be the one with that
 // hash.
 func (f *Controller) GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
+	return f.GetDeploymentsForHash(ctx, application, getCurrentHash(application))
+}
+
+func (f *Controller) GetDeploymentsForHash(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*common.FlinkDeployment, error) {
 	labels := k8.GetAppLabel(application.Name)
-	curHash := getCurrentHash(application)
-	labels[FlinkAppHash] = curHash
+	labels[FlinkAppHash] = hash
 
 	deployments, err := f.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, labels)
 	if err != nil {
 		return nil, err
 	}
 
-	cur := listToFlinkDeployment(deployments.Items, curHash)
+	cur := listToFlinkDeployment(deployments.Items, hash)
 	if cur != nil && application.Status.FailedDeployHash == "" && application.Status.TeardownHash == "" &&
-		(!f.deploymentMatches(ctx, cur.Jobmanager, application, curHash) || !f.deploymentMatches(ctx, cur.Taskmanager, application, curHash)) {
+		(!f.deploymentMatches(ctx, cur.Jobmanager, application, hash) || !f.deploymentMatches(ctx, cur.Taskmanager, application, hash)) {
 		// we had a hash collision (i.e., the previous application has the same hash as the new one)
 		// this is *very* unlikely to occur (1/2^32)
 		return nil, errors.New("found hash collision for deployment, you must do a clean deploy")
