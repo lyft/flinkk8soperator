@@ -350,6 +350,7 @@ func (s *FlinkStateMachine) initializeAppStatusIfEmpty(application *v1beta1.Flin
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
 	if application.Status.SavepointPath != "" || application.Status.DeployHash == "" {
+		logger.Debugf(ctx, "Using SavepointPath: %s", application.Status.SavepointPath)
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}
