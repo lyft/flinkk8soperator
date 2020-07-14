@@ -22,6 +22,7 @@ type GetJobsForApplicationFunc func(ctx context.Context, application *v1beta1.Fl
 type GetJobForApplicationFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
 type GetCurrentDeploymentsForAppFunc func(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error)
 type FindExternalizedCheckpointFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error)
+type FindExternalizedCheckpointForSavepointFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error)
 type CompareAndUpdateClusterStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error)
 type CompareAndUpdateJobStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error)
 type GetLatestClusterStatusFunc func(ctx context.Context, app *v1beta1.FlinkApplication) v1beta1.FlinkClusterStatus
@@ -36,34 +37,36 @@ type DeleteStatusPostTeardownFunc func(ctx context.Context, application *v1beta1
 type GetJobToDeleteForApplicationFunc func(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
 type GetVersionAndJobIDForHashFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, string, error)
 type GetVersionAndHashPostTeardownFunc func(ctx context.Context, application *v1beta1.FlinkApplication) (v1beta1.FlinkApplicationVersion, string)
+
 type FlinkController struct {
-	CreateClusterFunc                 CreateClusterFunc
-	DeleteOldResourcesForAppFunc      DeleteOldResourcesForApp
-	SavepointFunc                     SavepointFunc
-	ForceCancelFunc                   ForceCancelFunc
-	StartFlinkJobFunc                 StartFlinkJobFunc
-	GetSavepointStatusFunc            GetSavepointStatusFunc
-	IsClusterReadyFunc                IsClusterReadyFunc
-	IsServiceReadyFunc                IsServiceReadyFunc
-	GetJobsForApplicationFunc         GetJobsForApplicationFunc
-	GetJobForApplicationFunc          GetJobForApplicationFunc
-	GetCurrentDeploymentsForAppFunc   GetCurrentDeploymentsForAppFunc
-	FindExternalizedCheckpointFunc    FindExternalizedCheckpointFunc
-	Events                            []corev1.Event
-	CompareAndUpdateClusterStatusFunc CompareAndUpdateClusterStatusFunc
-	CompareAndUpdateJobStatusFunc     CompareAndUpdateJobStatusFunc
-	GetLatestClusterStatusFunc        GetLatestClusterStatusFunc
-	GetLatestJobStatusFunc            GetLatestJobStatusFunc
-	GetLatestJobIDFunc                GetLatestJobIDFunc
-	UpdateLatestJobIDFunc             UpdateLatestJobIDFunc
-	UpdateLatestJobStatusFunc         UpdateLatestJobStatusFunc
-	UpdateLatestClusterStatusFunc     UpdateLatestClusterStatusFunc
-	UpdateLatestVersionAndHashFunc    UpdateLatestVersionAndHashFunc
-	DeleteResourcesForAppWithHashFunc DeleteResourcesForAppWithHashFunc
-	DeleteStatusPostTeardownFunc      DeleteStatusPostTeardownFunc
-	GetJobToDeleteForApplicationFunc  GetJobToDeleteForApplicationFunc
-	GetVersionAndJobIDForHashFunc     GetVersionAndJobIDForHashFunc
-	GetVersionAndHashPostTeardownFunc GetVersionAndHashPostTeardownFunc
+	CreateClusterFunc                          CreateClusterFunc
+	DeleteOldResourcesForAppFunc               DeleteOldResourcesForApp
+	SavepointFunc                              SavepointFunc
+	ForceCancelFunc                            ForceCancelFunc
+	StartFlinkJobFunc                          StartFlinkJobFunc
+	GetSavepointStatusFunc                     GetSavepointStatusFunc
+	IsClusterReadyFunc                         IsClusterReadyFunc
+	IsServiceReadyFunc                         IsServiceReadyFunc
+	GetJobsForApplicationFunc                  GetJobsForApplicationFunc
+	GetJobForApplicationFunc                   GetJobForApplicationFunc
+	GetCurrentDeploymentsForAppFunc            GetCurrentDeploymentsForAppFunc
+	FindExternalizedCheckpointFunc             FindExternalizedCheckpointFunc
+	FindExternalizedCheckpointForSavepointFunc FindExternalizedCheckpointForSavepointFunc
+	Events                                     []corev1.Event
+	CompareAndUpdateClusterStatusFunc          CompareAndUpdateClusterStatusFunc
+	CompareAndUpdateJobStatusFunc              CompareAndUpdateJobStatusFunc
+	GetLatestClusterStatusFunc                 GetLatestClusterStatusFunc
+	GetLatestJobStatusFunc                     GetLatestJobStatusFunc
+	GetLatestJobIDFunc                         GetLatestJobIDFunc
+	UpdateLatestJobIDFunc                      UpdateLatestJobIDFunc
+	UpdateLatestJobStatusFunc                  UpdateLatestJobStatusFunc
+	UpdateLatestClusterStatusFunc              UpdateLatestClusterStatusFunc
+	UpdateLatestVersionAndHashFunc             UpdateLatestVersionAndHashFunc
+	DeleteResourcesForAppWithHashFunc          DeleteResourcesForAppWithHashFunc
+	DeleteStatusPostTeardownFunc               DeleteStatusPostTeardownFunc
+	GetJobToDeleteForApplicationFunc           GetJobToDeleteForApplicationFunc
+	GetVersionAndJobIDForHashFunc              GetVersionAndJobIDForHashFunc
+	GetVersionAndHashPostTeardownFunc          GetVersionAndHashPostTeardownFunc
 }
 
 func (m *FlinkController) GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
@@ -146,6 +149,13 @@ func (m *FlinkController) GetJobForApplication(ctx context.Context, application 
 
 func (m *FlinkController) FindExternalizedCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
 	if m.FindExternalizedCheckpointFunc != nil {
+		return m.FindExternalizedCheckpointFunc(ctx, application, hash)
+	}
+	return "", nil
+}
+
+func (m *FlinkController) FindExternalizedCheckpointForSavepoint(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
+	if m.FindExternalizedCheckpointForSavepointFunc != nil {
 		return m.FindExternalizedCheckpointFunc(ctx, application, hash)
 	}
 	return "", nil

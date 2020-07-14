@@ -826,6 +826,16 @@ func TestJobStatusUpdated(t *testing.T) {
 		}, nil
 	}
 
+	mockJmClient.GetCheckpointConfigFunc = func(ctx context.Context, url string, jobID string) (*client.CheckpointConfigResponse, error) {
+		assert.Equal(t, url, "http://app-name-hash.ns:8081")
+		return &client.CheckpointConfigResponse{
+			Externalization: &client.ExternalizedCheckpoints{
+				Enabled:              true,
+				DeleteOnCancellation: false,
+			},
+		}, nil
+	}
+
 	flinkApp.Status.JobStatus.JobID = "abc"
 	expectedTime := metaV1.NewTime(time.Unix(startTime/1000, 0))
 	_, err = flinkControllerForTest.CompareAndUpdateJobStatus(context.Background(), &flinkApp, "hash")

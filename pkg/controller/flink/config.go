@@ -71,7 +71,6 @@ func getInternalMetricsQueryPort(app *v1beta1.FlinkApplication) int32 {
 func getMaxCheckpointRestoreAgeSeconds(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.MaxCheckpointRestoreAgeSeconds, MaxCheckpointRestoreAgeSeconds)
 }
-
 func getTaskManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	tmResources := application.Spec.TaskManagerConfig.Resources
 	if tmResources == nil {

@@ -139,10 +139,19 @@ type LatestCheckpoints struct {
 	Restored  *CheckpointStatistics `json:"restored,omitempty"`
 }
 
+type ExternalizedCheckpoints struct {
+	Enabled              bool `json:"enable,omitempty"`
+	DeleteOnCancellation bool `json:"delete_on_cancellation,omitempty"`
+}
+
 type CheckpointResponse struct {
 	Counts  map[string]int32       `json:"counts"`
 	Latest  LatestCheckpoints      `json:"latest"`
 	History []CheckpointStatistics `json:"history"`
+}
+
+type CheckpointConfigResponse struct {
+	Externalization *ExternalizedCheckpoints `json:"externalization"`
 }
 
 type TaskManagerStats struct {

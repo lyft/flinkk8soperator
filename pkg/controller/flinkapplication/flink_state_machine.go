@@ -233,6 +233,7 @@ func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1beta1.FlinkApplic
 
 // In this state we create a new cluster, either due to an entirely new FlinkApplication or due to an update.
 func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+
 	// TODO: add up-front validation on the FlinkApplication resource
 	if rollback, reason := s.shouldRollback(ctx, application); rollback {
 		// we've failed to make progress; move to deploy failed
@@ -305,14 +306,32 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
 	// TODO: in single mode move to submitting job
-	if application.Spec.SavepointDisabled && !v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
+	if application.Spec.SavepointingDisabled() && !v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationCancelling)
-	} else if application.Spec.SavepointDisabled && v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
+	} else if application.Spec.SavepointingDisabled() && v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		// Blue Green deployment and no savepoint required implies, we directly transition to submitting job
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 	} else {
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSavepointing)
 	}
+	return statusChanged, nil
+}
+func (s *FlinkStateMachine) handleApplicationSavepointingWithCheckpoint(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
+	checkpointPath, err := s.flinkController.FindExternalizedCheckpointForSavepoint(ctx, application, application.Status.DeployHash)
+	if err != nil {
+		return statusUnchanged, err
+	}
+
+	jobID := s.flinkController.GetLatestJobID(ctx, application)
+	if err := s.flinkController.ForceCancel(ctx, application, application.Status.DeployHash, jobID); err != nil {
+		return statusUnchanged, err
+	}
+
+	s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CancellingJob",
+		fmt.Sprintf("Cancelling job job %s with a final checkpoint", jobID))
+	application.Status.JobStatus.JobID = ""
+	application.Status.SavepointPath = checkpointPath
+	s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 	return statusChanged, nil
 }
 
@@ -331,6 +350,7 @@ func (s *FlinkStateMachine) initializeAppStatusIfEmpty(application *v1beta1.Flin
 func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
 	// we've already savepointed (or this is our first deploy), continue on
 	if application.Status.SavepointPath != "" || application.Status.DeployHash == "" {
+		logger.Debugf(ctx, "Using SavepointPath: %s", application.Status.SavepointPath)
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationSubmittingJob)
 		return statusChanged, nil
 	}
@@ -342,6 +362,11 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
 		return statusChanged, nil
 	}
+	// use of checkpoints in the place of savepoints
+	if application.Spec.UpdateMode == v1beta1.UpdateModeCheckpoint {
+		return s.handleApplicationSavepointingWithCheckpoint(ctx, application)
+	}
+
 	cancelFlag := getCancelFlag(application)
 	// we haven't started savepointing yet; do so now
 	// TODO: figure out the idempotence of this

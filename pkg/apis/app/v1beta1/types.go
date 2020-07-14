@@ -54,11 +54,19 @@ type FlinkApplicationSpec struct {
 	Volumes                        []apiv1.Volume      `json:"volumes,omitempty"`
 	VolumeMounts                   []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
 	RestartNonce                   string              `json:"restartNonce"`
+	UpdateMode                     UpdateMode          `json:"updateMode,omitempty"`
 	DeleteMode                     DeleteMode          `json:"deleteMode,omitempty"`
 	AllowNonRestoredState          bool                `json:"allowNonRestoredState,omitempty"`
 	ForceRollback                  bool                `json:"forceRollback"`
 	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
 	TearDownVersionHash            string              `json:"tearDownVersionHash,omitempty"`
+}
+
+func (spec FlinkApplicationSpec) SavepointingDisabled() bool {
+	if spec.SavepointDisabled {
+		return spec.SavepointDisabled
+	}
+	return spec.UpdateMode == UpdateModeNoState
 }
 
 type FlinkConfig map[string]interface{}
@@ -302,6 +310,14 @@ const (
 	DeleteModeNone        DeleteMode = "None"
 )
 
+type UpdateMode string
+
+const (
+	UpdateModeSavepoint  UpdateMode = "Savepoint"
+	UpdateModeCheckpoint UpdateMode = "Checkpoint"
+	UpdateModeNoState    UpdateMode = "NoStateRestore"
+)
+
 type HealthStatus string
 
 const (
@@ -353,6 +369,7 @@ const (
 	GetJobConfig           FlinkMethod = "GetJobConfig"
 	GetTaskManagers        FlinkMethod = "GetTaskManagers"
 	GetCheckpointCounts    FlinkMethod = "GetCheckpointCounts"
+	GetCheckpointConfig    FlinkMethod = "GetCheckpointConfig"
 	GetJobOverview         FlinkMethod = "GetJobOverview"
 	SavepointJob           FlinkMethod = "SavepointJob"
 )
