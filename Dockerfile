@@ -1,4 +1,4 @@
-FROM golang:1.14.0-alpine3.11 as builder
+FROM golang:1.14.4-alpine3.12 as builder
 RUN apk add git openssh-client make curl bash
 
 COPY boilerplate/lyft/golang_test_targets/dep_install.sh /go/src/github.com/lyft/flinkk8soperator/
@@ -23,6 +23,6 @@ RUN make linux_compile
 ENV PATH="/artifacts:${PATH}"
 
 # This will eventually move to centurylink/ca-certs:latest for minimum possible image size
-FROM alpine:3.11
+FROM alpine:3.12
 COPY --from=builder /artifacts /bin
 CMD ["flinkoperator"]
