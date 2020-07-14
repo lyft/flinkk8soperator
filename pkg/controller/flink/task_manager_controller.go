@@ -175,7 +175,7 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 	labels[FlinkDeploymentType] = FlinkDeploymentTypeTaskmanager
 
 	podSelector := &metaV1.LabelSelector{
-		MatchLabels: labels,
+		MatchLabels: common.DuplicateMap(labels),
 	}
 
 	taskContainer := FetchTaskManagerContainerObj(app)
@@ -204,7 +204,7 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Namespace:   app.Namespace,
-					Labels:      labels,
+					Labels:      common.DuplicateMap(labels),
 					Annotations: app.Annotations,
 				},
 				Spec: coreV1.PodSpec{
@@ -235,10 +235,13 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 func FetchTaskMangerDeploymentCreateObj(app *v1beta1.FlinkApplication, hash string) *v1.Deployment {
 	template := taskmanagerTemplate(app.DeepCopy())
 
+	podDeploymentValue := RandomPodDeploymentSelector()
+
 	template.Name = getTaskManagerName(app, hash)
 	template.Labels[FlinkAppHash] = hash
-	template.Spec.Template.Labels[FlinkAppHash] = hash
-	template.Spec.Selector.MatchLabels[FlinkAppHash] = hash
+	template.Spec.Template.Annotations[FlinkAppHash] = hash
+	template.Spec.Template.Labels[PodDeploymentSelector] = podDeploymentValue
+	template.Spec.Selector.MatchLabels[PodDeploymentSelector] = podDeploymentValue
 	template.Spec.Template.Name = getTaskManagerPodName(app, hash)
 
 	InjectOperatorCustomizedConfig(template, app, hash, FlinkDeploymentTypeTaskmanager)

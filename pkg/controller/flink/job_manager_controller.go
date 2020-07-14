@@ -3,6 +3,7 @@ package flink
 import (
 	"context"
 	"fmt"
+	"errors"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
@@ -92,6 +93,8 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 	newlyCreated := false
 
 	jobManagerDeployment := FetchJobMangerDeploymentCreateObj(application, hash)
+	podSelector := jobManagerDeployment.Spec.Selector.MatchLabels[PodDeploymentSelector]
+
 	err := j.k8Cluster.CreateK8Object(ctx, jobManagerDeployment)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
@@ -100,6 +103,20 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 			return false, err
 		}
 		logger.Infof(ctx, "Jobmanager deployment already exists")
+
+		labels := k8.GetAppLabel(application.Name)
+		labels[FlinkAppHash] = hash
+
+		existingDeployment, err := j.k8Cluster.GetDeploymentsWithLabel(ctx, application.Namespace, labels)
+		if err != nil {
+			return false, err
+		}
+		if len(existingDeployment.Items) == 0 {
+			return false, errors.New("failed to create jobmanager deployment as it already exists, but" +
+				" unable to find existing resource")
+		}
+
+		podSelector = existingDeployment.Items[0].Spec.Selector.MatchLabels[PodDeploymentSelector]
 	} else {
 		newlyCreated = true
 		j.metrics.deploymentCreationSuccess.Inc(ctx)
@@ -107,7 +124,7 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 
 	// create the generic job manager service, used by the ingress to provide UI access
 	// there will only be one of these across the lifetime of the application
-	genericService := FetchJobManagerServiceCreateObj(application, hash)
+	genericService := FetchJobManagerServiceCreateObj(application, podSelector)
 	err = j.k8Cluster.CreateK8Object(ctx, genericService)
 	if err != nil {
 		if !k8_err.IsAlreadyExists(err) {
@@ -123,7 +140,7 @@ func (j *JobManagerController) CreateIfNotExist(ctx context.Context, application
 
 	// create the service for _this_ version of the flink application
 	// this gives us a stable and reliable way to target a particular cluster during upgrades
-	versionedJobManagerService := FetchJobManagerServiceCreateObj(application, hash)
+	versionedJobManagerService := FetchJobManagerServiceCreateObj(application, podSelector)
 	versionedJobManagerService.Name = VersionedJobManagerServiceName(application, hash)
 	versionedJobManagerService.Labels[FlinkAppHash] = hash
 
@@ -184,10 +201,10 @@ func getJobManagerName(application *v1beta1.FlinkApplication, hash string) strin
 	return fmt.Sprintf(JobManagerNameFormat, applicationName, hash)
 }
 
-func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, hash string) *coreV1.Service {
+func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, selector string) *coreV1.Service {
 	jmServiceName := getJobManagerServiceName(app)
 	serviceLabels := getCommonAppLabels(app)
-	serviceLabels[FlinkAppHash] = hash
+	serviceLabels[PodDeploymentSelector] = selector
 	serviceLabels[FlinkDeploymentType] = FlinkDeploymentTypeJobmanager
 
 	return &coreV1.Service{
@@ -311,7 +328,7 @@ func jobmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 	labels[FlinkDeploymentType] = FlinkDeploymentTypeJobmanager
 
 	podSelector := &metaV1.LabelSelector{
-		MatchLabels: labels,
+		MatchLabels: common.DuplicateMap(labels),
 	}
 
 	replicas := getJobmanagerReplicas(app)
@@ -339,7 +356,7 @@ func jobmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Namespace:   app.Namespace,
-					Labels:      labels,
+					Labels:      common.DuplicateMap(labels),
 					Annotations: app.Annotations,
 				},
 				Spec: coreV1.PodSpec{
@@ -370,10 +387,13 @@ func jobmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 func FetchJobMangerDeploymentCreateObj(app *v1beta1.FlinkApplication, hash string) *v1.Deployment {
 	template := jobmanagerTemplate(app.DeepCopy())
 
+	podDeploymentValue := RandomPodDeploymentSelector()
+
 	template.Name = getJobManagerName(app, hash)
 	template.Labels[FlinkAppHash] = hash
-	template.Spec.Template.Labels[FlinkAppHash] = hash
-	template.Spec.Selector.MatchLabels[FlinkAppHash] = hash
+	template.Spec.Template.Annotations[FlinkAppHash] = hash
+	template.Spec.Template.Labels[PodDeploymentSelector] = podDeploymentValue
+	template.Spec.Selector.MatchLabels[PodDeploymentSelector] = podDeploymentValue
 	template.Spec.Template.Name = getJobManagerPodName(app, hash)
 
 	InjectOperatorCustomizedConfig(template, app, hash, FlinkDeploymentTypeJobmanager)

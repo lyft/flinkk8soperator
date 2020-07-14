@@ -410,12 +410,12 @@ func (f *Controller) GetDeploymentsForHash(ctx context.Context, application *v1b
 	}
 
 	cur := listToFlinkDeployment(deployments.Items, hash)
-	if cur != nil && application.Status.FailedDeployHash == "" && application.Status.TeardownHash == "" &&
-		(!f.deploymentMatches(ctx, cur.Jobmanager, application, hash) || !f.deploymentMatches(ctx, cur.Taskmanager, application, hash)) {
-		// we had a hash collision (i.e., the previous application has the same hash as the new one)
-		// this is *very* unlikely to occur (1/2^32)
-		return nil, errors.New("found hash collision for deployment, you must do a clean deploy")
-	}
+	//if cur != nil && application.Status.FailedDeployHash == "" && application.Status.TeardownHash == "" &&
+	//	(!f.deploymentMatches(ctx, cur.Jobmanager, application, hash) || !f.deploymentMatches(ctx, cur.Taskmanager, application, hash)) {
+	//	// we had a hash collision (i.e., the previous application has the same hash as the new one)
+	//	// this is *very* unlikely to occur (1/2^32)
+	//	return nil, errors.New("found hash collision for deployment, you must do a clean deploy")
+	//}
 
 	return cur, nil
 }

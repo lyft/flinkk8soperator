@@ -3,6 +3,8 @@ package flink
 import (
 	"fmt"
 	"hash/fnv"
+	"math/rand"
+	"time"
 
 	"github.com/benlaurie/objecthash/go/objecthash"
 
@@ -31,6 +33,7 @@ const (
 	FlinkDeploymentTypeJobmanager    = "jobmanager"
 	FlinkDeploymentTypeTaskmanager   = "taskmanager"
 	FlinkAppHash                     = "flink-app-hash"
+	PodDeploymentSelector            = "pod-deployment-selector"
 	FlinkJobProperties               = "flink-job-properties"
 	RestartNonce                     = "restart-nonce"
 	FlinkApplicationVersionEnv       = "FLINK_APPLICATION_VERSION"
@@ -244,8 +247,19 @@ func GetDeploySpecificEnv(app *v1beta1.FlinkApplication) []v1.EnvVar {
 
 }
 
-// Updates the app-hash label and selector for this deployment
-func UpdateDeployHash(deployment *appsv1.Deployment, hash string) {
-	deployment.Spec.Template.Labels[FlinkAppHash] = hash
-	deployment.Spec.Selector.MatchLabels[FlinkAppHash] = hash
+// Generates random 8 character string that connects pods to deployments, and which uniquely identifies *this*
+// deployment that we're creating now. We used to rely on the hash for this, but that is not stable in the case of
+// in-place scale up.
+func RandomPodDeploymentSelector() string {
+	random := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	alphabet := "abcdefghijklmnopkqrstuvwxyz0123456789"
+
+	s := make([]byte, 8)
+
+	for i := range s {
+		s[i] = alphabet[random.Int31n(int32(len(alphabet)))]
+	}
+
+	return string(s)
 }

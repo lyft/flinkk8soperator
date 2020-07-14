@@ -2,6 +2,7 @@ package flinkapplication
 
 import (
 	"context"
+	appsv1 "k8s.io/api/apps/v1"
 	"math"
 	"time"
 
@@ -268,39 +269,61 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 	if rollback, reason := s.shouldRollback(ctx, app); rollback {
 		// we've failed to make progress; move to deploy failed
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "ClusterScaleUpFailed",
-			fmt.Sprintf(
-				"New taskmanagers failed to become available: %s", reason))
+			fmt.Sprintf("New taskmanagers failed to become available: %s", reason))
 		return s.deployFailed(app)
 	}
 
 	// Update the scale if necessary
 	// TODO: not sure if DeployHash is sufficient here -- need to think through
-	deployments, err := s.flinkController.GetDeploymentsForHash(ctx, app, app.Status.DeployHash)
+
+	labels := k8.GetAppLabel(app.Name)
+	labels[flink.FlinkAppHash] = app.Status.DeployHash
+
+	deployments, err := s.k8Cluster.GetDeploymentsWithLabel(ctx, app.Namespace, labels)
 	if err != nil {
 		return statusUnchanged, err
 	}
 
-	tmCount := flink.ComputeTaskManagerReplicas(app)
-	if *deployments.Taskmanager.Spec.Replicas != tmCount {
-		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "ClusterScaleUp",
-			fmt.Sprintf(
-				"Increasing TaskManager replica count from %d to %d in preparation for scale up",
-				*deployments.Taskmanager.Spec.Replicas, tmCount))
+	// If we have old (pre-scaled deployments), update their hashes our new hash to transform them into our new
+	// replicas, and also update the TM replica count to our new parallelism
+	var tmDeployment *appsv1.Deployment
+	var jmDeployment *appsv1.Deployment
 
-		newHash := flink.HashForApplication(app)
-		*deployments.Taskmanager.Spec.Replicas = tmCount
+	for i, d := range deployments.Items {
+		if flink.DeploymentIsJobmanager(&d) {
+			jmDeployment = &deployments.Items[i]
+		} else if flink.DeploymentIsTaskmanager(&d) {
+			tmDeployment = &deployments.Items[i]
+		}
+	}
 
-		// update hashes to transform these into our new "current" set of deployments
-		flink.UpdateDeployHash(deployments.Taskmanager, newHash)
-		flink.UpdateDeployHash(deployments.Jobmanager, newHash)
+	newHash := flink.HashForApplication(app)
 
-		err := s.k8Cluster.UpdateK8Object(ctx, deployments.Jobmanager)
-		if err != nil {
+	if jmDeployment != nil {
+		jmDeployment.Labels[flink.FlinkAppHash] = newHash
+		if s.k8Cluster.UpdateK8Object(ctx, jmDeployment) != nil {
 			return statusUnchanged, err
 		}
-
-		return statusUnchanged, s.k8Cluster.UpdateK8Object(ctx, deployments.Taskmanager)
 	}
+
+	if tmDeployment != nil {
+		tmCount := flink.ComputeTaskManagerReplicas(app)
+		if *tmDeployment.Spec.Replicas != tmCount {
+			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "ClusterScaleUp",
+				fmt.Sprintf(
+					"Increasing TaskManager replica count from %d to %d in preparation for scale up",
+					*tmDeployment.Spec.Replicas, tmCount))
+
+			*tmDeployment.Spec.Replicas = tmCount
+		}
+
+		tmDeployment.Labels[flink.FlinkAppHash] = newHash
+		if s.k8Cluster.UpdateK8Object(ctx, tmDeployment) != nil {
+			return statusUnchanged, err
+		}
+	}
+
+	// Create a new versioned service
 
 	// Wait for all to be running
 	clusterReady, err := s.flinkController.IsClusterReady(ctx, app)
@@ -309,7 +332,7 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 	}
 
 	// Wait for all TMs to be registered with the JobManager
-	serviceReady, _ := s.flinkController.IsServiceReady(ctx, app, flink.HashForApplication(app))
+	serviceReady, _ := s.flinkController.IsServiceReady(ctx, app, app.Status.DeployHash)
 	if !serviceReady {
 		return statusUnchanged, nil
 	}
@@ -600,9 +623,15 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 		return errors.New("service does not exist")
 	}
 
-	if service.Spec.Selector[flink.FlinkAppHash] != newHash {
+	deployments, err := s.flinkController.GetDeploymentsForHash(ctx, app, newHash)
+	if err != nil {
+		return err
+	}
+
+	selector := deployments.Jobmanager.Spec.Selector.MatchLabels[flink.PodDeploymentSelector]
+	if service.Spec.Selector[flink.PodDeploymentSelector] != selector {
 		// the service hasn't yet been updated
-		service.Spec.Selector[flink.FlinkAppHash] = newHash
+		service.Spec.Selector[flink.PodDeploymentSelector] = selector
 		err = s.k8Cluster.UpdateK8Object(ctx, service)
 		if err != nil {
 			return err
