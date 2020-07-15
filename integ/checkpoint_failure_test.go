@@ -78,7 +78,7 @@ func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 func (s *IntegSuite) TestCheckpointTimeout(c *C) {
 	failingJobTest(s, c, "checkpointtimeout", func() {
 		// cause checkpoints to take 120 seconds
-		err := ioutil.WriteFile(s.Util.CheckpointDir+"/checkpoint_delay", []byte("120000"), 0644)
+		err := ioutil.WriteFile(s.Util.CheckpointDir+"/checkpoint_delay", []byte("120000"), 0600)
 		c.Assert(err, IsNil)
 	})
 }

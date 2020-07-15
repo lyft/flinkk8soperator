@@ -92,7 +92,8 @@ func (f *TestUtil) Cleanup() {
 			log.Errorf("Failed to fetch flink apps during cleanup: %v", err)
 		} else {
 			// make sure none of the apps have left-over finalizers
-			for _, app := range flinkApps.Items {
+			for i := range flinkApps.Items {
+				app := flinkApps.Items[i]
 				if len(app.Finalizers) != 0 {
 					app.Finalizers = []string{}
 					_, _ = f.FlinkApps().Update(&app)
