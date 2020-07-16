@@ -141,7 +141,7 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	appVersion, err := version.NewVersion(getFlinkVersion(app))
 	v11, err := version.NewVersion("1.11")
 
-	if err != nil || appVersion.LessThan(v11) {
+	if err != nil || appVersion == nil || appVersion.LessThan(v11) {
 		(*config)["jobmanager.heap.size"] = getJobManagerHeapMemory(app)
 		(*config)["taskmanager.heap.size"] = getTaskManagerHeapMemory(app)
 	} else {

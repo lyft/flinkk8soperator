@@ -303,6 +303,8 @@ func TestMemoryConfigurationForVersionBelow11(t *testing.T) {
 		"1.9",
 		"1.8.0",
 		"1.8",
+		"",
+		"invalid_version",
 	}
 
 	for _, version := range versions {
