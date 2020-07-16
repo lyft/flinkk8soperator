@@ -49,7 +49,7 @@ func getFlinkContainerName(containerName string) string {
 	return containerName
 }
 
-func getCommonAppLabels(app *v1beta1.FlinkApplication) map[string]string {
+func GetCommonAppLabels(app *v1beta1.FlinkApplication) map[string]string {
 	labels := common.DuplicateMap(k8.GetAppLabel(app.Name))
 	if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) {
 		labels[FlinkApplicationVersion] = string(app.Status.UpdatingVersion)

@@ -184,6 +184,7 @@ type FlinkApplicationStatus struct {
 	DeployHash         string                          `json:"deployHash"`
 	UpdatingHash       string                          `json:"updatingHash,omitempty"`
 	TeardownHash       string                          `json:"teardownHash,omitempty"`
+	InPlaceUpdatedFrom string                          `json:"inPlaceUpdatedFrom,omitempty"`
 	SavepointTriggerID string                          `json:"savepointTriggerId,omitempty"`
 	SavepointPath      string                          `json:"savepointPath,omitempty"`
 	RetryCount         int32                           `json:"retryCount,omitempty"`

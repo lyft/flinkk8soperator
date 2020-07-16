@@ -3,6 +3,7 @@ package flinkapplication
 import (
 	"context"
 	appsv1 "k8s.io/api/apps/v1"
+	k8_err "k8s.io/apimachinery/pkg/api/errors"
 	"math"
 	"time"
 
@@ -253,6 +254,10 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 		// Reset teardown hash if set
 		application.Status.TeardownHash = ""
 	}
+
+	// Reset the in-place update hash if set
+	application.Status.InPlaceUpdatedFrom = ""
+
 	// Create the Flink cluster
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
@@ -273,11 +278,10 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 		return s.deployFailed(app)
 	}
 
-	// Update the scale if necessary
-	// TODO: not sure if DeployHash is sufficient here -- need to think through
-
 	labels := k8.GetAppLabel(app.Name)
+	// TODO: not sure if DeployHash is sufficient here -- need to think through how this works with DeployFailed
 	labels[flink.FlinkAppHash] = app.Status.DeployHash
+	app.Status.InPlaceUpdatedFrom = app.Status.DeployHash
 
 	deployments, err := s.k8Cluster.GetDeploymentsWithLabel(ctx, app.Namespace, labels)
 	if err != nil {
@@ -309,7 +313,7 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 	if tmDeployment != nil {
 		tmCount := flink.ComputeTaskManagerReplicas(app)
 		if *tmDeployment.Spec.Replicas != tmCount {
-			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "ClusterScaleUp",
+			s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "ClusterScaleUp",
 				fmt.Sprintf(
 					"Increasing TaskManager replica count from %d to %d in preparation for scale up",
 					*tmDeployment.Spec.Replicas, tmCount))
@@ -323,7 +327,34 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 		}
 	}
 
-	// Create a new versioned service
+	// Create a new versioned service by copying the existing one
+	oldService, err := s.k8Cluster.GetService(ctx, app.Namespace, app.Name, app.Status.DeployHash)
+	oldService = oldService.DeepCopy()
+	if err != nil {
+		return statusUnchanged, err
+	}
+	newService := corev1.Service {
+		TypeMeta: v1.TypeMeta{
+			APIVersion: corev1.SchemeGroupVersion.String(),
+			Kind:       k8.Service,
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      flink.VersionedJobManagerServiceName(app, newHash),
+			Namespace: app.Namespace,
+			OwnerReferences: []v1.OwnerReference{
+				*v1.NewControllerRef(app, app.GroupVersionKind()),
+			},
+			Labels: flink.GetCommonAppLabels(app),
+		},
+		Spec:  corev1.ServiceSpec{
+			Ports: oldService.Spec.Ports,
+			Selector: oldService.Spec.Selector,
+		},
+	}
+	err = s.k8Cluster.CreateK8Object(ctx, &newService)
+	if err != nil && !k8_err.IsAlreadyExists(err) {
+		return statusUnchanged, err
+	}
 
 	// Wait for all to be running
 	clusterReady, err := s.flinkController.IsClusterReady(ctx, app)
@@ -332,7 +363,7 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 	}
 
 	// Wait for all TMs to be registered with the JobManager
-	serviceReady, _ := s.flinkController.IsServiceReady(ctx, app, app.Status.DeployHash)
+	serviceReady, _ := s.flinkController.IsServiceReady(ctx, app, newHash)
 	if !serviceReady {
 		return statusUnchanged, nil
 	}
@@ -818,8 +849,15 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		// if our scale mode is InPlace and this is a suitable update (the only change is an increase in parallelism)
 		// move to Rescaling
 		if application.Spec.ScaleMode == v1beta1.ScaleModeInPlace && isScaleUp(application) {
-			logger.Infof(ctx, "Application scale has increased. Moving to Rescaling.")
-			s.updateApplicationPhase(application, v1beta1.FlinkApplicationRescaling)
+			if application.Spec.DeploymentMode == v1beta1.DeploymentModeBlueGreen {
+				s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "NotScalingInPlace",
+					"Not using configured InPlace scaling mode because it is incompatible with BlueGreen" +
+					" deploy mode")
+				s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
+			} else {
+				logger.Infof(ctx, "Application scale has increased. Moving to Rescaling.")
+				s.updateApplicationPhase(application, v1beta1.FlinkApplicationRescaling)
+			}
 		} else {
 			logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 			s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)

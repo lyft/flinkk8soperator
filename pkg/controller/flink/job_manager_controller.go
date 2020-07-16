@@ -203,7 +203,7 @@ func getJobManagerName(application *v1beta1.FlinkApplication, hash string) strin
 
 func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, selector string) *coreV1.Service {
 	jmServiceName := getJobManagerServiceName(app)
-	serviceLabels := getCommonAppLabels(app)
+	serviceLabels := GetCommonAppLabels(app)
 	serviceLabels[PodDeploymentSelector] = selector
 	serviceLabels[FlinkDeploymentType] = FlinkDeploymentTypeJobmanager
 
@@ -218,7 +218,7 @@ func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, selector str
 			OwnerReferences: []metaV1.OwnerReference{
 				*metaV1.NewControllerRef(app, app.GroupVersionKind()),
 			},
-			Labels: getCommonAppLabels(app),
+			Labels: GetCommonAppLabels(app),
 		},
 		Spec: coreV1.ServiceSpec{
 			Ports:    getJobManagerServicePorts(app),
@@ -323,7 +323,7 @@ func DeploymentIsJobmanager(deployment *v1.Deployment) bool {
 // will cause redeployments for all applications, and should be considered a breaking change that
 // requires a new version of the CRD.
 func jobmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
-	labels := getCommonAppLabels(app)
+	labels := GetCommonAppLabels(app)
 	labels = common.CopyMap(labels, app.Labels)
 	labels[FlinkDeploymentType] = FlinkDeploymentTypeJobmanager
 

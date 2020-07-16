@@ -178,8 +178,11 @@ func (k *Cluster) CreateK8Object(ctx context.Context, object runtime.Object) err
 	objCreate := object.DeepCopyObject()
 	err := k.client.Create(ctx, objCreate)
 	if err != nil {
-		logger.Errorf(ctx, "K8s object creation failed %v", err)
-		k.metrics.createFailure.Inc(ctx)
+		if !errors.IsAlreadyExists(err) {
+			logger.Errorf(ctx, "K8s object creation failed %v", err)
+			k.metrics.createFailure.Inc(ctx)
+		}
+
 		return err
 	}
 	k.metrics.createSuccess.Inc(ctx)

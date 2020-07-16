@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -434,9 +435,9 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 	for _, d := range deployments.Items {
 		if d.Labels[FlinkAppHash] != "" &&
 			d.Labels[FlinkAppHash] != curHash &&
-			// verify that this deployment matches the jobmanager or taskmanager naming format
-			(d.Name == fmt.Sprintf(JobManagerNameFormat, app.Name, d.Labels[FlinkAppHash]) ||
-				d.Name == fmt.Sprintf(TaskManagerNameFormat, app.Name, d.Labels[FlinkAppHash])) {
+			// sanity check that this deployment matches the jobmanager or taskmanager naming format
+			(strings.HasPrefix(d.Name, app.Name) &&
+				(strings.HasSuffix(d.Name, "-tm") || strings.HasSuffix(d.Name, "-jm"))) {
 			oldObjects = append(oldObjects, d.DeepCopy())
 		}
 	}

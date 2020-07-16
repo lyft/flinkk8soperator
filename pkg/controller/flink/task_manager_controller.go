@@ -170,7 +170,7 @@ func DeploymentIsTaskmanager(deployment *v1.Deployment) bool {
 // will cause redeployments for all applications, and should be considered a breaking change that
 // requires a new version of the CRD.
 func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
-	labels := getCommonAppLabels(app)
+	labels := GetCommonAppLabels(app)
 	labels = common.CopyMap(labels, app.Labels)
 	labels[FlinkDeploymentType] = FlinkDeploymentTypeTaskmanager
 
