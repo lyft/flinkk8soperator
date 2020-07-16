@@ -8,6 +8,7 @@ required = [
   "k8s.io/code-generator/cmd/informer-gen",
   "k8s.io/gengo/args",
   "github.com/benlaurie/objecthash/go/objecthash",
+  "github.com/hashicorp/go-version",
 ]
 
 [[constraint]]

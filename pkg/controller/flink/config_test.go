@@ -184,3 +184,141 @@ func TestGetJobManagerHeapMemory(t *testing.T) {
 
 	assert.Equal(t, "32768k", getJobManagerHeapMemory(&app))
 }
+
+func TestGetJobManagerProcessMemory(t *testing.T) {
+	app := v1beta1.FlinkApplication{}
+	jmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("64Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("128Mi"),
+		},
+	}
+	app.Spec.JobManagerConfig.Resources = &jmResources
+
+	assert.Equal(t, "65536k", getJobManagerProcessMemory(&app))
+}
+
+func TestGetTaskManagerProcessMemory(t *testing.T) {
+	app := v1beta1.FlinkApplication{}
+	tmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("64Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("128Mi"),
+		},
+	}
+	app.Spec.TaskManagerConfig.Resources = &tmResources
+
+	assert.Equal(t, "65536k", getTaskManagerProcessMemory(&app))
+}
+
+func MemoryConfigurationForVersion(t *testing.T, version string) []string {
+	tmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("2Gi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("4"),
+			coreV1.ResourceMemory: resource.MustParse("3Gi"),
+		},
+	}
+
+	jmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("512Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Gi"),
+		},
+	}
+
+	yaml, err := renderFlinkConfig(&v1beta1.FlinkApplication{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test-app",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			TaskManagerConfig: v1beta1.TaskManagerConfig{
+				Resources: &tmResources,
+			},
+			JobManagerConfig: v1beta1.JobManagerConfig{
+				Resources: &jmResources,
+			},
+			FlinkVersion: version,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase: v1beta1.FlinkApplicationNew,
+		},
+	})
+
+	if err != nil {
+		assert.NoError(t, err, "Got error producing config")
+	}
+
+	lines := strings.Split(strings.TrimSpace(yaml), "\n")
+	sort.Strings(lines)
+
+	return lines
+}
+
+func TestMemoryConfigurationForVersionEqualsOrAbove11(t *testing.T) {
+	versions := []string{
+		"1.11",
+		"1.11.0",
+	}
+
+	for _, version := range versions {
+		yaml := MemoryConfigurationForVersion(t, version)
+
+		expected := []string{
+			fmt.Sprintf("blob.server.port: %d", BlobDefaultPort),
+			"jobmanager.memory.process.size: 524288k",
+			fmt.Sprintf("jobmanager.rpc.port: %d", RPCDefaultPort),
+			fmt.Sprintf("jobmanager.web.port: %d", UIDefaultPort),
+			fmt.Sprintf("metrics.internal.query-service.port: %d", MetricsQueryDefaultPort),
+			fmt.Sprintf("query.server.port: %d", QueryDefaultPort),
+			"taskmanager.memory.process.size: 2097152k",
+			fmt.Sprintf("taskmanager.numberOfTaskSlots: %d", TaskManagerDefaultSlots),
+		}
+
+		assert.Equal(t, expected, yaml)
+	}
+}
+
+func TestMemoryConfigurationForVersionBelow11(t *testing.T) {
+	versions := []string{
+		"1.10",
+		"1.10.0",
+		"1.10.1",
+		"1.9.0",
+		"1.9",
+		"1.8.0",
+		"1.8",
+	}
+
+	for _, version := range versions {
+		yaml := MemoryConfigurationForVersion(t, version)
+
+		expected := []string{
+			fmt.Sprintf("blob.server.port: %d", BlobDefaultPort),
+			"jobmanager.heap.size: 262144k",
+			fmt.Sprintf("jobmanager.rpc.port: %d", RPCDefaultPort),
+			fmt.Sprintf("jobmanager.web.port: %d", UIDefaultPort),
+			fmt.Sprintf("metrics.internal.query-service.port: %d", MetricsQueryDefaultPort),
+			fmt.Sprintf("query.server.port: %d", QueryDefaultPort),
+			"taskmanager.heap.size: 1048576k",
+			fmt.Sprintf("taskmanager.numberOfTaskSlots: %d", TaskManagerDefaultSlots),
+		}
+
+		assert.Equal(t, expected, yaml)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/hashicorp/go-version"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 )
 
@@ -107,6 +108,18 @@ func getJobManagerHeapMemory(app *v1beta1.FlinkApplication) string {
 	return computeHeap(jmMemory, offHeapMemoryFrac)
 }
 
+func getTaskManagerProcessMemory(app *v1beta1.FlinkApplication) string {
+	return fmt.Sprintf("%dk", getTaskManagerMemory(app)/1024)
+}
+
+func getJobManagerProcessMemory(app *v1beta1.FlinkApplication) string {
+	return fmt.Sprintf("%dk", getJobManagerMemory(app)/1024)
+}
+
+func getFlinkVersion(app *v1beta1.FlinkApplication) string {
+	return app.Spec.FlinkVersion
+}
+
 // Renders the flink configuration overrides stored in FlinkApplication.FlinkConfig into a
 // YAML string suitable for interpolating into flink-conf.yaml.
 func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
@@ -124,8 +137,17 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	(*config)["query.server.port"] = getQueryPort(app)
 	(*config)["blob.server.port"] = getBlobPort(app)
 	(*config)["metrics.internal.query-service.port"] = getInternalMetricsQueryPort(app)
-	(*config)["jobmanager.heap.size"] = getJobManagerHeapMemory(app)
-	(*config)["taskmanager.heap.size"] = getTaskManagerHeapMemory(app)
+
+	appVersion, err := version.NewVersion(getFlinkVersion(app))
+	v11, err := version.NewVersion("1.11")
+
+	if err != nil || appVersion.LessThan(v11) {
+		(*config)["jobmanager.heap.size"] = getJobManagerHeapMemory(app)
+		(*config)["taskmanager.heap.size"] = getTaskManagerHeapMemory(app)
+	} else {
+		(*config)["jobmanager.memory.process.size"] = getJobManagerProcessMemory(app)
+		(*config)["taskmanager.memory.process.size"] = getTaskManagerProcessMemory(app)
+	}
 
 	// get the keys for the map
 	var keys = make([]string, len(*config))
