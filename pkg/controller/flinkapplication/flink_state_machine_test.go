@@ -2088,16 +2088,15 @@ func TestIsScaleUp(t *testing.T) {
 			DeploymentMode: v1beta1.DeploymentModeDual,
 		},
 		Status: v1beta1.FlinkApplicationStatus{
-			Phase:              "Running",
-			JobStatus:          v1beta1.FlinkJobStatus{
-				Parallelism:              100,
+			Phase: "Running",
+			JobStatus: v1beta1.FlinkJobStatus{
+				Parallelism: 100,
 			},
 		},
 	}
 
 	hash := flink.HashForApplication(&app)
 	app.Status.DeployHash = hash
-
 
 	app.Spec.Parallelism = 150
 	assert.True(t, isScaleUp(&app))

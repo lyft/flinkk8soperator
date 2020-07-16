@@ -244,6 +244,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 			fmt.Sprintf("Failed to create Flink Cluster: %s", reason))
 		return s.deployFailed(application)
 	}
+
 	// Update version if blue/green deploy
 	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		application.Status.UpdatingVersion = getUpdatingVersion(application)
@@ -256,6 +257,17 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	}
 
 	// Reset the in-place update hash if set
+	hash := flink.HashForApplication(application)
+	if application.Status.InPlaceUpdatedFrom == hash {
+		// This means that we went from parallelism P -> P' -> P (P < P') without any other changes in the spec. This
+		// will not work, because we are still using the deployments with this hash, and we can't scale them
+		// down without disrupting the existing job. All we can do is tell the user how to fix the situation by
+		// making a change that will give us a different hash.
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "DeployFailed",
+			fmt.Sprintf("Could not scale down cluster due to previous in-place scale up. To continue this "+
+				"deploy, modify the application's restartNonce."))
+		return s.deployFailed(application)
+	}
 	application.Status.InPlaceUpdatedFrom = ""
 
 	// Create the Flink cluster
@@ -279,9 +291,10 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 	}
 
 	labels := k8.GetAppLabel(app.Name)
-	// TODO: not sure if DeployHash is sufficient here -- need to think through how this works with DeployFailed
-	labels[flink.FlinkAppHash] = app.Status.DeployHash
-	app.Status.InPlaceUpdatedFrom = app.Status.DeployHash
+	oldHash := app.Status.DeployHash
+
+	labels[flink.FlinkAppHash] = oldHash
+	app.Status.InPlaceUpdatedFrom = oldHash
 
 	deployments, err := s.k8Cluster.GetDeploymentsWithLabel(ctx, app.Namespace, labels)
 	if err != nil {
@@ -328,12 +341,14 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 	}
 
 	// Create a new versioned service by copying the existing one
-	oldService, err := s.k8Cluster.GetService(ctx, app.Namespace, app.Name, app.Status.DeployHash)
+	oldService, err := s.k8Cluster.GetService(ctx, app.Namespace, app.Name, oldHash)
 	oldService = oldService.DeepCopy()
 	if err != nil {
 		return statusUnchanged, err
 	}
-	newService := corev1.Service {
+	serviceLabels := flink.GetCommonAppLabels(app)
+	serviceLabels[flink.FlinkAppHash] = newHash
+	newService := corev1.Service{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: corev1.SchemeGroupVersion.String(),
 			Kind:       k8.Service,
@@ -344,10 +359,10 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 			OwnerReferences: []v1.OwnerReference{
 				*v1.NewControllerRef(app, app.GroupVersionKind()),
 			},
-			Labels: flink.GetCommonAppLabels(app),
+			Labels: serviceLabels,
 		},
-		Spec:  corev1.ServiceSpec{
-			Ports: oldService.Spec.Ports,
+		Spec: corev1.ServiceSpec{
+			Ports:    oldService.Spec.Ports,
 			Selector: oldService.Spec.Selector,
 		},
 	}
@@ -851,8 +866,8 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 		if application.Spec.ScaleMode == v1beta1.ScaleModeInPlace && isScaleUp(application) {
 			if application.Spec.DeploymentMode == v1beta1.DeploymentModeBlueGreen {
 				s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "NotScalingInPlace",
-					"Not using configured InPlace scaling mode because it is incompatible with BlueGreen" +
-					" deploy mode")
+					"Not using configured InPlace scaling mode because it is incompatible with BlueGreen"+
+						" deploy mode")
 				s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
 			} else {
 				logger.Infof(ctx, "Application scale has increased. Moving to Rescaling.")
@@ -1263,7 +1278,7 @@ func isScaleUp(app *v1beta1.FlinkApplication) bool {
 		hash := flink.HashForApplication(appWithOldScale)
 
 		// this implies that everything _except_ for parallelism is the same
-		return hash == app.Status.DeployHash
+		return hash == app.Status.DeployHash || hash == app.Status.FailedDeployHash
 	}
 	return false
 }

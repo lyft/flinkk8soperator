@@ -435,6 +435,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 	for _, d := range deployments.Items {
 		if d.Labels[FlinkAppHash] != "" &&
 			d.Labels[FlinkAppHash] != curHash &&
+			d.Labels[FlinkAppHash] != app.Status.InPlaceUpdatedFrom &&
 			// sanity check that this deployment matches the jobmanager or taskmanager naming format
 			(strings.HasPrefix(d.Name, app.Name) &&
 				(strings.HasSuffix(d.Name, "-tm") || strings.HasSuffix(d.Name, "-jm"))) {
@@ -450,6 +451,7 @@ func (f *Controller) DeleteOldResourcesForApp(ctx context.Context, app *v1beta1.
 	for _, d := range services.Items {
 		if d.Labels[FlinkAppHash] != "" &&
 			d.Labels[FlinkAppHash] != curHash &&
+			d.Labels[FlinkAppHash] != app.Status.InPlaceUpdatedFrom &&
 			d.Name == VersionedJobManagerServiceName(app, d.Labels[FlinkAppHash]) {
 			oldObjects = append(oldObjects, d.DeepCopy())
 		}

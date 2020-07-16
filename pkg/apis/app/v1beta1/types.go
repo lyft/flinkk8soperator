@@ -307,6 +307,7 @@ const (
 )
 
 type ScaleMode string
+
 const (
 	ScaleModeNormal  ScaleMode = "Normal"
 	ScaleModeInPlace ScaleMode = "InPlace"
