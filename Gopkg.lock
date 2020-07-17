@@ -146,6 +146,14 @@
   version = "v0.3.0"
 
 [[projects]]
+  digest = "1:ebffb4b4c8ddcf66bb549464183ea2ddbac6c58a803658f67249f83395d17455"
+  name = "github.com/hashicorp/go-version"
+  packages = ["."]
+  pruneopts = ""
+  revision = "59da58cfd357de719a4d16dac30481391a56c002"
+  version = "v1.2.1"
+
+[[projects]]
   digest = "1:85f8f8d390a03287a563e215ea6bd0610c858042731a8b42062435a0dcbc485f"
   name = "github.com/hashicorp/golang-lru"
   packages = [
@@ -944,6 +952,7 @@
   input-imports = [
     "github.com/benlaurie/objecthash/go/objecthash",
     "github.com/go-resty/resty",
+    "github.com/hashicorp/go-version",
     "github.com/jarcoal/httpmock",
     "github.com/kubernetes-sigs/controller-runtime/pkg/runtime/signals",
     "github.com/lyft/flytestdlib/config",
