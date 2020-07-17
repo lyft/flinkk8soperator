@@ -139,7 +139,7 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	(*config)["metrics.internal.query-service.port"] = getInternalMetricsQueryPort(app)
 
 	appVersion, err := version.NewVersion(getFlinkVersion(app))
-	v11, err := version.NewVersion("1.11")
+	v11, _ := version.NewVersion("1.11")
 
 	if err != nil || appVersion == nil || appVersion.LessThan(v11) {
 		(*config)["jobmanager.heap.size"] = getJobManagerHeapMemory(app)
