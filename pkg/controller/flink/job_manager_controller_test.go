@@ -67,15 +67,15 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		Effect:   "NoSchedule",
 	}}
 
+	hash := "5e7c7283"
 	annotations := map[string]string{
 		"key":                  "annotation",
 		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
+		"flink-app-hash": hash,
 	}
 	app.Annotations = annotations
-	hash := "5e7c7283"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
-		"flink-app-hash":        hash,
 		"flink-deployment-type": "jobmanager",
 	}
 	ctr := 0
@@ -91,7 +91,11 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, annotations, deployment.Annotations)
 			assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
-			assert.Equal(t, expectedLabels, deployment.Labels)
+
+			for k, v := range expectedLabels {
+				assert.Equal(t, v, deployment.Labels[k])
+			}
+
 			assert.Equal(t, app.Spec.JobManagerConfig.Tolerations, deployment.Spec.Template.Spec.Tolerations)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)

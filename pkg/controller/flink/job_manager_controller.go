@@ -357,7 +357,7 @@ func jobmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 				ObjectMeta: metaV1.ObjectMeta{
 					Namespace:   app.Namespace,
 					Labels:      common.DuplicateMap(labels),
-					Annotations: app.Annotations,
+					Annotations: common.DuplicateMap(app.Annotations),
 				},
 				Spec: coreV1.PodSpec{
 					Containers: []coreV1.Container{
