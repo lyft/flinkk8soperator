@@ -9,11 +9,11 @@ The Flink operator brings up Jobmanager and Taskmanager for an application in Ku
 
 ### Creating a New FlinkApplication
 
-A `FlinkApplication` can be created from a YAML file storing the `FlinkApplication` specification using either the `kubectl apply -f <YAML file path>` command. Once a `FlinkApplication` is successfully created, the operator will receive it and creates a Flink cluster as configured in the specification to run on the Kubernetes cluster.
+A `FlinkApplication` can be created from a YAML file storing the `FlinkApplication` specification using the `kubectl apply -f <YAML file path>` command. Once a `FlinkApplication` is successfully created, the operator will receive it and creates a Flink cluster as configured in the specification to run on the Kubernetes cluster.
 
 #### Mounting Volumes in the Flink Pods
 
-The Flink operator supports mounting user-defined [volumes](https://kubernetes.io/docs/concepts/storage/volumes/) in the Flink job manager and task manager pods. The volume can be of various types (e.g. configMap, secret, hostPath and persistentVolumeClaim). To specify the volume to be mounted, in the FlinkApp YAML, include `volumes` and `volumeMounts` under `spec`.
+The Flink operator supports mounting user-defined [volumes](https://kubernetes.io/docs/concepts/storage/volumes/) in the Flink job manager and task manager pods. The volume can be of various types (e.g. configMap, secret, hostPath and persistentVolumeClaim). To specify the volume to be mounted, in the FlinkApp YAML, include `volumes` and `volumeMounts` under `spec` section.
 
 For example, the following YAML specifies a volume named `config-vol` populated by a ConfigMap named `dummy-cm`. The volume `config-vol` will be mounted at path `/opt/flink/mycm` in the job manager and task manager pods.
 
@@ -29,11 +29,11 @@ volumeMounts:
 
 ### Deleting a FlinkApplication
 
-A `FlinkApplication` can be deleted using either the `kubectl delete <name>` command. Deleting a `Flinkapplication` deletes the Flink application custom resource and Flink cluster associated with it. If the Flink job is running when the deletion happens, the Flink job is cancelled with savepoint before the cluster is deleted.
+A `FlinkApplication` can be deleted using the `kubectl delete <name>` command. Deleting a `Flinkapplication` deletes the Flink application custom resource and the Flink cluster associated with it. If the Flink job is running when the deletion happens, the Flink job is cancelled with savepoint before the cluster is deleted.
 
 ### Updating an existing FlinkApplication
 
-A `FlinkApplication` can be updated using the `kubectl apply -f <updated YAML file>` command. When a `FlinkApplication` is successfully updated, the operator observes that the resource has changed. The operator before deleting the existing deployment, will cancel the Flink job with savepoint. After the savepoint succeeds, the operator deletes the existing deployment and submits a new Flink job from the savepoint in the new Flink cluster.
+A `FlinkApplication` can be updated using the `kubectl apply -f <updated YAML file>` command. When a `FlinkApplication` is successfully updated, the operator observes that the resource has changed. The operator before deleting the existing deployment, will cancel the Flink job with a savepoint. After the savepoint succeeds, the operator deletes the existing deployment and submits a new Flink job from the savepoint in the new Flink cluster.
 
 ### Checking a FlinkApplication
 

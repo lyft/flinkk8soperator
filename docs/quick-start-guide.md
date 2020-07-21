@@ -1,8 +1,8 @@
 # Quick Start Guide
 
-If you are looking to develop and test operator in your local machine, refer to [Local development guide](local_dev.md)
+If you are looking to develop and test the operator in your local machine, refer to [Local development guide](local_dev.md).
 
-Follow the steps below if you have Kubernetes cluster up and running.
+Follow the steps below if you have a Kubernetes cluster up and running.
 
 ## Setup kubectl
 Follow the instructions [here](https://kubernetes.io/docs/tasks/tools/install-kubectl/) to install and setup kubectl
@@ -56,7 +56,7 @@ $ kubectl logs {pod-name} -n flink-operator
 
 ## Running the example
 
-You can find sample application to run with the flink operator [here](/examples/wordcount/).
+You can find a sample application to run with the flink operator [here](/examples/wordcount/).
 Make sure to edit the value of `sha` with the most recently pushed tag found [here](https://hub.docker.com/r/lyft/wordcount-operator-example/tags)
 ```yaml
   image: docker.io/lyft/wordcount-operator-example:{sha}
@@ -160,7 +160,7 @@ To check events for the `FlinkApplication` object, run the following command:
 $ kubectl describe flinkapplication.flink.k8s.io -n flink-operator wordcount-operator-example
 ```
 
-This will show the events similarly to the following:
+This will show events similarly to the following:
 
 ```
 Events:

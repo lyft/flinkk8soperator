@@ -3,15 +3,15 @@ The [flinkapplication](https://github.com/lyft/flinkk8soperator/blob/master/depl
 
 [FlinkApplication Custom Resource Example](https://github.com/lyft/flinkk8soperator/blob/master/examples/wordcount/flink-operator-custom-resource.yaml)
 
-The type information is available here [FlinkApplication Type](https://github.com/lyft/flinkk8soperator/blob/master/pkg/apis/app/v1beta1/types.go#L25)
+The type information is available here [FlinkApplication Type](https://github.com/lyft/flinkk8soperator/blob/master/pkg/apis/app/v1beta1/types.go#L25).
 
-Below is the list of fields in the custom resource and their description
+Below is the list of fields in the custom resource and their description:
 
 * **spec** `type:FlinkApplicationSpec required=True`
   Contains the entire specification of the flink application.
 
   * **image** `type:string required=True`
-    The image name format should be registry/repository[:tag] to pull by tag, or registry/repository[@digest] to pull by digest
+    The image name format should be registry/repository[:tag] to pull by tag, or registry/repository[@digest] to pull by digest.
 
   * **imagePullPolicy** `type:v1.PullPolicy`
     The default pull policy is IfNotPresent which causes the Kubelet to skip pulling an image if it already exists.
@@ -26,7 +26,7 @@ Below is the list of fields in the custom resource and their description
     This allows you to specify pod-level security attributes which will be applied to both job manager and task manager pods created for this Flink application. More information can be found in the [Kubernetes documentation](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/) or the [API spec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podsecuritycontext-v1-core).
 
   * **taskManagerConfig** `type:TaskManagerConfig required=true`
-    Configuration for the Flink task manager
+    Configuration for the Flink task manager.
 
     * **resources** `type:ResourceRequirements`
       Resources for the task manager. This includes cpu, memory, storage, and ephemeral-storage. If empty the operator will
@@ -36,7 +36,7 @@ Below is the list of fields in the custom resource and their description
       Configuration for setting environment variables in the task manager.
 
     * **taskSlots** `type:int32 required=true`
-      Number of task slots per task manager
+      Number of task slots per task manager.
 
     * **offHeapMemoryFraction** `type:float64`
       A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
@@ -45,13 +45,13 @@ Below is the list of fields in the custom resource and their description
       a lower amount.
 
     * **nodeSelector** `type:map[string]string`
-      Configuration for the node selectors used for the task manager
+      Configuration for the node selectors used for the task manager.
 
     * **tolerations** `type:[]v1.Toleration`
-      Array of [node tolerations](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#toleration-v1-core) for the taskmanager pods
+      Array of [node tolerations](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#toleration-v1-core) for the taskmanager pods.
 
   * **jobManagerConfig** `type:JobManagerConfig`
-    Configuration for the Flink job manager
+    Configuration for the Flink job manager.
 
     * **resources** `type:ResourceRequirements`
       Resources for the job manager. This includes cpu, memory, storage, and ephemeral-storage. If empty the operator will
@@ -69,38 +69,38 @@ Below is the list of fields in the custom resource and their description
       remaining memory is allocated for heap.
 
     * **nodeSelector** `type:map[string]string`
-      Configuration for the node selectors used for the job manager
+      Configuration for the node selectors used for the job manager.
 
     * **tolerations** `[]v1.Toleration`
-      Array of [node tolerations](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#toleration-v1-core) for the jobmanager pods
+      Array of [node tolerations](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#toleration-v1-core) for the jobmanager pods.
 
   * **jarName** `type:string required=true`
     Name of the jar file to be run. The application image needs to ensure that the jar file is present at the right location, as
     the operator uses the Web API to submit jobs.
 
   * **parallelism** `type:int32 required=true`
-    Job level parallelism for the Flink Job
+    Job level parallelism for the Flink Job.
 
   * **entryClass** `type:string`
-    Entry point for the Flink job
+    Entry point for the Flink job.
 
   * **programArgs** `type:string`
-    External configuration parameters to be passed as arguments to the job like input and output sources, etc
+    External configuration parameters to be passed as arguments to the job like input and output sources, etc.
 
   * **savepointPath** `type:string`
-    If specified, the application state will be restored from this savepoint
+    If specified, the application state will be restored from this savepoint.
 
   * **savepointDisabled** `type:boolean`
-    If specified, during an update, the current application (if existing) is cancelled without taking a savepoint. 
+    If specified, during an update, the current application (if existing) is cancelled without taking a savepoint.
       
   * **allowNonRestoredState** `type:boolean`
-    Skips savepoint operator state that cannot be mapped to the new program version
+    Skips savepoint operator state that cannot be mapped to the new program version.
 
   * **flinkVersion** `type:string required=true`
     The version of Flink to be managed. This version must match the version in the image.
 
   * **flinkConfig** `type:FlinkConfig`
-    Optional map of flink configuration, which passed on to the deployment as environment variable with `OPERATOR_FLINK_CONFIG`
+    Optional map of flink configuration, which passed on to the deployment as environment variable with `OPERATOR_FLINK_CONFIG`.
 
   * **deploymentMode** `type:DeploymentMode`
     Indicates the type of deployment that operator should perform if the custom resource is updated. Currently two deployment modes, Dual and BlueGreen are supported.
@@ -110,16 +110,16 @@ Below is the list of fields in the custom resource and their description
     set a `tearDownVersionHash` that enables the operator to teardown the version corresponding to the hash specified.
   
   * **deleteMode** `type:DeleteMode`
-    Indicates how Flink jobs are torn down when the FlinkApplication resource is deleted
+    Indicates how Flink jobs are torn down when the FlinkApplication resource is deleted.
 
     `Savepoint` (default) The operator will take a final savepoint before cancelling the job, and will not tear down the cluster until a savepoint has succeeded.
 
-    `ForceCancel` The operator will force cancel the job before tearing down the cluster
+    `ForceCancel` The operator will force cancel the job before tearing down the cluster.
 
-    `None` The operator will immediately tear down the cluster
+    `None` The operator will immediately tear down the cluster.
 
   * **restartNonce** `type:string`
-    Can be set or modified to force a restart of the cluster
+    Can be set or modified to force a restart of the cluster.
 
   * **volumes** `type:[]v1.Volume`
     Represents a named volume in a pod that may be accessed by any container in the pod.
@@ -137,4 +137,3 @@ Below is the list of fields in the custom resource and their description
   * **tearDownVersionHash** `type:string`
     Used **only** with the BlueGreen deployment mode. This is set typically once a FlinkApplication successfully transitions to the `DualRunning` phase.
     Once set, the application version corresponding to the hash is torn down. On successful teardown, the FlinkApplication transitions to a `Running` phase.
-    

@@ -28,7 +28,7 @@ Beta, we will attempt to limit the number of backwards-incompatible changes, but
 
 ![Flink operator overview](docs/flink-operator-overview.svg)
 
-The goal of running Flink on Kubernetes is to enable more flexible, lighter-weight deployment of streaming applications, without needing to manage infrastructure. The Flink operator aims to abstract out the complexity of hosting, configuring, managing and operating Flink clusters from application developers. It achieves this by extending any kubernetes cluster using a [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources).
+The goal of running Flink on Kubernetes is to enable more flexible, lighter-weight deployment of streaming applications, without needing to manage infrastructure. The Flink operator aims to abstract out the complexity of hosting, configuring, managing and operating Flink clusters from application developers. It achieves this by extending any kubernetes cluster using [custom resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources).
 
 The Operator creates flink clusters dynamically using the specified custom resource. Flink clusters in kubernetes consist of the following:
 * JobManager [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
@@ -40,7 +40,7 @@ Deploying and managing Flink applications in Kubernetes involves two steps:
 
 * **Building Flink application packaged as a docker image:** A docker image is built containing the application source code with the necessary dependencies built in. This is required to bootstrap the Jobmanager and Taskmanager pods. At Lyft we use Source-To-Image [S2I](https://docs.openshift.com/container-platform/3.11/architecture/core_concepts/builds_and_image_streams.html#source-build) as the image build tool that provides a common builder image with Apache Flink pre-installed. The docker image could be built using any pre-existing workflows at an organization.
 
-* **Creating the Flink application custom resource:** The custom resource for Flink application provides the spec for configuring and managing flink clusters in Kubernetes. The FlinkK8sOperator, deployed on Kubernetes, continuously monitors the resource and the corresponding flink cluster, and performs action based on the diff.
+* **Creating the Flink application custom resource:** The custom resource for Flink application provides the spec for configuring and managing flink clusters in Kubernetes. The FlinkK8sOperator, deployed on Kubernetes, continuously monitors the resource and the corresponding flink cluster, and performs actions based on the diff.
 
 ## Documentation
 

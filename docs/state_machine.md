@@ -31,16 +31,16 @@ image, bad configuration, not enough Kubernetes resources, etc.), we transition 
 In this mode, once the new cluster is started, we transition into the `Savepointing`/`SubmittingJob` mode based on the `savepointDisabled`
 flag. There is no job cancellation involved in the update process during a BlueGreen deployment.
 ### Cancelling
-In this state, the operator attempts to cancel the running job (if existing) and transition to `SubmittingJob` state. 
+In this state, the operator attempts to cancel the running job (if exists) and transition to `SubmittingJob` state. 
 If it fails, we transition to `RollingBack`.
 #### BlueGreen deployment mode
-This state is not reached during a BlueGreen deployment
+This state is not reached during a BlueGreen deployment.
 ### Savepointing
 In the `Savepointing` state, the operator attempts to cancel the existing job with a 
 [savepoint](https://ci.apache.org/projects/flink/flink-docs-release-1.8/ops/state/savepoints.html) (if this is the first
 deploy for the FlinkApplication and there is no existing job, we transition straight to `SubmittingJob`). The operator
 monitors the savepoint process until it succeeds or fails. If savepointing succeeds, we move to the `SubmittingJob` 
-phase. If it fails, we move to the `Recovering` phase to attempt to recover from an externalized checkpoint.  
+phase. If it fails, we move to the `Recovering` phase to attempt recovering from an externalized checkpoint.
 #### BlueGreen deployment mode
 In this state, during a BlueGreen deployment, the currently running Flink job is savepointed (without cancellation).
 ### Recovering
@@ -75,12 +75,12 @@ There is no change in behavior for this state during a BlueGreen deployment.
 The `DeployFailed` state operates exactly like the `Running` state. It exists to inform the user that an attempted
 update has failed, i.e., that the FlinkApplication status does not currently match the desired spec. In this state,
 the user should look at the Flink logs and Kubernetes events to determine what went wrong. The user can then perform
-a new deploy by updating the FlinkApplication.  
+a new deploy by updating the FlinkApplication.
 #### BlueGreen deployment mode
 There is no change in behavior for this state during a BlueGreen deployment.
 ### Deleting
 This state indicates that the FlinkApplication resource has been deleted. The operator will clean up the job according
-to the DeleteMode configured. Once all clean up steps have been performed the FlinkApplication will be deleted. 
+to the DeleteMode configured. Once all clean up steps have been performed the FlinkApplication will be deleted.
 #### BlueGreen deployment mode
 In this mode, if there are two application versions running, both versions are deleted (as per the `DeleteMode` configuration).
 ### DualRunning
