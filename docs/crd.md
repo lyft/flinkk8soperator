@@ -121,7 +121,9 @@ Below is the list of fields in the custom resource and their description
   * **scaleMode** `type:ScaleMode`
     Indicates how the operator should respond to changes of application parallelism.
     
-    `Normal` (default) The operator will treat scale-ups as normal deploys (consistent with any other change to the CRD)
+    `NewCluster` (default) The operator will treat scale-ups as normal deploys (consistent with any other change to the CRD),
+    creating a new cluster with the desired scale.
+
     `InPlace` **[Experimental]** On scale-up operations, the operator will attempt to perform an in-place update of the 
     cluster, by first increasing the size of the cluster to accommodate the newer, larger parallelism, then updating the 
     job with the new parallelism. Note that this configuration is not supported in combination with BlueGreen mode, and

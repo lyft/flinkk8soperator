@@ -90,6 +90,9 @@ spec:
             deleteMode:
               type: string
               enum: [Savepoint, None, ForceCancel]
+            scaleMode:
+              type: string
+              enum: [NewCluster, InPlace]
             allowNonRestoredState:
               type: boolean
             deploymentMode:

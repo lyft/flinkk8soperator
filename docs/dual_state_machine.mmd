@@ -1,17 +1,20 @@
 %% This file can be compiled into state_machine.png by installing mermaidjs (https://mermaidjs.github.io/) and running
-%% mmdc -i state_machine.mmd -o dual_state_machine.png -w 1732 -b transparent
+%% mmdc -i dual_state_machine.mmd -o dual_state_machine.png -w 1732 -b transparent
 
 graph LR
 New --> ClusterStarting
 
-subgraph Running
+subgraph RunningGroup [Running]
 Running
 DeployFailed
 end
 
-subgraph Updating
-Running --> Updating
+subgraph UpdatingGroup [Updating]
+Running -- scale mode default --> Updating
+Running -- scale mode InPlace --> Rescaling
 Updating --> ClusterStarting
+Rescaling -- savepoint disabled --> Cancelling
+Rescaling -- savepoint enabled --> Savepointing
 DeployFailed --> Updating
 
 ClusterStarting -- savepoint disabled --> Cancelling
@@ -21,7 +24,7 @@ ClusterStarting -- Create fails --> DeployFailed
 Cancelling   --> SubmittingJob
 Cancelling   -- cancel fails --> RollingBackJob
 Savepointing --> SubmittingJob
-Savepointing -- Savepoint fails --> Recovering
+Savepointing -- savepoint fails --> Recovering
 
 Recovering --> SubmittingJob
 Recovering -- No externalized checkpoint --> RollingBackJob
