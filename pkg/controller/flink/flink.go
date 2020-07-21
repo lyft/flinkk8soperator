@@ -224,21 +224,6 @@ func GetActiveFlinkJobs(jobs []client.FlinkJob) []client.FlinkJob {
 	return activeJobs
 }
 
-// Returns true iff the deployment exactly matches the flink application
-// This check only validates that the name of the deployment is as expected.
-// This is to add extra protection, as labels to any deployments
-func (f *Controller) deploymentMatches(ctx context.Context, deployment *v1.Deployment, application *v1beta1.FlinkApplication, hash string) bool {
-	if DeploymentIsTaskmanager(deployment) {
-		return TaskManagerDeploymentMatches(deployment, application, hash)
-	}
-	if DeploymentIsJobmanager(deployment) {
-		return JobManagerDeploymentMatches(deployment, application, hash)
-	}
-
-	logger.Warnf(ctx, "Found deployment that is not a TaskManager or JobManager: %s", deployment.Name)
-	return false
-}
-
 func (f *Controller) GetJobsForApplication(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
 	jobResponse, err := f.flinkClient.GetJobs(ctx, f.getURLFromApp(application, hash))
 	if err != nil {
@@ -411,12 +396,6 @@ func (f *Controller) GetDeploymentsForHash(ctx context.Context, application *v1b
 	}
 
 	cur := listToFlinkDeployment(deployments.Items, hash)
-	//if cur != nil && application.Status.FailedDeployHash == "" && application.Status.TeardownHash == "" &&
-	//	(!f.deploymentMatches(ctx, cur.Jobmanager, application, hash) || !f.deploymentMatches(ctx, cur.Taskmanager, application, hash)) {
-	//	// we had a hash collision (i.e., the previous application has the same hash as the new one)
-	//	// this is *very* unlikely to occur (1/2^32)
-	//	return nil, errors.New("found hash collision for deployment, you must do a clean deploy")
-	//}
 
 	return cur, nil
 }

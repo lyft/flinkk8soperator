@@ -2,9 +2,10 @@ package flink
 
 import (
 	"fmt"
-	"github.com/benlaurie/objecthash/go/objecthash"
 	"hash/fnv"
 	"math/rand"
+
+	"github.com/benlaurie/objecthash/go/objecthash"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"

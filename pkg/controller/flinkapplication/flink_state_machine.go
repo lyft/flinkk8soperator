@@ -2,10 +2,11 @@ package flinkapplication
 
 import (
 	"context"
-	appsv1 "k8s.io/api/apps/v1"
-	k8_err "k8s.io/apimachinery/pkg/api/errors"
 	"math"
 	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	k8_err "k8s.io/apimachinery/pkg/api/errors"
 
 	"k8s.io/client-go/tools/record"
 

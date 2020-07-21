@@ -1,8 +1,9 @@
 package flink
 
 import (
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1beta12 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
