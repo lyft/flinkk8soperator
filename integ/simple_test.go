@@ -45,10 +45,18 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1be
 
 	// wait for the old cluster to be cleaned up
 	for {
-		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "flink-app-hash=" + app.Status.DeployHash})
+		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).List(v1.ListOptions{})
 		c.Assert(err, IsNil)
-		if len(pods.Items) == 0 {
+
+		oldPodFound := false
+
+		for _, pod := range pods.Items {
+			if pod.Annotations["flink-app-hash"] == app.Status.DeployHash {
+				oldPodFound = true
+			}
+		}
+
+		if !oldPodFound {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)

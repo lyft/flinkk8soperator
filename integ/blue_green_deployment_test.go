@@ -89,12 +89,21 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 
 	// wait for the old cluster to be cleaned up
 	for {
-		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "flink-app-hash=" + oldHash})
+		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).List(v1.ListOptions{})
 		c.Assert(err, IsNil)
-		if len(pods.Items) == 0 {
+
+		oldPodFound := false
+
+		for _, pod := range pods.Items {
+			if pod.Annotations["flink-app-hash"] == oldHash {
+				oldPodFound = true
+			}
+		}
+
+		if !oldPodFound {
 			break
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
 
