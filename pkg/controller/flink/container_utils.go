@@ -2,11 +2,9 @@ package flink
 
 import (
 	"fmt"
+	"github.com/benlaurie/objecthash/go/objecthash"
 	"hash/fnv"
 	"math/rand"
-	"time"
-
-	"github.com/benlaurie/objecthash/go/objecthash"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
@@ -251,14 +249,12 @@ func GetDeploySpecificEnv(app *v1beta1.FlinkApplication) []v1.EnvVar {
 // deployment that we're creating now. We used to rely on the hash for this, but that is not stable in the case of
 // in-place scale up.
 func RandomPodDeploymentSelector() string {
-	random := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	alphabet := "abcdefghijklmnopkqrstuvwxyz0123456789"
 
 	s := make([]byte, 8)
 
 	for i := range s {
-		s[i] = alphabet[random.Int31n(int32(len(alphabet)))]
+		s[i] = alphabet[rand.Int31n(int32(len(alphabet)))]
 	}
 
 	return string(s)

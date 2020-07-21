@@ -78,7 +78,7 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 
 	hash := "6b5e9b61"
 
-	app.Annotations = annotations
+	app.Annotations = common.DuplicateMap(annotations)
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -91,6 +91,7 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		assert.Equal(t, app.Namespace, deployment.Namespace)
 		assert.Equal(t, getTaskManagerPodName(&app, hash), deployment.Spec.Template.Name)
 		assert.Equal(t, annotations, deployment.Annotations)
+		annotations["flink-app-hash"] = hash
 		assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 		assert.Equal(t, expectedLabels, deployment.Labels)
@@ -128,7 +129,7 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 	app.Spec.FlinkConfig = map[string]interface{}{
 		"high-availability": "zookeeper",
 	}
-	app.Annotations = annotations
+	app.Annotations = common.DuplicateMap(annotations)
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -141,6 +142,7 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 		assert.Equal(t, app.Namespace, deployment.Namespace)
 		assert.Equal(t, getTaskManagerPodName(&app, hash), deployment.Spec.Template.Name)
 		assert.Equal(t, annotations, deployment.Annotations)
+		annotations["flink-app-hash"] = hash
 		assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 		assert.Equal(t, expectedLabels, deployment.Labels)
@@ -249,7 +251,7 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 
 	hash := "5cb5943e"
 
-	app.Annotations = annotations
+	app.Annotations = common.DuplicateMap(annotations)
 	expectedLabels := map[string]string{
 		"flink-app":                 "app-name",
 		"flink-app-hash":            hash,
@@ -263,6 +265,7 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 		assert.Equal(t, app.Namespace, deployment.Namespace)
 		assert.Equal(t, getTaskManagerPodName(&app, hash), deployment.Spec.Template.Name)
 		assert.Equal(t, annotations, deployment.Annotations)
+		annotations["flink-app-hash"] = hash
 		assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 		assert.Equal(t, expectedLabels, deployment.Labels)
