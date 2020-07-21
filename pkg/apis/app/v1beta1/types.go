@@ -309,8 +309,8 @@ const (
 type ScaleMode string
 
 const (
-	ScaleModeNewCluster  ScaleMode = "NewCluster"
-	ScaleModeInPlace     ScaleMode = "InPlace"
+	ScaleModeNewCluster ScaleMode = "NewCluster"
+	ScaleModeInPlace    ScaleMode = "InPlace"
 )
 
 type HealthStatus string
