@@ -18,6 +18,8 @@ import (
 const NewImage = "lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2"
 
 func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
+	log.Info("Starting update")
+
 	app, err := s.Util.Update(name, updateFn)
 	c.Assert(err, IsNil)
 
@@ -53,6 +55,7 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1be
 		for _, pod := range pods.Items {
 			if pod.Annotations["flink-app-hash"] == app.Status.DeployHash ||
 				pod.Annotations["flink-app-hash"] == app.Status.InPlaceUpdatedFrom {
+				log.Infof("Found old pod %s with hash %s", pod.Name, pod.Annotations["flink-app-hash"])
 				oldPodFound = true
 			}
 		}
@@ -63,6 +66,7 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1be
 		time.Sleep(100 * time.Millisecond)
 	}
 
+	log.Info("Update complete")
 	return newApp
 }
 
