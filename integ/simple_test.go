@@ -45,7 +45,8 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1be
 
 	// wait for the old cluster to be cleaned up
 	for {
-		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).List(v1.ListOptions{})
+		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
+			List(v1.ListOptions{LabelSelector: "flink-app=" + name})
 		c.Assert(err, IsNil)
 
 		oldPodFound := false
@@ -263,8 +264,6 @@ func (s *IntegSuite) TestSimple(c *C) {
 }
 
 func (s *IntegSuite) TestRecovery(c *C) {
-	c.Skip("blah")
-
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 
