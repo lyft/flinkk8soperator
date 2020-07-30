@@ -259,7 +259,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 
 	// Reset the in-place update hash if set
 	hash := flink.HashForApplication(application)
-	if application.Status.InPlaceUpdatedFrom == hash {
+	if application.Status.InPlaceUpdatedFromHash == hash {
 		// This means that we went from parallelism P -> P' -> P (P < P') without any other changes in the spec. This
 		// will not work, because we are still using the deployments with this hash, and we can't scale them
 		// down without disrupting the existing job. All we can do is tell the user how to fix the situation by
@@ -269,7 +269,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 				"deploy, modify the application's restartNonce."))
 		return s.deployFailed(application)
 	}
-	application.Status.InPlaceUpdatedFrom = ""
+	application.Status.InPlaceUpdatedFromHash = ""
 
 	// Create the Flink cluster
 	err := s.flinkController.CreateCluster(ctx, application)
@@ -295,7 +295,7 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 	oldHash := app.Status.DeployHash
 
 	labels[flink.FlinkAppHash] = oldHash
-	app.Status.InPlaceUpdatedFrom = oldHash
+	app.Status.InPlaceUpdatedFromHash = oldHash
 
 	deployments, err := s.k8Cluster.GetDeploymentsWithLabel(ctx, app.Namespace, labels)
 	if err != nil {

@@ -126,9 +126,13 @@ Below is the list of fields in the custom resource and their description
 
     `InPlace` **[Experimental]** On scale-up operations, the operator will attempt to perform an in-place update of the 
     cluster, by first increasing the size of the cluster to accommodate the newer, larger parallelism, then updating the 
-    job with the new parallelism. Note that this configuration is not supported in combination with BlueGreen mode, and
-    will be ignored if BlueGreen is set.
-  
+    job with the new parallelism. Note that for an in-place mode to occur, you must ensure that no fields of the
+    FlinkApplication change, besides parallelism or a *Mode field (like ScaleMode). In particular, this means that you
+    cannot use `kubectl apply` to make this change, as `kubectl apply` modifies annotations on the resource which, for
+    FlinkApplications, are propagated down to pods.
+
+    This configuration is not supported in combination with BlueGreen mode, and will be ignored if BlueGreen is set.
+
   * **restartNonce** `type:string`
     Can be set or modified to force a restart of the cluster
 

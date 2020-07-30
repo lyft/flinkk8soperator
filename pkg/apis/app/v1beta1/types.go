@@ -174,21 +174,21 @@ type FlinkApplicationStatus struct {
 	StartedAt          *metav1.Time                    `json:"startedAt,omitempty"`
 	LastUpdatedAt      *metav1.Time                    `json:"lastUpdatedAt,omitempty"`
 	Reason             string                          `json:"reason,omitempty"`
-	DeployVersion      FlinkApplicationVersion         `json:"deployVersion,omitempty"`
-	UpdatingVersion    FlinkApplicationVersion         `json:"updatingVersion,omitempty"`
-	ClusterStatus      FlinkClusterStatus              `json:"clusterStatus,omitempty"`
-	JobStatus          FlinkJobStatus                  `json:"jobStatus,omitempty"`
-	VersionStatuses    []FlinkApplicationVersionStatus `json:"versionStatuses,omitempty"`
-	FailedDeployHash   string                          `json:"failedDeployHash,omitempty"`
-	RollbackHash       string                          `json:"rollbackHash,omitempty"`
-	DeployHash         string                          `json:"deployHash"`
-	UpdatingHash       string                          `json:"updatingHash,omitempty"`
-	TeardownHash       string                          `json:"teardownHash,omitempty"`
-	InPlaceUpdatedFrom string                          `json:"inPlaceUpdatedFrom,omitempty"`
-	SavepointTriggerID string                          `json:"savepointTriggerId,omitempty"`
-	SavepointPath      string                          `json:"savepointPath,omitempty"`
-	RetryCount         int32                           `json:"retryCount,omitempty"`
-	LastSeenError      *FlinkApplicationError          `json:"lastSeenError,omitempty"`
+	DeployVersion          FlinkApplicationVersion         `json:"deployVersion,omitempty"`
+	UpdatingVersion        FlinkApplicationVersion         `json:"updatingVersion,omitempty"`
+	ClusterStatus          FlinkClusterStatus              `json:"clusterStatus,omitempty"`
+	JobStatus              FlinkJobStatus                  `json:"jobStatus,omitempty"`
+	VersionStatuses        []FlinkApplicationVersionStatus `json:"versionStatuses,omitempty"`
+	FailedDeployHash       string                          `json:"failedDeployHash,omitempty"`
+	RollbackHash           string                          `json:"rollbackHash,omitempty"`
+	DeployHash             string                          `json:"deployHash"`
+	UpdatingHash           string                          `json:"updatingHash,omitempty"`
+	TeardownHash           string                          `json:"teardownHash,omitempty"`
+	InPlaceUpdatedFromHash string                          `json:"inPlaceUpdatedFromHash,omitempty"`
+	SavepointTriggerID     string                          `json:"savepointTriggerId,omitempty"`
+	SavepointPath          string                          `json:"savepointPath,omitempty"`
+	RetryCount             int32                           `json:"retryCount,omitempty"`
+	LastSeenError          *FlinkApplicationError          `json:"lastSeenError,omitempty"`
 	// We store deployment mode in the status to prevent incompatible migrations from
 	// Dual --> BlueGreen and BlueGreen --> Dual
 	DeploymentMode DeploymentMode `json:"deploymentMode,omitempty"`

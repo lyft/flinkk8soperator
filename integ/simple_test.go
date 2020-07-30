@@ -53,7 +53,7 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1be
 
 		for _, pod := range pods.Items {
 			if pod.Annotations["flink-app-hash"] == app.Status.DeployHash ||
-				pod.Annotations["flink-app-hash"] == app.Status.InPlaceUpdatedFrom {
+				pod.Annotations["flink-app-hash"] == app.Status.InPlaceUpdatedFromHash {
 				oldPodFound = true
 			}
 		}
