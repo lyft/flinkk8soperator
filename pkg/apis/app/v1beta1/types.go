@@ -170,10 +170,10 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase              FlinkApplicationPhase           `json:"phase"`
-	StartedAt          *metav1.Time                    `json:"startedAt,omitempty"`
-	LastUpdatedAt      *metav1.Time                    `json:"lastUpdatedAt,omitempty"`
-	Reason             string                          `json:"reason,omitempty"`
+	Phase                  FlinkApplicationPhase           `json:"phase"`
+	StartedAt              *metav1.Time                    `json:"startedAt,omitempty"`
+	LastUpdatedAt          *metav1.Time                    `json:"lastUpdatedAt,omitempty"`
+	Reason                 string                          `json:"reason,omitempty"`
 	DeployVersion          FlinkApplicationVersion         `json:"deployVersion,omitempty"`
 	UpdatingVersion        FlinkApplicationVersion         `json:"updatingVersion,omitempty"`
 	ClusterStatus          FlinkClusterStatus              `json:"clusterStatus,omitempty"`
