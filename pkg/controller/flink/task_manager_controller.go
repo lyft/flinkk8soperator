@@ -155,7 +155,7 @@ func getTaskManagerName(application *v1beta1.FlinkApplication, hash string) stri
 	return fmt.Sprintf(TaskManagerNameFormat, applicationName, hash)
 }
 
-func computeTaskManagerReplicas(application *v1beta1.FlinkApplication) int32 {
+func ComputeTaskManagerReplicas(application *v1beta1.FlinkApplication) int32 {
 	slots := getTaskmanagerSlots(application)
 	parallelism := application.Spec.Parallelism
 	return int32(math.Ceil(float64(parallelism) / float64(slots)))
@@ -170,17 +170,17 @@ func DeploymentIsTaskmanager(deployment *v1.Deployment) bool {
 // will cause redeployments for all applications, and should be considered a breaking change that
 // requires a new version of the CRD.
 func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
-	labels := getCommonAppLabels(app)
+	labels := GetCommonAppLabels(app)
 	labels = common.CopyMap(labels, app.Labels)
 	labels[FlinkDeploymentType] = FlinkDeploymentTypeTaskmanager
 
 	podSelector := &metaV1.LabelSelector{
-		MatchLabels: labels,
+		MatchLabels: common.DuplicateMap(labels),
 	}
 
 	taskContainer := FetchTaskManagerContainerObj(app)
 
-	replicas := computeTaskManagerReplicas(app)
+	replicas := ComputeTaskManagerReplicas(app)
 
 	deployment := &v1.Deployment{
 		TypeMeta: metaV1.TypeMeta{
@@ -204,8 +204,8 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 			Template: coreV1.PodTemplateSpec{
 				ObjectMeta: metaV1.ObjectMeta{
 					Namespace:   app.Namespace,
-					Labels:      labels,
-					Annotations: app.Annotations,
+					Labels:      common.DuplicateMap(labels),
+					Annotations: common.DuplicateMap(app.Annotations),
 				},
 				Spec: coreV1.PodSpec{
 					Containers: []coreV1.Container{
@@ -235,10 +235,13 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 func FetchTaskMangerDeploymentCreateObj(app *v1beta1.FlinkApplication, hash string) *v1.Deployment {
 	template := taskmanagerTemplate(app.DeepCopy())
 
+	podDeploymentValue := RandomPodDeploymentSelector()
+
 	template.Name = getTaskManagerName(app, hash)
 	template.Labels[FlinkAppHash] = hash
-	template.Spec.Template.Labels[FlinkAppHash] = hash
-	template.Spec.Selector.MatchLabels[FlinkAppHash] = hash
+	template.Spec.Template.Annotations[FlinkAppHash] = hash
+	template.Spec.Template.Labels[PodDeploymentSelector] = podDeploymentValue
+	template.Spec.Selector.MatchLabels[PodDeploymentSelector] = podDeploymentValue
 	template.Spec.Template.Name = getTaskManagerPodName(app, hash)
 
 	InjectOperatorCustomizedConfig(template, app, hash, FlinkDeploymentTypeTaskmanager)

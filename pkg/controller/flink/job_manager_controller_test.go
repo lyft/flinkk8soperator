@@ -3,6 +3,8 @@ package flink
 import (
 	"testing"
 
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1beta12 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
@@ -67,15 +69,14 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		Effect:   "NoSchedule",
 	}}
 
+	hash := "5e7c7283"
 	annotations := map[string]string{
 		"key":                  "annotation",
 		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
-	app.Annotations = annotations
-	hash := "5e7c7283"
+	app.Annotations = common.DuplicateMap(annotations)
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
-		"flink-app-hash":        hash,
 		"flink-deployment-type": "jobmanager",
 	}
 	ctr := 0
@@ -89,9 +90,14 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, app.Namespace, deployment.Namespace)
 			assert.Equal(t, getJobManagerPodName(&app, hash), deployment.Spec.Template.Name)
 			assert.Equal(t, annotations, deployment.Annotations)
+			annotations["flink-app-hash"] = hash
 			assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
-			assert.Equal(t, expectedLabels, deployment.Labels)
+
+			for k, v := range expectedLabels {
+				assert.Equal(t, v, deployment.Labels[k])
+			}
+
 			assert.Equal(t, app.Spec.JobManagerConfig.Tolerations, deployment.Spec.Template.Spec.Tolerations)
 			assert.Equal(t, int32(1), *deployment.Spec.Replicas)
 			assert.Equal(t, "app-name", deployment.OwnerReferences[0].Name)
@@ -110,13 +116,17 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name, service.Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+			assert.Equal(t, "app-name", service.Spec.Selector["flink-app"])
+			assert.Equal(t, "jobmanager", service.Spec.Selector["flink-deployment-type"])
+			assert.NotNil(t, service.Spec.Selector["pod-deployment-selector"])
 		case 3:
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name+"-"+hash, service.Name)
 			assert.Equal(t, "app-name", service.OwnerReferences[0].Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+			assert.Equal(t, "app-name", service.Spec.Selector["flink-app"])
+			assert.Equal(t, "jobmanager", service.Spec.Selector["flink-deployment-type"])
+			assert.NotNil(t, service.Spec.Selector["pod-deployment-selector"])
 		case 4:
 			labels := map[string]string{
 				"flink-app": "app-name",
@@ -146,7 +156,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 		"key":                  "annotation",
 		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
-	app.Annotations = annotations
+	app.Annotations = common.DuplicateMap(annotations)
 	app.Spec.FlinkConfig = map[string]interface{}{
 		"high-availability": "zookeeper",
 	}
@@ -167,6 +177,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 			assert.Equal(t, app.Namespace, deployment.Namespace)
 			assert.Equal(t, getJobManagerPodName(&app, hash), deployment.Spec.Template.Name)
 			assert.Equal(t, annotations, deployment.Annotations)
+			annotations["flink-app-hash"] = hash
 			assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 			assert.Equal(t, expectedLabels, deployment.Labels)
@@ -188,13 +199,17 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name, service.Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+			assert.Equal(t, "app-name", service.Spec.Selector["flink-app"])
+			assert.Equal(t, "jobmanager", service.Spec.Selector["flink-deployment-type"])
+			assert.NotNil(t, service.Spec.Selector["pod-deployment-selector"])
 		case 3:
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name+"-"+hash, service.Name)
 			assert.Equal(t, "app-name", service.OwnerReferences[0].Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+			assert.Equal(t, "app-name", service.Spec.Selector["flink-app"])
+			assert.Equal(t, "jobmanager", service.Spec.Selector["flink-deployment-type"])
+			assert.NotNil(t, service.Spec.Selector["pod-deployment-selector"])
 		case 4:
 			labels := map[string]string{
 				"flink-app": "app-name",
@@ -276,11 +291,29 @@ func TestJobManagerCreateAlreadyExists(t *testing.T) {
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
+
+	deployment := v1.Deployment{
+		Spec: v1.DeploymentSpec{
+			Selector: &metaV1.LabelSelector{
+				MatchLabels: map[string]string{"pod-deployment-selector": "blah"},
+			},
+		},
+	}
+
+	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (list *v1.DeploymentList, err error) {
+		return &v1.DeploymentList{
+			TypeMeta: metaV1.TypeMeta{},
+			ListMeta: metaV1.ListMeta{},
+			Items:    []v1.Deployment{deployment},
+		}, nil
+	}
+
 	ctr := 0
 	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		ctr++
 		return k8sErrors.NewAlreadyExists(schema.GroupResource{}, "")
 	}
+
 	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
 	assert.Equal(t, ctr, 4)
 	assert.Nil(t, err)
@@ -295,6 +328,23 @@ func TestJobManagerCreateNoIngress(t *testing.T) {
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
+
+	deployment := v1.Deployment{
+		Spec: v1.DeploymentSpec{
+			Selector: &metaV1.LabelSelector{
+				MatchLabels: map[string]string{"pod-deployment-selector": "blah"},
+			},
+		},
+	}
+
+	mockK8Cluster.GetDeploymentsWithLabelFunc = func(ctx context.Context, namespace string, labelMap map[string]string) (list *v1.DeploymentList, err error) {
+		return &v1.DeploymentList{
+			TypeMeta: metaV1.TypeMeta{},
+			ListMeta: metaV1.ListMeta{},
+			Items:    []v1.Deployment{deployment},
+		}, nil
+	}
+
 	ctr := 0
 	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		ctr++
@@ -322,7 +372,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 		"flink-application-version": testVersion,
 		"flink-job-properties":      "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
-	app.Annotations = annotations
+	app.Annotations = common.DuplicateMap(annotations)
 	hash := "5cb5943e"
 	expectedLabels := map[string]string{
 		"flink-app":                 "app-name",
@@ -341,6 +391,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 			assert.Equal(t, app.Namespace, deployment.Namespace)
 			assert.Equal(t, getJobManagerPodName(&app, hash), deployment.Spec.Template.Name)
 			assert.Equal(t, annotations, deployment.Annotations)
+			annotations["flink-app-hash"] = hash
 			assert.Equal(t, annotations, deployment.Spec.Template.Annotations)
 			assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 			assert.Equal(t, expectedLabels, deployment.Labels)
@@ -363,13 +414,17 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name+"-"+testVersion, service.Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-deployment-type": "jobmanager", "flink-application-version": testVersion}, service.Spec.Selector)
+			assert.Equal(t, "app-name", service.Spec.Selector["flink-app"])
+			assert.Equal(t, "jobmanager", service.Spec.Selector["flink-deployment-type"])
+			assert.NotNil(t, service.Spec.Selector["pod-deployment-selector"])
 		case 3:
 			service := object.(*coreV1.Service)
 			assert.Equal(t, app.Name+"-"+hash, service.Name)
 			assert.Equal(t, "app-name", service.OwnerReferences[0].Name)
 			assert.Equal(t, app.Namespace, service.Namespace)
-			assert.Equal(t, map[string]string{"flink-app": "app-name", "flink-app-hash": hash, "flink-application-version": testVersion, "flink-deployment-type": "jobmanager"}, service.Spec.Selector)
+			assert.Equal(t, "app-name", service.Spec.Selector["flink-app"])
+			assert.Equal(t, "jobmanager", service.Spec.Selector["flink-deployment-type"])
+			assert.NotNil(t, service.Spec.Selector["pod-deployment-selector"])
 		case 4:
 			labels := map[string]string{
 				"flink-app": "app-name",

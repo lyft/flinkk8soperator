@@ -22,6 +22,12 @@ variables and arguments for the containers to start up the Flink application fro
 Along with the annotations and labels in the custom resources, the deployment objects are suffixed with the application
 version name, that is either `blue` or `green`. The version name is also injected into the container environment.
 Additionally, the external URLs for each of the versions is also suffixed with the color.
+### Rescaling
+If `scaleMode` is set to `InPlace`, an increase in parallelism will trigger a progression to `Rescaling` rather than
+`Updating`. In this mode, we increase the size the existing TaskManager deployment instead of creating a new one, after
+which we proceed with Cancelling or Savepointing depending on the `savepointDisabled` setting.
+#### BlueGreen deployment mode
+InPlace rescaling is not compatible with BlueGreen, so this state will not be reached in BlueGreen mode.
 ### ClusterStarting
 In this state, the operator monitors the Flink cluster created in the New state. Once it successfully starts, we check
 if the spec has `savepointDisabled` field set to true. If yes, we transition to `Cancelling` state else to `Savepointing`. 

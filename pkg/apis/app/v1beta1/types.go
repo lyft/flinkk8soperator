@@ -55,6 +55,7 @@ type FlinkApplicationSpec struct {
 	VolumeMounts                   []apiv1.VolumeMount `json:"volumeMounts,omitempty"`
 	RestartNonce                   string              `json:"restartNonce"`
 	DeleteMode                     DeleteMode          `json:"deleteMode,omitempty"`
+	ScaleMode                      ScaleMode           `json:"scaleMode,omitempty"`
 	AllowNonRestoredState          bool                `json:"allowNonRestoredState,omitempty"`
 	ForceRollback                  bool                `json:"forceRollback"`
 	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
@@ -169,24 +170,25 @@ type FlinkJobStatus struct {
 }
 
 type FlinkApplicationStatus struct {
-	Phase              FlinkApplicationPhase           `json:"phase"`
-	StartedAt          *metav1.Time                    `json:"startedAt,omitempty"`
-	LastUpdatedAt      *metav1.Time                    `json:"lastUpdatedAt,omitempty"`
-	Reason             string                          `json:"reason,omitempty"`
-	DeployVersion      FlinkApplicationVersion         `json:"deployVersion,omitempty"`
-	UpdatingVersion    FlinkApplicationVersion         `json:"updatingVersion,omitempty"`
-	ClusterStatus      FlinkClusterStatus              `json:"clusterStatus,omitempty"`
-	JobStatus          FlinkJobStatus                  `json:"jobStatus,omitempty"`
-	VersionStatuses    []FlinkApplicationVersionStatus `json:"versionStatuses,omitempty"`
-	FailedDeployHash   string                          `json:"failedDeployHash,omitempty"`
-	RollbackHash       string                          `json:"rollbackHash,omitempty"`
-	DeployHash         string                          `json:"deployHash"`
-	UpdatingHash       string                          `json:"updatingHash,omitempty"`
-	TeardownHash       string                          `json:"teardownHash,omitempty"`
-	SavepointTriggerID string                          `json:"savepointTriggerId,omitempty"`
-	SavepointPath      string                          `json:"savepointPath,omitempty"`
-	RetryCount         int32                           `json:"retryCount,omitempty"`
-	LastSeenError      *FlinkApplicationError          `json:"lastSeenError,omitempty"`
+	Phase                  FlinkApplicationPhase           `json:"phase"`
+	StartedAt              *metav1.Time                    `json:"startedAt,omitempty"`
+	LastUpdatedAt          *metav1.Time                    `json:"lastUpdatedAt,omitempty"`
+	Reason                 string                          `json:"reason,omitempty"`
+	DeployVersion          FlinkApplicationVersion         `json:"deployVersion,omitempty"`
+	UpdatingVersion        FlinkApplicationVersion         `json:"updatingVersion,omitempty"`
+	ClusterStatus          FlinkClusterStatus              `json:"clusterStatus,omitempty"`
+	JobStatus              FlinkJobStatus                  `json:"jobStatus,omitempty"`
+	VersionStatuses        []FlinkApplicationVersionStatus `json:"versionStatuses,omitempty"`
+	FailedDeployHash       string                          `json:"failedDeployHash,omitempty"`
+	RollbackHash           string                          `json:"rollbackHash,omitempty"`
+	DeployHash             string                          `json:"deployHash"`
+	UpdatingHash           string                          `json:"updatingHash,omitempty"`
+	TeardownHash           string                          `json:"teardownHash,omitempty"`
+	InPlaceUpdatedFromHash string                          `json:"inPlaceUpdatedFromHash,omitempty"`
+	SavepointTriggerID     string                          `json:"savepointTriggerId,omitempty"`
+	SavepointPath          string                          `json:"savepointPath,omitempty"`
+	RetryCount             int32                           `json:"retryCount,omitempty"`
+	LastSeenError          *FlinkApplicationError          `json:"lastSeenError,omitempty"`
 	// We store deployment mode in the status to prevent incompatible migrations from
 	// Dual --> BlueGreen and BlueGreen --> Dual
 	DeploymentMode DeploymentMode `json:"deploymentMode,omitempty"`
@@ -240,6 +242,7 @@ func (p FlinkApplicationPhase) VerboseString() string {
 const (
 	FlinkApplicationNew             FlinkApplicationPhase = ""
 	FlinkApplicationUpdating        FlinkApplicationPhase = "Updating"
+	FlinkApplicationRescaling       FlinkApplicationPhase = "Rescaling"
 	FlinkApplicationClusterStarting FlinkApplicationPhase = "ClusterStarting"
 	FlinkApplicationSubmittingJob   FlinkApplicationPhase = "SubmittingJob"
 	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
@@ -255,6 +258,7 @@ const (
 var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationNew,
 	FlinkApplicationUpdating,
+	FlinkApplicationRescaling,
 	FlinkApplicationClusterStarting,
 	FlinkApplicationSubmittingJob,
 	FlinkApplicationRunning,
@@ -300,6 +304,13 @@ const (
 	DeleteModeSavepoint   DeleteMode = "Savepoint"
 	DeleteModeForceCancel DeleteMode = "ForceCancel"
 	DeleteModeNone        DeleteMode = "None"
+)
+
+type ScaleMode string
+
+const (
+	ScaleModeNewCluster ScaleMode = "NewCluster"
+	ScaleModeInPlace    ScaleMode = "InPlace"
 )
 
 type HealthStatus string

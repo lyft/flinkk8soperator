@@ -118,6 +118,21 @@ Below is the list of fields in the custom resource and their description
 
     `None` The operator will immediately tear down the cluster
 
+  * **scaleMode** `type:ScaleMode`
+    Indicates how the operator should respond to changes of application parallelism.
+    
+    `NewCluster` (default) The operator will treat scale-ups as normal deploys (consistent with any other change to the CRD),
+    creating a new cluster with the desired scale.
+
+    `InPlace` **[Experimental]** On scale-up operations, the operator will attempt to perform an in-place update of the 
+    cluster, by first increasing the size of the cluster to accommodate the newer, larger parallelism, then updating the 
+    job with the new parallelism. Note that for an in-place mode to occur, you must ensure that no fields of the
+    FlinkApplication change, besides parallelism or a *Mode field (like ScaleMode). In particular, this means that you
+    cannot use `kubectl apply` to make this change, as `kubectl apply` modifies annotations on the resource which, for
+    FlinkApplications, are propagated down to pods.
+
+    This configuration is not supported in combination with BlueGreen mode, and will be ignored if BlueGreen is set.
+
   * **restartNonce** `type:string`
     Can be set or modified to force a restart of the cluster
 
