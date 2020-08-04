@@ -8,6 +8,7 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -464,7 +465,32 @@ func TestSubmittingToRunning(t *testing.T) {
 			}, nil
 		}
 		return nil, nil
+	}
 
+	podSelector := "wc7ydhul"
+
+	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
+		jm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		tm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		return &common.FlinkDeployment{
+			Jobmanager:  &jm,
+			Taskmanager: &tm,
+			Hash:        hash,
+		}, nil
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
@@ -474,11 +500,6 @@ func TestSubmittingToRunning(t *testing.T) {
 		assert.Equal(t, "flink", namespace)
 		assert.Equal(t, "test-app", name)
 
-		hash := "old-hash"
-		if getServiceCount > 0 {
-			hash = appHash
-		}
-
 		getServiceCount++
 		return &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -487,7 +508,7 @@ func TestSubmittingToRunning(t *testing.T) {
 			},
 			Spec: v1.ServiceSpec{
 				Selector: map[string]string{
-					"flink-app-hash": hash,
+					"pod-deployment-selector": "blah",
 				},
 			},
 		}, nil
@@ -498,7 +519,7 @@ func TestSubmittingToRunning(t *testing.T) {
 		if updateCount == 0 {
 			// update to the service
 			service := object.(*v1.Service)
-			assert.Equal(t, appHash, service.Spec.Selector["flink-app-hash"])
+			assert.Equal(t, podSelector, service.Spec.Selector["pod-deployment-selector"])
 		} else if updateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobFinalizer, application.Finalizers[0])
@@ -533,7 +554,7 @@ func TestSubmittingToRunning(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, 1, startCount)
-	assert.Equal(t, 2, updateCount)
+	assert.Equal(t, 3, updateCount)
 	assert.Equal(t, 2, statusUpdateCount)
 }
 
@@ -678,12 +699,38 @@ func TestRollingBack(t *testing.T) {
 		}, nil
 	}
 
+	podSelector := "a7ldf128"
+
+	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
+		jm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		tm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		return &common.FlinkDeployment{
+			Jobmanager:  &jm,
+			Taskmanager: &tm,
+			Hash:        hash,
+		}, nil
+	}
+
 	updateCount := 0
 	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
 		if updateCount == 0 {
 			// update to the service
 			service := object.(*v1.Service)
-			assert.Equal(t, "old-hash", service.Spec.Selector["flink-app-hash"])
+			assert.Equal(t, podSelector, service.Spec.Selector["pod-deployment-selector"])
 		} else if updateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobFinalizer, application.Finalizers[0])
@@ -1197,6 +1244,33 @@ func TestRollbackWithFailFastError(t *testing.T) {
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	appHash := flink.HashForApplication(&app)
+
+	podSelector := "81u2312"
+
+	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
+		jm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		tm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		return &common.FlinkDeployment{
+			Jobmanager:  &jm,
+			Taskmanager: &tm,
+			Hash:        hash,
+		}, nil
+	}
+
 	getServiceCount := 0
 	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
 		hash := "old-hash-retry-err"
@@ -1374,6 +1448,30 @@ func TestForceRollback(t *testing.T) {
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
 		return true, nil
+	}
+
+	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
+		jm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": "aasdf"},
+				},
+			},
+		}
+
+		tm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": "aasdf"},
+				},
+			},
+		}
+
+		return &common.FlinkDeployment{
+			Jobmanager:  &jm,
+			Taskmanager: &tm,
+			Hash:        hash,
+		}, nil
 	}
 
 	err := stateMachineForTest.Handle(context.Background(), &app)
@@ -1591,6 +1689,32 @@ func TestRunningToDualRunning(t *testing.T) {
 			State: client.Running,
 		}, nil
 
+	}
+
+	podSelector := "1231kjh2"
+
+	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
+		jm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		tm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		return &common.FlinkDeployment{
+			Jobmanager:  &jm,
+			Taskmanager: &tm,
+			Hash:        hash,
+		}, nil
 	}
 
 	mockFlinkController.IsClusterReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication) (b bool, err error) {
@@ -1816,8 +1940,34 @@ func TestBlueGreenUpdateWithError(t *testing.T) {
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string, jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (s string, err error) {
 		return "", client.GetNonRetryableError(errors.New("bad submission"), "SubmitJob", "500")
-
 	}
+
+	podSelector := "1231kjh2"
+
+	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
+		jm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		tm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		return &common.FlinkDeployment{
+			Jobmanager:  &jm,
+			Taskmanager: &tm,
+			Hash:        hash,
+		}, nil
+	}
+
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
 
@@ -2072,4 +2222,39 @@ func TestIncompatibleDeploymentModeSwitch(t *testing.T) {
 	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 	assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, app.Status.Phase)
+}
+
+func TestIsScaleUp(t *testing.T) {
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:        "job.jar",
+			Parallelism:    100,
+			EntryClass:     "com.my.Class",
+			ProgramArgs:    "--test",
+			DeploymentMode: v1beta1.DeploymentModeDual,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase: "Running",
+			JobStatus: v1beta1.FlinkJobStatus{
+				Parallelism: 100,
+			},
+		},
+	}
+
+	hash := flink.HashForApplication(&app)
+	app.Status.DeployHash = hash
+
+	app.Spec.Parallelism = 150
+	assert.True(t, isScaleUp(&app))
+
+	app.Spec.Parallelism = 90
+	assert.False(t, isScaleUp(&app))
+
+	app.Spec.Parallelism = 150
+	app.Spec.RestartNonce = "blah"
+	assert.False(t, isScaleUp(&app))
 }

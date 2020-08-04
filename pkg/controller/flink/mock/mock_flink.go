@@ -21,6 +21,7 @@ type IsServiceReadyFunc func(ctx context.Context, application *v1beta1.FlinkAppl
 type GetJobsForApplicationFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error)
 type GetJobForApplicationFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error)
 type GetCurrentDeploymentsForAppFunc func(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error)
+type GetDeploymentsForHashFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*common.FlinkDeployment, error)
 type FindExternalizedCheckpointFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error)
 type CompareAndUpdateClusterStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error)
 type CompareAndUpdateJobStatusFunc func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error)
@@ -48,6 +49,7 @@ type FlinkController struct {
 	GetJobsForApplicationFunc         GetJobsForApplicationFunc
 	GetJobForApplicationFunc          GetJobForApplicationFunc
 	GetCurrentDeploymentsForAppFunc   GetCurrentDeploymentsForAppFunc
+	GetDeploymentsForHashFunc         GetDeploymentsForHashFunc
 	FindExternalizedCheckpointFunc    FindExternalizedCheckpointFunc
 	Events                            []corev1.Event
 	CompareAndUpdateClusterStatusFunc CompareAndUpdateClusterStatusFunc
@@ -69,6 +71,13 @@ type FlinkController struct {
 func (m *FlinkController) GetCurrentDeploymentsForApp(ctx context.Context, application *v1beta1.FlinkApplication) (*common.FlinkDeployment, error) {
 	if m.GetCurrentDeploymentsForAppFunc != nil {
 		return m.GetCurrentDeploymentsForAppFunc(ctx, application)
+	}
+	return nil, nil
+}
+
+func (m *FlinkController) GetDeploymentsForHash(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*common.FlinkDeployment, error) {
+	if m.GetDeploymentsForHashFunc != nil {
+		return m.GetDeploymentsForHashFunc(ctx, application, hash)
 	}
 	return nil, nil
 }

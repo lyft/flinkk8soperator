@@ -7,3 +7,4 @@
 | The Trade Desk | @JonnyIncognito | Production | Data Engineering Infrastructure |
 | Lightbend | @yuchaoran2011 | Production | Streaming Platform |
 | McAfee | @jmdacruz | Development | Streaming Platform |
+| Zillow | @kelly-sm | Production | Streaming Platform |

@@ -9,5 +9,5 @@ export OPERATOR_IMAGE=127.0.0.1:32000/flinkk8soperator:local
 umask 000
 
 cd $(dirname "$0")
-go test -timeout 30m -check.vv IntegSuite
+go test -timeout 40m -check.vv IntegSuite
 

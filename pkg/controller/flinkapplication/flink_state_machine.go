@@ -5,6 +5,9 @@ import (
 	"math"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
+	k8_err "k8s.io/apimachinery/pkg/api/errors"
+
 	"k8s.io/client-go/tools/record"
 
 	"github.com/pkg/errors"
@@ -170,6 +173,8 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 		case v1beta1.FlinkApplicationNew, v1beta1.FlinkApplicationUpdating:
 			// Currently just transitions to the next state
 			updateApplication, appErr = s.handleNewOrUpdating(ctx, application)
+		case v1beta1.FlinkApplicationRescaling:
+			updateApplication, appErr = s.handleRescaling(ctx, application)
 		case v1beta1.FlinkApplicationClusterStarting:
 			updateApplication, appErr = s.handleClusterStarting(ctx, application)
 		case v1beta1.FlinkApplicationSubmittingJob:
@@ -240,6 +245,7 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 			fmt.Sprintf("Failed to create Flink Cluster: %s", reason))
 		return s.deployFailed(application)
 	}
+
 	// Update version if blue/green deploy
 	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		application.Status.UpdatingVersion = getUpdatingVersion(application)
@@ -250,6 +256,21 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 		// Reset teardown hash if set
 		application.Status.TeardownHash = ""
 	}
+
+	// Reset the in-place update hash if set
+	hash := flink.HashForApplication(application)
+	if application.Status.InPlaceUpdatedFromHash == hash {
+		// This means that we went from parallelism P -> P' -> P (P < P') without any other changes in the spec. This
+		// will not work, because we are still using the deployments with this hash, and we can't scale them
+		// down without disrupting the existing job. All we can do is tell the user how to fix the situation by
+		// making a change that will give us a different hash.
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "DeployFailed",
+			fmt.Sprintf("Could not scale down cluster due to previous in-place scale up. To continue this "+
+				"deploy, modify the application's restartNonce."))
+		return s.deployFailed(application)
+	}
+	application.Status.InPlaceUpdatedFromHash = ""
+
 	// Create the Flink cluster
 	err := s.flinkController.CreateCluster(ctx, application)
 	if err != nil {
@@ -258,6 +279,120 @@ func (s *FlinkStateMachine) handleNewOrUpdating(ctx context.Context, application
 	}
 
 	s.updateApplicationPhase(application, v1beta1.FlinkApplicationClusterStarting)
+	return statusChanged, nil
+}
+
+// In this phase we attempt to increase the scale of the application in-place without creating a new cluster
+func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
+	if rollback, reason := s.shouldRollback(ctx, app); rollback {
+		// we've failed to make progress; move to deploy failed
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "ClusterScaleUpFailed",
+			fmt.Sprintf("New taskmanagers failed to become available: %s", reason))
+		return s.deployFailed(app)
+	}
+
+	labels := k8.GetAppLabel(app.Name)
+	oldHash := app.Status.DeployHash
+
+	labels[flink.FlinkAppHash] = oldHash
+	app.Status.InPlaceUpdatedFromHash = oldHash
+
+	deployments, err := s.k8Cluster.GetDeploymentsWithLabel(ctx, app.Namespace, labels)
+	if err != nil {
+		return statusUnchanged, err
+	}
+
+	// If we have old (pre-scaled deployments), update their hashes our new hash to transform them into our new
+	// replicas, and also update the TM replica count to our new parallelism
+	var tmDeployment *appsv1.Deployment
+	var jmDeployment *appsv1.Deployment
+
+	for i, d := range deployments.Items {
+		if flink.DeploymentIsJobmanager(&d) {
+			jmDeployment = &deployments.Items[i]
+		} else if flink.DeploymentIsTaskmanager(&d) {
+			tmDeployment = &deployments.Items[i]
+		}
+	}
+
+	newHash := flink.HashForApplication(app)
+
+	if jmDeployment != nil {
+		jmDeployment.Labels[flink.FlinkAppHash] = newHash
+		if s.k8Cluster.UpdateK8Object(ctx, jmDeployment) != nil {
+			return statusUnchanged, err
+		}
+	}
+
+	if tmDeployment != nil {
+		tmCount := flink.ComputeTaskManagerReplicas(app)
+		if *tmDeployment.Spec.Replicas != tmCount {
+			s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "ClusterScaleUp",
+				fmt.Sprintf(
+					"Increasing TaskManager replica count from %d to %d in preparation for scale up",
+					*tmDeployment.Spec.Replicas, tmCount))
+
+			*tmDeployment.Spec.Replicas = tmCount
+		}
+
+		tmDeployment.Labels[flink.FlinkAppHash] = newHash
+		if s.k8Cluster.UpdateK8Object(ctx, tmDeployment) != nil {
+			return statusUnchanged, err
+		}
+	}
+
+	// Create a new versioned service by copying the existing one
+	oldService, err := s.k8Cluster.GetService(ctx, app.Namespace, app.Name, oldHash)
+	oldService = oldService.DeepCopy()
+	if err != nil {
+		return statusUnchanged, err
+	}
+	serviceLabels := flink.GetCommonAppLabels(app)
+	serviceLabels[flink.FlinkAppHash] = newHash
+	newService := corev1.Service{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: corev1.SchemeGroupVersion.String(),
+			Kind:       k8.Service,
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      flink.VersionedJobManagerServiceName(app, newHash),
+			Namespace: app.Namespace,
+			OwnerReferences: []v1.OwnerReference{
+				*v1.NewControllerRef(app, app.GroupVersionKind()),
+			},
+			Labels: serviceLabels,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports:    oldService.Spec.Ports,
+			Selector: oldService.Spec.Selector,
+		},
+	}
+	err = s.k8Cluster.CreateK8Object(ctx, &newService)
+	if err != nil && !k8_err.IsAlreadyExists(err) {
+		return statusUnchanged, err
+	}
+
+	// Wait for all to be running
+	clusterReady, err := s.flinkController.IsClusterReady(ctx, app)
+	if err != nil || !clusterReady {
+		return statusUnchanged, err
+	}
+
+	// Wait for all TMs to be registered with the JobManager
+	serviceReady, _ := s.flinkController.IsServiceReady(ctx, app, newHash)
+	if !serviceReady {
+		return statusUnchanged, nil
+	}
+
+	// once we're ready, continue on to job submission
+	// TODO: should think more about how this should interact with blue/green, since doing things this way violates
+	//       the normal blue/green non-downtime guarantee
+	if app.Spec.SavepointDisabled {
+		s.updateApplicationPhase(app, v1beta1.FlinkApplicationCancelling)
+	} else {
+		s.updateApplicationPhase(app, v1beta1.FlinkApplicationSavepointing)
+	}
+
 	return statusChanged, nil
 }
 
@@ -300,7 +435,6 @@ func (s *FlinkStateMachine) handleClusterStarting(ctx context.Context, applicati
 	if v1beta1.IsBlueGreenDeploymentMode(application.Status.DeploymentMode) {
 		// Update hashes
 		s.flinkController.UpdateLatestVersionAndHash(application, application.Status.UpdatingVersion, flink.HashForApplication(application))
-
 	}
 
 	logger.Infof(ctx, "Flink cluster has started successfully")
@@ -536,9 +670,15 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 		return errors.New("service does not exist")
 	}
 
-	if service.Spec.Selector[flink.FlinkAppHash] != newHash {
+	deployments, err := s.flinkController.GetDeploymentsForHash(ctx, app, newHash)
+	if err != nil {
+		return err
+	}
+
+	selector := deployments.Jobmanager.Spec.Selector.MatchLabels[flink.PodDeploymentSelector]
+	if service.Spec.Selector[flink.PodDeploymentSelector] != selector {
 		// the service hasn't yet been updated
-		service.Spec.Selector[flink.FlinkAppHash] = newHash
+		service.Spec.Selector[flink.PodDeploymentSelector] = selector
 		err = s.k8Cluster.UpdateK8Object(ctx, service)
 		if err != nil {
 			return err
@@ -720,9 +860,25 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 				fmt.Sprintf("Changing deployment mode from %s to %s is unsupported", application.Status.DeploymentMode, application.Spec.DeploymentMode))
 			return s.deployFailed(application)
 		}
-		logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 		// TODO: handle single mode
-		s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
+
+		// if our scale mode is InPlace and this is a suitable update (the only change is an increase in parallelism)
+		// move to Rescaling
+		if application.Spec.ScaleMode == v1beta1.ScaleModeInPlace && isScaleUp(application) {
+			if application.Spec.DeploymentMode == v1beta1.DeploymentModeBlueGreen {
+				s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "NotScalingInPlace",
+					"Not using configured InPlace scaling mode because it is incompatible with BlueGreen"+
+						" deploy mode")
+				s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
+			} else {
+				logger.Infof(ctx, "Application scale has increased. Moving to Rescaling.")
+				s.updateApplicationPhase(application, v1beta1.FlinkApplicationRescaling)
+			}
+		} else {
+			logger.Infof(ctx, "Application resource has changed. Moving to Updating")
+			s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
+		}
+
 		return statusChanged, nil
 	}
 
@@ -1113,6 +1269,19 @@ func (s *FlinkStateMachine) cancelAndDeleteJob(ctx context.Context, app *v1beta1
 
 func (s *FlinkStateMachine) isIncompatibleDeploymentModeChange(application *v1beta1.FlinkApplication) bool {
 	return application.Spec.DeploymentMode != application.Status.DeploymentMode
+}
+
+// Returns true if the only change between the current status and spec is an _increase_ in parallelism
+func isScaleUp(app *v1beta1.FlinkApplication) bool {
+	if app.Spec.Parallelism > app.Status.JobStatus.Parallelism {
+		appWithOldScale := app.DeepCopy()
+		appWithOldScale.Spec.Parallelism = app.Status.JobStatus.Parallelism
+		hash := flink.HashForApplication(appWithOldScale)
+
+		// this implies that everything _except_ for parallelism is the same
+		return hash == app.Status.DeployHash || hash == app.Status.FailedDeployHash
+	}
+	return false
 }
 
 func createRetryHandler() client.RetryHandlerInterface {

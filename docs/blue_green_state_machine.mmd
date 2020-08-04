@@ -4,12 +4,12 @@
 graph LR
 New --> ClusterStarting
 
-subgraph Running
+subgraph RunningGroup [Running]
 Running
 DeployFailed
 end
 
-subgraph Updating
+subgraph UpdatingGroup [Updating]
 Running --> Updating
 Updating --> ClusterStarting
 DeployFailed --> Updating
