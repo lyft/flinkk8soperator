@@ -679,6 +679,8 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 	if service.Spec.Selector[flink.PodDeploymentSelector] != selector {
 		// the service hasn't yet been updated
 		service.Spec.Selector[flink.PodDeploymentSelector] = selector
+		// remove the old app hash selector if it's still present
+		delete(service.Spec.Selector, flink.FlinkAppHash)
 		err = s.k8Cluster.UpdateK8Object(ctx, service)
 		if err != nil {
 			return err
