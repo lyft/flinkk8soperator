@@ -18,7 +18,7 @@ const (
 	BlobDefaultPort                = 6125
 	UIDefaultPort                  = 8081
 	MetricsQueryDefaultPort        = 50101
-	OffHeapMemoryDefaultFraction   = 0.5
+	SystemMemoryDefaultFraction    = 0.5
 	HighAvailabilityKey            = "high-availability"
 	MaxCheckpointRestoreAgeSeconds = 3600
 )
@@ -30,11 +30,19 @@ func firstNonNil(x *int32, y int32) int32 {
 	return y
 }
 
-func getValidFraction(x *float64, y float64) float64 {
-	if x != nil && *x >= float64(0) && *x <= float64(1) {
-		return *x
+func getFraction(systemMemoryFraction *float64, offHeapMemoryFraction *float64) float64 {
+	if isValidFraction(systemMemoryFraction) {
+		return *systemMemoryFraction
 	}
-	return y
+	if isValidFraction(offHeapMemoryFraction) {
+		return *offHeapMemoryFraction
+	}
+
+	return SystemMemoryDefaultFraction
+}
+
+func isValidFraction(fraction *float64) bool {
+	return fraction != nil && *fraction >= float64(0) && *fraction <= float64(1)
 }
 
 func getTaskmanagerSlots(app *v1beta1.FlinkApplication) int32 {
@@ -73,7 +81,7 @@ func getMaxCheckpointRestoreAgeSeconds(app *v1beta1.FlinkApplication) int32 {
 	return firstNonNil(app.Spec.MaxCheckpointRestoreAgeSeconds, MaxCheckpointRestoreAgeSeconds)
 }
 
-func getTaskManagerMemory(application *v1beta1.FlinkApplication) int64 {
+func getRequestedTaskManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	tmResources := application.Spec.TaskManagerConfig.Resources
 	if tmResources == nil {
 		tmResources = &TaskManagerDefaultResources
@@ -82,7 +90,7 @@ func getTaskManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	return tmMemory
 }
 
-func getJobManagerMemory(application *v1beta1.FlinkApplication) int64 {
+func getRequestedJobManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	jmResources := application.Spec.JobManagerConfig.Resources
 	if jmResources == nil {
 		jmResources = &JobManagerDefaultResources
@@ -91,29 +99,19 @@ func getJobManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	return jmMemory
 }
 
-func computeHeap(memoryInBytes float64, fraction float64) string {
+func computeMemory(memoryInBytes float64, fraction float64) string {
 	kbs := int64(math.Round(memoryInBytes-(memoryInBytes*fraction)) / 1024)
 	return fmt.Sprintf("%dk", kbs)
 }
 
-func getTaskManagerHeapMemory(app *v1beta1.FlinkApplication) string {
-	offHeapMemoryFrac := getValidFraction(app.Spec.TaskManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
-	tmMemory := float64(getTaskManagerMemory(app))
-	return computeHeap(tmMemory, offHeapMemoryFrac)
+func getTaskManagerMemory(app *v1beta1.FlinkApplication, fraction float64) string {
+	tmMemory := float64(getRequestedTaskManagerMemory(app))
+	return computeMemory(tmMemory, fraction)
 }
 
-func getJobManagerHeapMemory(app *v1beta1.FlinkApplication) string {
-	offHeapMemoryFrac := getValidFraction(app.Spec.JobManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
-	jmMemory := float64(getJobManagerMemory(app))
-	return computeHeap(jmMemory, offHeapMemoryFrac)
-}
-
-func getTaskManagerProcessMemory(app *v1beta1.FlinkApplication) string {
-	return fmt.Sprintf("%dk", getTaskManagerMemory(app)/1024)
-}
-
-func getJobManagerProcessMemory(app *v1beta1.FlinkApplication) string {
-	return fmt.Sprintf("%dk", getJobManagerMemory(app)/1024)
+func getJobManagerMemory(app *v1beta1.FlinkApplication, fraction float64) string {
+	jmMemory := float64(getRequestedJobManagerMemory(app))
+	return computeMemory(jmMemory, fraction)
 }
 
 func getFlinkVersion(app *v1beta1.FlinkApplication) string {
@@ -141,12 +139,15 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	appVersion, err := version.NewVersion(getFlinkVersion(app))
 	v11, _ := version.NewVersion("1.11")
 
+	jobManagerFraction := getFraction(app.Spec.JobManagerConfig.SystemMemoryFraction, app.Spec.JobManagerConfig.OffHeapMemoryFraction)
+	taskManagerFraction := getFraction(app.Spec.TaskManagerConfig.SystemMemoryFraction, app.Spec.TaskManagerConfig.OffHeapMemoryFraction)
+
 	if err != nil || appVersion == nil || appVersion.LessThan(v11) {
-		(*config)["jobmanager.heap.size"] = getJobManagerHeapMemory(app)
-		(*config)["taskmanager.heap.size"] = getTaskManagerHeapMemory(app)
+		(*config)["jobmanager.heap.size"] = getJobManagerMemory(app, jobManagerFraction)
+		(*config)["taskmanager.heap.size"] = getTaskManagerMemory(app, taskManagerFraction)
 	} else {
-		(*config)["jobmanager.memory.process.size"] = getJobManagerProcessMemory(app)
-		(*config)["taskmanager.memory.process.size"] = getTaskManagerProcessMemory(app)
+		(*config)["jobmanager.memory.process.size"] = getJobManagerMemory(app, jobManagerFraction)
+		(*config)["taskmanager.memory.process.size"] = getTaskManagerMemory(app, taskManagerFraction)
 	}
 
 	// get the keys for the map

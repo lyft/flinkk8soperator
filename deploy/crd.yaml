@@ -141,6 +141,10 @@ spec:
                   type: number
                   minimum: 0
                   maximum: 1
+                systemMemoryFraction:
+                  type: number
+                  minimum: 0
+                  maximum: 1
                 nodeSelector:
                   type: object
                   properties:
@@ -281,6 +285,10 @@ spec:
                   type: integer
                   minimum: 1
                 offHeapMemoryFraction:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                systemMemoryFraction:
                   type: number
                   minimum: 0
                   maximum: 1
