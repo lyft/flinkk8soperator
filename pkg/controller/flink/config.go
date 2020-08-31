@@ -143,7 +143,9 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	appVersion, err := version.NewVersion(getFlinkVersion(app))
 	v11, _ := version.NewVersion("1.11")
 
+	//nolint // fall back to the old config for backwards-compatibility
 	jobManagerFraction := getFraction(app.Spec.JobManagerConfig.SystemMemoryFraction, app.Spec.JobManagerConfig.OffHeapMemoryFraction)
+	//nolint // fall back to the old config for backwards-compatibility
 	taskManagerFraction := getFraction(app.Spec.TaskManagerConfig.SystemMemoryFraction, app.Spec.TaskManagerConfig.OffHeapMemoryFraction)
 
 	if err != nil || appVersion == nil || appVersion.LessThan(v11) {

@@ -31,10 +31,12 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 				"env.java.opts.jobmanager":                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=39000 -XX:+UseG1GC",
 			},
 			TaskManagerConfig: v1beta1.TaskManagerConfig{
-				TaskSlots:             &taskSlots,
+				TaskSlots: &taskSlots,
+				//nolint // fall back to the old config for backwards-compatibility
 				OffHeapMemoryFraction: &offHeapMemoryFrac,
 			},
 			JobManagerConfig: v1beta1.JobManagerConfig{
+				//nolint // fall back to the old config for backwards-compatibility
 				OffHeapMemoryFraction: &offHeapMemoryFrac,
 			},
 			BlobPort: &blobPort,
@@ -161,6 +163,7 @@ func TestGetTaskManagerHeapMemory(t *testing.T) {
 	}
 	offHeapMemoryFraction := float64(0.5)
 	app.Spec.TaskManagerConfig.Resources = &tmResources
+	//nolint // fall back to the old config for backwards-compatibility
 	app.Spec.TaskManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
 	assert.Equal(t, "32768k", getTaskManagerMemory(&app, offHeapMemoryFraction))
@@ -180,6 +183,7 @@ func TestGetJobManagerHeapMemory(t *testing.T) {
 	}
 	offHeapMemoryFraction := float64(0.5)
 	app.Spec.JobManagerConfig.Resources = &jmResources
+	//nolint // fall back to the old config for backwards-compatibility
 	app.Spec.JobManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
 	assert.Equal(t, "32768k", getJobManagerMemory(&app, offHeapMemoryFraction))
