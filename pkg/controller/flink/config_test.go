@@ -285,12 +285,12 @@ func TestMemoryConfigurationForVersionEqualsOrAbove11(t *testing.T) {
 
 		expected := []string{
 			fmt.Sprintf("blob.server.port: %d", BlobDefaultPort),
-			"jobmanager.memory.process.size: 262144k",
+			"jobmanager.memory.process.size: 419430k",
 			fmt.Sprintf("jobmanager.rpc.port: %d", RPCDefaultPort),
 			fmt.Sprintf("jobmanager.web.port: %d", UIDefaultPort),
 			fmt.Sprintf("metrics.internal.query-service.port: %d", MetricsQueryDefaultPort),
 			fmt.Sprintf("query.server.port: %d", QueryDefaultPort),
-			"taskmanager.memory.process.size: 1048576k",
+			"taskmanager.memory.process.size: 1677721k",
 			fmt.Sprintf("taskmanager.numberOfTaskSlots: %d", TaskManagerDefaultSlots),
 		}
 
@@ -316,12 +316,12 @@ func TestMemoryConfigurationForVersionBelow11(t *testing.T) {
 
 		expected := []string{
 			fmt.Sprintf("blob.server.port: %d", BlobDefaultPort),
-			"jobmanager.heap.size: 262144k",
+			"jobmanager.heap.size: 419430k",
 			fmt.Sprintf("jobmanager.rpc.port: %d", RPCDefaultPort),
 			fmt.Sprintf("jobmanager.web.port: %d", UIDefaultPort),
 			fmt.Sprintf("metrics.internal.query-service.port: %d", MetricsQueryDefaultPort),
 			fmt.Sprintf("query.server.port: %d", QueryDefaultPort),
-			"taskmanager.heap.size: 1048576k",
+			"taskmanager.heap.size: 1677721k",
 			fmt.Sprintf("taskmanager.numberOfTaskSlots: %d", TaskManagerDefaultSlots),
 		}
 
