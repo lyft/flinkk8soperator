@@ -18,7 +18,8 @@ const (
 	BlobDefaultPort                = 6125
 	UIDefaultPort                  = 8081
 	MetricsQueryDefaultPort        = 50101
-	SystemMemoryDefaultFraction    = 0.5
+	OffHeapMemoryDefaultFraction   = 0.5
+	SystemMemoryDefaultFraction    = 0.2
 	HighAvailabilityKey            = "high-availability"
 	MaxCheckpointRestoreAgeSeconds = 3600
 )
@@ -36,6 +37,9 @@ func getFraction(systemMemoryFraction *float64, offHeapMemoryFraction *float64) 
 	}
 	if isValidFraction(offHeapMemoryFraction) {
 		return *offHeapMemoryFraction
+	}
+	if offHeapMemoryFraction != nil {
+		return OffHeapMemoryDefaultFraction
 	}
 
 	return SystemMemoryDefaultFraction
