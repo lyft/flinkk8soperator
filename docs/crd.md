@@ -39,8 +39,7 @@ Below is the list of fields in the custom resource and their description:
       Number of task slots per task manager.
 
     * **systemMemoryFraction** `type:float64`
-      A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
-      remaining memory is given to the taskmanager.
+      A value between 0 and 1 that represents % of container memory dedicated to the system. The remaining memory is given to the taskmanager.
 
     * **nodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the task manager.
@@ -63,8 +62,7 @@ Below is the list of fields in the custom resource and their description:
       correct environment variables are set for High availability mode.
 
     * **systemMemoryFraction** `type:float64`
-      A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
-      remaining memory is given to the job manager.
+      A value between 0 and 1 that represents % of container memory dedicated to the system. The remaining memory is given to the job manager.
 
     * **nodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the job manager.
