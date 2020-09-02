@@ -144,6 +144,7 @@ func TestEnsureNoFractionalHeapMemory(t *testing.T) {
 	}
 	offHeapMemoryFraction := float64(0.37)
 	app.Spec.TaskManagerConfig.Resources = &tmResources
+	//nolint // fall back to the old config for backwards-compatibility
 	app.Spec.TaskManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
 	assert.Equal(t, "41287k", getTaskManagerMemory(&app, offHeapMemoryFraction))
