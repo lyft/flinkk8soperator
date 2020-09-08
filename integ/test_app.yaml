@@ -14,7 +14,7 @@ spec:
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints
   jobManagerConfig:
-    offHeapMemoryFraction: 0.2
+    systemMemoryFraction: 0.2
     resources:
       requests:
         memory: "200Mi"
@@ -22,7 +22,7 @@ spec:
     replicas: 1
   taskManagerConfig:
     taskSlots: 2
-    offHeapMemoryFraction: 0.5
+    systemMemoryFraction: 0.5
     resources:
       requests:
         memory: "400Mi"
@@ -37,7 +37,7 @@ spec:
       hostPath:
         path: /tmp/checkpoints
         type: Directory
-  flinkVersion: "1.8"
+  flinkVersion: "1.11"
   deploymentMode: Dual
   jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
   parallelism: 3

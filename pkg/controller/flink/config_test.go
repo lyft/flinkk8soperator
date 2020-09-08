@@ -31,10 +31,12 @@ func TestRenderFlinkConfigOverrides(t *testing.T) {
 				"env.java.opts.jobmanager":                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=39000 -XX:+UseG1GC",
 			},
 			TaskManagerConfig: v1beta1.TaskManagerConfig{
-				TaskSlots:             &taskSlots,
+				TaskSlots: &taskSlots,
+				//nolint // fall back to the old config for backwards-compatibility
 				OffHeapMemoryFraction: &offHeapMemoryFrac,
 			},
 			JobManagerConfig: v1beta1.JobManagerConfig{
+				//nolint // fall back to the old config for backwards-compatibility
 				OffHeapMemoryFraction: &offHeapMemoryFrac,
 			},
 			BlobPort: &blobPort,
@@ -107,7 +109,7 @@ func TestGetTaskManagerMemory(t *testing.T) {
 	expectedResource := resource.MustParse("1Mi")
 	expectedValue, _ := expectedResource.AsInt64()
 	app.Spec.TaskManagerConfig.Resources = &tmResources
-	assert.Equal(t, expectedValue, getTaskManagerMemory(&app))
+	assert.Equal(t, expectedValue, getRequestedTaskManagerMemory(&app))
 }
 
 func TestGetJobManagerMemory(t *testing.T) {
@@ -125,7 +127,7 @@ func TestGetJobManagerMemory(t *testing.T) {
 	expectedResource := resource.MustParse("1Mi")
 	expectedValue, _ := expectedResource.AsInt64()
 	app.Spec.JobManagerConfig.Resources = &tmResources
-	assert.Equal(t, expectedValue, getJobManagerMemory(&app))
+	assert.Equal(t, expectedValue, getRequestedJobManagerMemory(&app))
 }
 
 func TestEnsureNoFractionalHeapMemory(t *testing.T) {
@@ -142,9 +144,10 @@ func TestEnsureNoFractionalHeapMemory(t *testing.T) {
 	}
 	offHeapMemoryFraction := float64(0.37)
 	app.Spec.TaskManagerConfig.Resources = &tmResources
+	//nolint // fall back to the old config for backwards-compatibility
 	app.Spec.TaskManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
-	assert.Equal(t, "41287k", getTaskManagerHeapMemory(&app))
+	assert.Equal(t, "41287k", getTaskManagerMemory(&app, offHeapMemoryFraction))
 }
 
 func TestGetTaskManagerHeapMemory(t *testing.T) {
@@ -161,9 +164,10 @@ func TestGetTaskManagerHeapMemory(t *testing.T) {
 	}
 	offHeapMemoryFraction := float64(0.5)
 	app.Spec.TaskManagerConfig.Resources = &tmResources
+	//nolint // fall back to the old config for backwards-compatibility
 	app.Spec.TaskManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
-	assert.Equal(t, "32768k", getTaskManagerHeapMemory(&app))
+	assert.Equal(t, "32768k", getTaskManagerMemory(&app, offHeapMemoryFraction))
 }
 
 func TestGetJobManagerHeapMemory(t *testing.T) {
@@ -180,7 +184,152 @@ func TestGetJobManagerHeapMemory(t *testing.T) {
 	}
 	offHeapMemoryFraction := float64(0.5)
 	app.Spec.JobManagerConfig.Resources = &jmResources
+	//nolint // fall back to the old config for backwards-compatibility
 	app.Spec.JobManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
-	assert.Equal(t, "32768k", getJobManagerHeapMemory(&app))
+	assert.Equal(t, "32768k", getJobManagerMemory(&app, offHeapMemoryFraction))
+}
+
+func TestGetJobManagerProcessMemory(t *testing.T) {
+	app := v1beta1.FlinkApplication{}
+	jmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("64Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("128Mi"),
+		},
+	}
+	systemMemoryFraction := float64(0.2)
+	app.Spec.JobManagerConfig.Resources = &jmResources
+	app.Spec.JobManagerConfig.SystemMemoryFraction = &systemMemoryFraction
+
+	assert.Equal(t, "52428k", getJobManagerMemory(&app, systemMemoryFraction))
+}
+
+func TestGetTaskManagerProcessMemory(t *testing.T) {
+	app := v1beta1.FlinkApplication{}
+	tmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("64Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("128Mi"),
+		},
+	}
+	systemMemoryFraction := float64(0.2)
+	app.Spec.TaskManagerConfig.Resources = &tmResources
+	app.Spec.TaskManagerConfig.SystemMemoryFraction = &systemMemoryFraction
+
+	assert.Equal(t, "52428k", getTaskManagerMemory(&app, systemMemoryFraction))
+}
+
+func MemoryConfigurationForVersion(t *testing.T, version string) []string {
+	tmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("2Gi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("4"),
+			coreV1.ResourceMemory: resource.MustParse("3Gi"),
+		},
+	}
+
+	jmResources := coreV1.ResourceRequirements{
+		Requests: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("512Mi"),
+		},
+		Limits: coreV1.ResourceList{
+			coreV1.ResourceCPU:    resource.MustParse("2"),
+			coreV1.ResourceMemory: resource.MustParse("1Gi"),
+		},
+	}
+
+	yaml, err := renderFlinkConfig(&v1beta1.FlinkApplication{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test-app",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			TaskManagerConfig: v1beta1.TaskManagerConfig{
+				Resources: &tmResources,
+			},
+			JobManagerConfig: v1beta1.JobManagerConfig{
+				Resources: &jmResources,
+			},
+			FlinkVersion: version,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase: v1beta1.FlinkApplicationNew,
+		},
+	})
+
+	if err != nil {
+		assert.NoError(t, err, "Got error producing config")
+	}
+
+	lines := strings.Split(strings.TrimSpace(yaml), "\n")
+	sort.Strings(lines)
+
+	return lines
+}
+
+func TestMemoryConfigurationForVersionEqualsOrAbove11(t *testing.T) {
+	versions := []string{
+		"1.11",
+		"1.11.0",
+	}
+
+	for _, version := range versions {
+		yaml := MemoryConfigurationForVersion(t, version)
+
+		expected := []string{
+			fmt.Sprintf("blob.server.port: %d", BlobDefaultPort),
+			"jobmanager.memory.process.size: 419430k",
+			fmt.Sprintf("jobmanager.rpc.port: %d", RPCDefaultPort),
+			fmt.Sprintf("jobmanager.web.port: %d", UIDefaultPort),
+			fmt.Sprintf("metrics.internal.query-service.port: %d", MetricsQueryDefaultPort),
+			fmt.Sprintf("query.server.port: %d", QueryDefaultPort),
+			"taskmanager.memory.process.size: 1677721k",
+			fmt.Sprintf("taskmanager.numberOfTaskSlots: %d", TaskManagerDefaultSlots),
+		}
+
+		assert.Equal(t, expected, yaml)
+	}
+}
+
+func TestMemoryConfigurationForVersionBelow11(t *testing.T) {
+	versions := []string{
+		"1.10",
+		"1.10.0",
+		"1.10.1",
+		"1.9.0",
+		"1.9",
+		"1.8.0",
+		"1.8",
+		"",
+		"invalid_version",
+	}
+
+	for _, version := range versions {
+		yaml := MemoryConfigurationForVersion(t, version)
+
+		expected := []string{
+			fmt.Sprintf("blob.server.port: %d", BlobDefaultPort),
+			"jobmanager.heap.size: 419430k",
+			fmt.Sprintf("jobmanager.rpc.port: %d", RPCDefaultPort),
+			fmt.Sprintf("jobmanager.web.port: %d", UIDefaultPort),
+			fmt.Sprintf("metrics.internal.query-service.port: %d", MetricsQueryDefaultPort),
+			fmt.Sprintf("query.server.port: %d", QueryDefaultPort),
+			"taskmanager.heap.size: 1677721k",
+			fmt.Sprintf("taskmanager.numberOfTaskSlots: %d", TaskManagerDefaultSlots),
+		}
+
+		assert.Equal(t, expected, yaml)
+	}
 }

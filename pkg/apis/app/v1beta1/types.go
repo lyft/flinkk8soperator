@@ -107,21 +107,25 @@ func (in *FlinkConfig) DeepCopy() *FlinkConfig {
 }
 
 type JobManagerConfig struct {
-	Resources             *apiv1.ResourceRequirements `json:"resources,omitempty"`
-	EnvConfig             EnvironmentConfig           `json:"envConfig"`
-	Replicas              *int32                      `json:"replicas,omitempty"`
-	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
-	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
-	Tolerations           []apiv1.Toleration          `json:"tolerations,omitempty"`
+	Resources *apiv1.ResourceRequirements `json:"resources,omitempty"`
+	EnvConfig EnvironmentConfig           `json:"envConfig"`
+	Replicas  *int32                      `json:"replicas,omitempty"`
+	// Deprecated: use SystemMemoryFraction instead
+	OffHeapMemoryFraction *float64           `json:"offHeapMemoryFraction,omitempty"`
+	SystemMemoryFraction  *float64           `json:"systemMemoryFraction,omitempty"`
+	NodeSelector          map[string]string  `json:"nodeSelector,omitempty"`
+	Tolerations           []apiv1.Toleration `json:"tolerations,omitempty"`
 }
 
 type TaskManagerConfig struct {
-	Resources             *apiv1.ResourceRequirements `json:"resources,omitempty"`
-	EnvConfig             EnvironmentConfig           `json:"envConfig"`
-	TaskSlots             *int32                      `json:"taskSlots,omitempty"`
-	OffHeapMemoryFraction *float64                    `json:"offHeapMemoryFraction,omitempty"`
-	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
-	Tolerations           []apiv1.Toleration          `json:"tolerations,omitempty"`
+	Resources *apiv1.ResourceRequirements `json:"resources,omitempty"`
+	EnvConfig EnvironmentConfig           `json:"envConfig"`
+	TaskSlots *int32                      `json:"taskSlots,omitempty"`
+	// Deprecated: use SystemMemoryFraction instead
+	OffHeapMemoryFraction *float64           `json:"offHeapMemoryFraction,omitempty"`
+	SystemMemoryFraction  *float64           `json:"systemMemoryFraction,omitempty"`
+	NodeSelector          map[string]string  `json:"nodeSelector,omitempty"`
+	Tolerations           []apiv1.Toleration `json:"tolerations,omitempty"`
 }
 
 type EnvironmentConfig struct {

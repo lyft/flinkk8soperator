@@ -1647,7 +1647,7 @@ func TestDeleteWhenCheckSavepointStatusFailing(t *testing.T) {
 
 func TestRunningToDualRunning(t *testing.T) {
 	deployHash := "appHash"
-	updatingHash := "2845d780"
+	updatingHash := "b1b084ee"
 	triggerID := "trigger"
 	savepointPath := "savepointPath"
 	app := v1beta1.FlinkApplication{
@@ -1832,7 +1832,7 @@ func TestRunningToDualRunning(t *testing.T) {
 func TestDualRunningToRunning(t *testing.T) {
 	deployHash := "appHash"
 	updatingHash := "2845d780"
-	teardownHash := "9dc7d91b"
+	teardownHash := "6c87fe8f"
 
 	app := v1beta1.FlinkApplication{
 		ObjectMeta: metav1.ObjectMeta{

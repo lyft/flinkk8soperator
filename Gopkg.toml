@@ -8,6 +8,7 @@ required = [
   "k8s.io/code-generator/cmd/informer-gen",
   "k8s.io/gengo/args",
   "github.com/benlaurie/objecthash/go/objecthash",
+  "github.com/hashicorp/go-version",
 ]
 
 [[constraint]]
@@ -41,3 +42,7 @@ required = [
 [[constraint]]
   name = "github.com/lyft/flytestdlib"
   version = "0.2.10"
+
+[[constraint]]
+  name = "github.com/hashicorp/go-version"
+  version = "1.2.1"
