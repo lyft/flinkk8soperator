@@ -242,7 +242,7 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID
 			// up submitted. If we also try submitting again, we may end up with two jobs in the cluster.
 			// The only safe thing to do at this point is give up and allow the user to retry the deploy.
 			return nil, GetNonRetryableError(errors.Errorf(
-				"Job submission timed out after %d seconds, this may be due to the job main method taking too" +
+				"Job submission timed out after %d seconds, this may be due to the job main method taking too"+
 					" long or may be a transient issue", int(defaultTimeOut.Seconds())),
 				v1beta1.SubmitJob, "JobSubmissionTimedOut")
 		}
