@@ -659,6 +659,7 @@ func (s *FlinkStateMachine) submitJobIfNeeded(ctx context.Context, app *v1beta1.
 }
 
 func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1beta1.FlinkApplication, newHash string) error {
+	logger.Infof(ctx, "Retrieving service")
 	service, err := s.k8Cluster.GetService(ctx, app.Namespace, app.Name, string(app.Status.UpdatingVersion))
 	if err != nil {
 		return err
@@ -670,6 +671,7 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 		return errors.New("service does not exist")
 	}
 
+	logger.Infof(ctx, "Retrieving deployments for hash %v", newHash)
 	deployments, err := s.flinkController.GetDeploymentsForHash(ctx, app, newHash)
 	if err != nil {
 		return err
@@ -701,9 +703,17 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	}
 
 	// switch the service to point to the new jobmanager
+	logger.Infof(ctx, "Computing hash for the app")
 	hash := flink.HashForApplication(app)
+	logger.Infof(ctx, "Hash computed is: %v", hash)
+	if s == nil {
+		logger.Errorf(ctx, "FlinkStateMachine pointer is nil")
+	} else {
+		logger.Infof(ctx, "FlinkStateMachine pointer is not nil")
+	}
 	err := s.updateGenericService(ctx, app, hash)
 	if err != nil {
+		logger.Errorf(ctx, "Error occurred while update: %v", err)
 		return statusUnchanged, err
 	}
 
