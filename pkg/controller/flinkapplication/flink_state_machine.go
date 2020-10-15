@@ -671,6 +671,9 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 	}
 
 	deployments, err := s.flinkController.GetDeploymentsForHash(ctx, app, newHash)
+	if deployments == nil {
+		return errors.New("Could not find deployments for service " + service.Name)
+	}
 	if err != nil {
 		return err
 	}
