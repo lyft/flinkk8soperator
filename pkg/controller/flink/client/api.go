@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -36,7 +37,7 @@ const httpPost = "POST"
 const httpPatch = "PATCH"
 const retryCount = 3
 const httpGetTimeOut = 5 * time.Second
-const defaultTimeOut = 1 * time.Minute
+const defaultTimeOut = 5 * time.Minute
 const checkSavepointStatusRetries = 3
 
 // ProgramInvocationException is thrown when the entry class doesn't exist or throws an exception
@@ -235,6 +236,16 @@ func (c *FlinkJobManagerClient) SubmitJob(ctx context.Context, url string, jarID
 	response, err := c.executeRequest(ctx, httpPost, url, submitJobRequest)
 	if err != nil {
 		c.metrics.submitJobFailureCounter.Inc(ctx)
+		if net.Error.Timeout(err.(net.Error)) {
+			// If this is a timeout, we want to fail the deploy immediately. A client-side timeout means
+			// that the jobmanager may still be working on submitting the job, and it may eventually end
+			// up submitted. If we also try submitting again, we may end up with two jobs in the cluster.
+			// The only safe thing to do at this point is give up and allow the user to retry the deploy.
+			return nil, GetNonRetryableError(errors.Errorf(
+				"Job submission timed out after %d seconds, this may be due to the job main method taking too"+
+					" long or may be a transient issue", int(defaultTimeOut.Seconds())),
+				v1beta1.SubmitJob, "JobSubmissionTimedOut")
+		}
 		return nil, GetRetryableError(err, v1beta1.SubmitJob, GlobalFailure, DefaultRetries)
 	}
 	if response != nil && !response.IsSuccess() {
