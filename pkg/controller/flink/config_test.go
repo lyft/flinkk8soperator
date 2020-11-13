@@ -205,7 +205,6 @@ func TestGetJobManagerDefaultHeapMemory(t *testing.T) {
 	assert.Equal(t, "32768k", getJobManagerHeapMemory(&app))
 }
 
-
 func TestGetJobManagerProcessMemory(t *testing.T) {
 	app := v1beta1.FlinkApplication{}
 	jmResources := coreV1.ResourceRequirements{

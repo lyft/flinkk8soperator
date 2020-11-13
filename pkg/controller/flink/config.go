@@ -129,7 +129,6 @@ func getFlinkVersion(app *v1beta1.FlinkApplication) string {
 	return app.Spec.FlinkVersion
 }
 
-
 // Renders the flink configuration overrides stored in FlinkApplication.FlinkConfig into a
 // YAML string suitable for interpolating into flink-conf.yaml.
 func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
