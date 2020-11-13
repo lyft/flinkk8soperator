@@ -147,7 +147,7 @@ func TestEnsureNoFractionalHeapMemory(t *testing.T) {
 	//nolint // fall back to the old config for backwards-compatibility
 	app.Spec.TaskManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
-	assert.Equal(t, "41287k", getTaskManagerMemory(&app, offHeapMemoryFraction))
+	assert.Equal(t, "41287k", getTaskManagerMemory(&app))
 }
 
 func TestGetTaskManagerHeapMemory(t *testing.T) {
@@ -167,7 +167,7 @@ func TestGetTaskManagerHeapMemory(t *testing.T) {
 	//nolint // fall back to the old config for backwards-compatibility
 	app.Spec.TaskManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
-	assert.Equal(t, "32768k", getTaskManagerMemory(&app, offHeapMemoryFraction))
+	assert.Equal(t, "32768k", getTaskManagerMemory(&app))
 }
 
 func TestGetJobManagerHeapMemory(t *testing.T) {
@@ -187,7 +187,7 @@ func TestGetJobManagerHeapMemory(t *testing.T) {
 	//nolint // fall back to the old config for backwards-compatibility
 	app.Spec.JobManagerConfig.OffHeapMemoryFraction = &offHeapMemoryFraction
 
-	assert.Equal(t, "32768k", getJobManagerMemory(&app, offHeapMemoryFraction))
+	assert.Equal(t, "32768k", getJobManagerMemory(&app))
 }
 
 func TestGetJobManagerProcessMemory(t *testing.T) {
@@ -206,7 +206,7 @@ func TestGetJobManagerProcessMemory(t *testing.T) {
 	app.Spec.JobManagerConfig.Resources = &jmResources
 	app.Spec.JobManagerConfig.SystemMemoryFraction = &systemMemoryFraction
 
-	assert.Equal(t, "52428k", getJobManagerMemory(&app, systemMemoryFraction))
+	assert.Equal(t, "52428k", getJobManagerMemory(&app))
 }
 
 func TestGetTaskManagerProcessMemory(t *testing.T) {
@@ -225,7 +225,7 @@ func TestGetTaskManagerProcessMemory(t *testing.T) {
 	app.Spec.TaskManagerConfig.Resources = &tmResources
 	app.Spec.TaskManagerConfig.SystemMemoryFraction = &systemMemoryFraction
 
-	assert.Equal(t, "52428k", getTaskManagerMemory(&app, systemMemoryFraction))
+	assert.Equal(t, "52428k", getTaskManagerMemory(&app))
 }
 
 func MemoryConfigurationForVersion(t *testing.T, version string) []string {

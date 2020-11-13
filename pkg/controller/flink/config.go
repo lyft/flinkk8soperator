@@ -108,19 +108,24 @@ func computeMemory(memoryInBytes float64, fraction float64) string {
 	return fmt.Sprintf("%dk", kbs)
 }
 
-func getTaskManagerMemory(app *v1beta1.FlinkApplication, fraction float64) string {
+func getTaskManagerMemory(app *v1beta1.FlinkApplication) string {
 	tmMemory := float64(getRequestedTaskManagerMemory(app))
+	//nolint // fall back to the old config for backwards-compatibility
+	fraction := getFraction(app.Spec.TaskManagerConfig.SystemMemoryFraction, app.Spec.TaskManagerConfig.OffHeapMemoryFraction)
 	return computeMemory(tmMemory, fraction)
 }
 
-func getJobManagerMemory(app *v1beta1.FlinkApplication, fraction float64) string {
+func getJobManagerMemory(app *v1beta1.FlinkApplication) string {
 	jmMemory := float64(getRequestedJobManagerMemory(app))
+	//nolint // fall back to the old config for backwards-compatibility
+	fraction := getFraction(app.Spec.JobManagerConfig.SystemMemoryFraction, app.Spec.JobManagerConfig.OffHeapMemoryFraction)
 	return computeMemory(jmMemory, fraction)
 }
 
 func getFlinkVersion(app *v1beta1.FlinkApplication) string {
 	return app.Spec.FlinkVersion
 }
+
 
 // Renders the flink configuration overrides stored in FlinkApplication.FlinkConfig into a
 // YAML string suitable for interpolating into flink-conf.yaml.
@@ -143,17 +148,12 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	appVersion, err := version.NewVersion(getFlinkVersion(app))
 	v11, _ := version.NewVersion("1.11")
 
-	//nolint // fall back to the old config for backwards-compatibility
-	jobManagerFraction := getFraction(app.Spec.JobManagerConfig.SystemMemoryFraction, app.Spec.JobManagerConfig.OffHeapMemoryFraction)
-	//nolint // fall back to the old config for backwards-compatibility
-	taskManagerFraction := getFraction(app.Spec.TaskManagerConfig.SystemMemoryFraction, app.Spec.TaskManagerConfig.OffHeapMemoryFraction)
-
 	if err != nil || appVersion == nil || appVersion.LessThan(v11) {
-		(*config)["jobmanager.heap.size"] = getJobManagerMemory(app, jobManagerFraction)
-		(*config)["taskmanager.heap.size"] = getTaskManagerMemory(app, taskManagerFraction)
+		(*config)["jobmanager.heap.size"] = getJobManagerMemory(app)
+		(*config)["taskmanager.heap.size"] = getTaskManagerMemory(app)
 	} else {
-		(*config)["jobmanager.memory.process.size"] = getJobManagerMemory(app, jobManagerFraction)
-		(*config)["taskmanager.memory.process.size"] = getTaskManagerMemory(app, taskManagerFraction)
+		(*config)["jobmanager.memory.process.size"] = getJobManagerMemory(app)
+		(*config)["taskmanager.memory.process.size"] = getTaskManagerMemory(app)
 	}
 
 	// get the keys for the map
