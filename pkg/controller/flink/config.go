@@ -31,22 +31,11 @@ func firstNonNil(x *int32, y int32) int32 {
 	return y
 }
 
-func getFraction(systemMemoryFraction *float64, offHeapMemoryFraction *float64) float64 {
-	if isValidFraction(systemMemoryFraction) {
-		return *systemMemoryFraction
+func getValidFraction(x *float64, d float64) float64 {
+	if x != nil && *x >= float64(0) && *x <= float64(1) {
+		return *x
 	}
-	if isValidFraction(offHeapMemoryFraction) {
-		return *offHeapMemoryFraction
-	}
-	if offHeapMemoryFraction != nil {
-		return OffHeapMemoryDefaultFraction
-	}
-
-	return SystemMemoryDefaultFraction
-}
-
-func isValidFraction(fraction *float64) bool {
-	return fraction != nil && *fraction >= float64(0) && *fraction <= float64(1)
+	return d
 }
 
 func getTaskmanagerSlots(app *v1beta1.FlinkApplication) int32 {
@@ -108,17 +97,31 @@ func computeMemory(memoryInBytes float64, fraction float64) string {
 	return fmt.Sprintf("%dk", kbs)
 }
 
-func getTaskManagerMemory(app *v1beta1.FlinkApplication) string {
+// heap memory configs are used for Flink < 1.11
+
+func getTaskManagerHeapMemory(app *v1beta1.FlinkApplication) string {
 	tmMemory := float64(getRequestedTaskManagerMemory(app))
-	//nolint // fall back to the old config for backwards-compatibility
-	fraction := getFraction(app.Spec.TaskManagerConfig.SystemMemoryFraction, app.Spec.TaskManagerConfig.OffHeapMemoryFraction)
+	fraction := getValidFraction(app.Spec.TaskManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
 	return computeMemory(tmMemory, fraction)
 }
 
-func getJobManagerMemory(app *v1beta1.FlinkApplication) string {
+func getJobManagerHeapMemory(app *v1beta1.FlinkApplication) string {
 	jmMemory := float64(getRequestedJobManagerMemory(app))
-	//nolint // fall back to the old config for backwards-compatibility
-	fraction := getFraction(app.Spec.JobManagerConfig.SystemMemoryFraction, app.Spec.JobManagerConfig.OffHeapMemoryFraction)
+	fraction := getValidFraction(app.Spec.JobManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
+	return computeMemory(jmMemory, fraction)
+}
+
+// process memory configs are used for Flink >= 1.11
+
+func getTaskManagerProcessMemory(app *v1beta1.FlinkApplication) string {
+	tmMemory := float64(getRequestedTaskManagerMemory(app))
+	fraction := getValidFraction(app.Spec.TaskManagerConfig.SystemMemoryFraction, SystemMemoryDefaultFraction)
+	return computeMemory(tmMemory, fraction)
+}
+
+func getJobManagerProcessMemory(app *v1beta1.FlinkApplication) string {
+	jmMemory := float64(getRequestedJobManagerMemory(app))
+	fraction := getValidFraction(app.Spec.JobManagerConfig.SystemMemoryFraction, SystemMemoryDefaultFraction)
 	return computeMemory(jmMemory, fraction)
 }
 
@@ -149,11 +152,23 @@ func renderFlinkConfig(app *v1beta1.FlinkApplication) (string, error) {
 	v11, _ := version.NewVersion("1.11")
 
 	if err != nil || appVersion == nil || appVersion.LessThan(v11) {
-		(*config)["jobmanager.heap.size"] = getJobManagerMemory(app)
-		(*config)["taskmanager.heap.size"] = getTaskManagerMemory(app)
+		// if process memory is specified for < 11, error out
+		if app.Spec.JobManagerConfig.SystemMemoryFraction != nil || app.Spec.TaskManagerConfig.SystemMemoryFraction != nil {
+			return "", fmt.Errorf("systemMemoryFraction config cannot be used with flinkVersion < 1.11', use " +
+				"offHeapMemoryFraction instead")
+		}
+
+		(*config)["jobmanager.heap.size"] = getJobManagerHeapMemory(app)
+		(*config)["taskmanager.heap.size"] = getTaskManagerHeapMemory(app)
 	} else {
-		(*config)["jobmanager.memory.process.size"] = getJobManagerMemory(app)
-		(*config)["taskmanager.memory.process.size"] = getTaskManagerMemory(app)
+		// if heap memory is used for >= 1.11, error out
+		if app.Spec.JobManagerConfig.OffHeapMemoryFraction != nil || app.Spec.TaskManagerConfig.OffHeapMemoryFraction != nil {
+			return "", fmt.Errorf("offHeapMemoryFraction config cannot be used with flinkVersion >= 1.11'; " +
+				"use systemMemoryFraction istead")
+		}
+
+		(*config)["jobmanager.memory.process.size"] = getJobManagerProcessMemory(app)
+		(*config)["taskmanager.memory.process.size"] = getTaskManagerProcessMemory(app)
 	}
 
 	// get the keys for the map

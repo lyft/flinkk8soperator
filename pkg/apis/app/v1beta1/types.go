@@ -110,7 +110,6 @@ type JobManagerConfig struct {
 	Resources *apiv1.ResourceRequirements `json:"resources,omitempty"`
 	EnvConfig EnvironmentConfig           `json:"envConfig"`
 	Replicas  *int32                      `json:"replicas,omitempty"`
-	// Deprecated: use SystemMemoryFraction instead
 	OffHeapMemoryFraction *float64           `json:"offHeapMemoryFraction,omitempty"`
 	SystemMemoryFraction  *float64           `json:"systemMemoryFraction,omitempty"`
 	NodeSelector          map[string]string  `json:"nodeSelector,omitempty"`
@@ -121,7 +120,6 @@ type TaskManagerConfig struct {
 	Resources *apiv1.ResourceRequirements `json:"resources,omitempty"`
 	EnvConfig EnvironmentConfig           `json:"envConfig"`
 	TaskSlots *int32                      `json:"taskSlots,omitempty"`
-	// Deprecated: use SystemMemoryFraction instead
 	OffHeapMemoryFraction *float64           `json:"offHeapMemoryFraction,omitempty"`
 	SystemMemoryFraction  *float64           `json:"systemMemoryFraction,omitempty"`
 	NodeSelector          map[string]string  `json:"nodeSelector,omitempty"`
