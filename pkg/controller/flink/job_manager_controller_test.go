@@ -74,7 +74,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
 	app.Annotations = annotations
-	hash := "10a41c95"
+	hash := "5e7c7283"
 	app.Annotations = common.DuplicateMap(annotations)
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
@@ -105,10 +105,10 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
-			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 2516582k\n"+
+			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+
 				"jobmanager.rpc.port: 6123\n"+
 				"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-				"query.server.port: 6124\ntaskmanager.heap.size: 838860k\n"+
+				"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 				"taskmanager.numberOfTaskSlots: 16\n\n"+
 				"jobmanager.rpc.address: app-name-"+hash+"\n",
 				common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
@@ -161,7 +161,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 	app.Spec.FlinkConfig = map[string]interface{}{
 		"high-availability": "zookeeper",
 	}
-	hash := "a860c62b"
+	hash := "52623ded"
 	expectedLabels := map[string]string{
 		"flink-app":             "app-name",
 		"flink-app-hash":        hash,
@@ -187,10 +187,10 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
-			assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 2516582k\n"+
+			assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1572864k\n"+
 				"jobmanager.rpc.port: 6123\n"+
 				"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-				"query.server.port: 6124\ntaskmanager.heap.size: 838860k\n"+
+				"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 				"taskmanager.numberOfTaskSlots: 16\n\n"+
 				"high-availability.cluster-id: app-name-"+hash+"\n"+
 				"jobmanager.rpc.address: $HOST_IP\n",
@@ -248,7 +248,7 @@ func TestJobManagerSecurityContextAssignment(t *testing.T) {
 		RunAsNonRoot: &runAsNonRoot,
 	}
 
-	hash := "26ca0a3a"
+	hash := "c06b960b"
 
 	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
@@ -374,7 +374,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 		"flink-job-properties":      "jarName: " + testJarName + "\nparallelism: 8\nentryClass:" + testEntryClass + "\nprogramArgs:\"" + testProgramArgs + "\"",
 	}
 	app.Annotations = common.DuplicateMap(annotations)
-	hash := "6f67fe75"
+	hash := "5cb5943e"
 	expectedLabels := map[string]string{
 		"flink-app":                 "app-name",
 		"flink-app-hash":            hash,
@@ -401,10 +401,10 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 			assert.Equal(t, "flink.k8s.io/v1beta1", deployment.OwnerReferences[0].APIVersion)
 			assert.Equal(t, "FlinkApplication", deployment.OwnerReferences[0].Kind)
 
-			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 2516582k\n"+
+			assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+
 				"jobmanager.rpc.port: 6123\n"+
 				"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-				"query.server.port: 6124\ntaskmanager.heap.size: 838860k\n"+
+				"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 				"taskmanager.numberOfTaskSlots: 16\n\n"+
 				"jobmanager.rpc.address: app-name-"+hash+"\n",
 				common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,

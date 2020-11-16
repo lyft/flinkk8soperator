@@ -38,8 +38,17 @@ Below is the list of fields in the custom resource and their description:
     * **taskSlots** `type:int32 required=true`
       Number of task slots per task manager.
 
+    * **offHeapMemoryFraction** `type:float64`
+      **For Flink 1.10 and below**
+      A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
+      remaining memory is given to the taskmanager. Note that Flink may further reserve some of this
+      memory for off-heap uses like network buffers, so you may see the JVM heap size configured to
+      a lower amount. This configures `taskmanager.heap.size`.
+
     * **systemMemoryFraction** `type:float64`
-      A value between 0 and 1 that represents % of container memory dedicated to the system. The remaining memory is given to the taskmanager.
+      **For Flink 1.11 and above**
+      A value between 0 and 1 that represents % of container memory dedicated to the system. The remaining memory is 
+      given to the taskmanager process. This configures `taskmanger.memory.process.size`.
 
     * **nodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the task manager.
@@ -61,8 +70,17 @@ Below is the list of fields in the custom resource and their description:
       Number of job managers for the flink cluster. If multiple job managers are provided, the user has to ensure that
       correct environment variables are set for High availability mode.
 
+    * **offHeapMemoryFraction** `type:float64`
+      **For Flink 1.10 and below**
+      A value between 0 and 1 that represents % of container memory dedicated to system / off heap. The
+      remaining memory is given to the jobmanager. Note that Flink may further reserve some of this
+      memory for off-heap uses like network buffers, so you may see the JVM heap size configured to
+      a lower amount. This configures `jobmanager.heap.size`.
+
     * **systemMemoryFraction** `type:float64`
-      A value between 0 and 1 that represents % of container memory dedicated to the system. The remaining memory is given to the job manager.
+      **For Flink 1.11 and above**
+      A value between 0 and 1 that represents % of container memory dedicated to the system. The remaining memory is 
+      given to the jobmanager process. This configures `jobmanager.memory.process.size`.
 
     * **nodeSelector** `type:map[string]string`
       Configuration for the node selectors used for the job manager.

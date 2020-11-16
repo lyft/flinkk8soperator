@@ -76,7 +76,7 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 
-	hash := "a5ebc547"
+	hash := "6b5e9b61"
 
 	app.Annotations = common.DuplicateMap(annotations)
 	expectedLabels := map[string]string{
@@ -97,10 +97,10 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		assert.Equal(t, expectedLabels, deployment.Labels)
 		assert.Equal(t, app.Spec.TaskManagerConfig.Tolerations, deployment.Spec.Template.Spec.Tolerations)
 
-		assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 2516582k\n"+
+		assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+
 			"jobmanager.rpc.port: 6123\n"+
 			"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-			"query.server.port: 6124\ntaskmanager.heap.size: 838860k\n"+
+			"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 			"taskmanager.numberOfTaskSlots: 16\n\n"+
 			"jobmanager.rpc.address: app-name-"+hash+"\n"+
 			"taskmanager.host: $HOST_IP\n",
@@ -125,7 +125,7 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 		"flink-job-properties": "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 
-	hash := "a860c62b"
+	hash := "52623ded"
 	app.Spec.FlinkConfig = map[string]interface{}{
 		"high-availability": "zookeeper",
 	}
@@ -147,10 +147,10 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 		assert.Equal(t, expectedLabels, deployment.Labels)
 
-		assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 2516582k\n"+
+		assert.Equal(t, "blob.server.port: 6125\nhigh-availability: zookeeper\njobmanager.heap.size: 1572864k\n"+
 			"jobmanager.rpc.port: 6123\n"+
 			"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-			"query.server.port: 6124\ntaskmanager.heap.size: 838860k\n"+
+			"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 			"taskmanager.numberOfTaskSlots: 16\n\n"+
 			"high-availability.cluster-id: app-name-"+hash+"\n"+
 			"taskmanager.host: $HOST_IP\n",
@@ -188,7 +188,7 @@ func TestTaskManagerSecurityContextAssignment(t *testing.T) {
 		RunAsNonRoot: &runAsNonRoot,
 	}
 
-	hash := "26ca0a3a"
+	hash := "c06b960b"
 
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
 	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
@@ -249,7 +249,7 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 		"flink-job-properties":      "jarName: test.jar\nparallelism: 8\nentryClass:com.test.MainClass\nprogramArgs:\"--test\"",
 	}
 
-	hash := "6f67fe75"
+	hash := "5cb5943e"
 
 	app.Annotations = common.DuplicateMap(annotations)
 	expectedLabels := map[string]string{
@@ -270,10 +270,10 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 		assert.Equal(t, app.Namespace, deployment.Spec.Template.Namespace)
 		assert.Equal(t, expectedLabels, deployment.Labels)
 
-		assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 2516582k\n"+
+		assert.Equal(t, "blob.server.port: 6125\njobmanager.heap.size: 1572864k\n"+
 			"jobmanager.rpc.port: 6123\n"+
 			"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
-			"query.server.port: 6124\ntaskmanager.heap.size: 838860k\n"+
+			"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 			"taskmanager.numberOfTaskSlots: 16\n\n"+
 			"jobmanager.rpc.address: app-name-"+hash+"\n"+
 			"taskmanager.host: $HOST_IP\n",
