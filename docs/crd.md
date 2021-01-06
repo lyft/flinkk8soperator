@@ -103,6 +103,8 @@ Below is the list of fields in the custom resource and their description:
 
   * **savepointPath** `type:string`
     If specified, the application state will be restored from this savepoint.
+    
+    **This will only have an effect on the first deploy of a cluster. Specifying a savepoint path as an update to an already running cluster is treated as a noop.**
 
   * **savepointDisabled** `type:boolean`
     If specified, during an update, the current application (if existing) is cancelled without taking a savepoint.
