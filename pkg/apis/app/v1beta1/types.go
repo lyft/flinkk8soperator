@@ -28,21 +28,19 @@ type FlinkApplication struct {
 }
 
 type FlinkApplicationSpec struct {
-	Image                string                       `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
-	ImagePullPolicy      apiv1.PullPolicy             `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
-	ImagePullSecrets     []apiv1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
-	SecurityContext      *apiv1.PodSecurityContext    `json:"securityContext,omitempty"`
-	IngressAnnotations   map[string]string            `json:"ingressAnnotations,omitempty"`
-	IngressTLSSecretName string                       `json:"ingressTLSSecretName,omitempty"`
-	FlinkConfig          FlinkConfig                  `json:"flinkConfig"`
-	ServiceAccountName   string                       `json:"serviceAccountName,omitempty"`
-	FlinkVersion         string                       `json:"flinkVersion"`
-	TaskManagerConfig    TaskManagerConfig            `json:"taskManagerConfig,omitempty"`
-	JobManagerConfig     JobManagerConfig             `json:"jobManagerConfig,omitempty"`
-	JarName              string                       `json:"jarName"`
-	Parallelism          int32                        `json:"parallelism"`
-	EntryClass           string                       `json:"entryClass,omitempty"`
-	ProgramArgs          string                       `json:"programArgs,omitempty"`
+	Image              string                       `json:"image,omitempty" protobuf:"bytes,2,opt,name=image"`
+	ImagePullPolicy    apiv1.PullPolicy             `json:"imagePullPolicy,omitempty" protobuf:"bytes,14,opt,name=imagePullPolicy,casttype=PullPolicy"`
+	ImagePullSecrets   []apiv1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
+	ServiceAccountName string                       `json:"serviceAccountName,omitempty"`
+	SecurityContext    *apiv1.PodSecurityContext    `json:"securityContext,omitempty"`
+	FlinkConfig        FlinkConfig                  `json:"flinkConfig"`
+	FlinkVersion       string                       `json:"flinkVersion"`
+	TaskManagerConfig  TaskManagerConfig            `json:"taskManagerConfig,omitempty"`
+	JobManagerConfig   JobManagerConfig             `json:"jobManagerConfig,omitempty"`
+	JarName            string                       `json:"jarName"`
+	Parallelism        int32                        `json:"parallelism"`
+	EntryClass         string                       `json:"entryClass,omitempty"`
+	ProgramArgs        string                       `json:"programArgs,omitempty"`
 	// Deprecated: use SavepointPath instead
 	SavepointInfo                  SavepointInfo       `json:"savepointInfo,omitempty"`
 	SavepointPath                  string              `json:"savepointPath,omitempty"`
@@ -62,6 +60,8 @@ type FlinkApplicationSpec struct {
 	ForceRollback                  bool                `json:"forceRollback"`
 	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
 	TearDownVersionHash            string              `json:"tearDownVersionHash,omitempty"`
+	IngressAnnotations             map[string]string   `json:"ingressAnnotations,omitempty"`
+	IngressTLSSecretName           string              `json:"ingressTLSSecretName,omitempty"`
 }
 
 type FlinkConfig map[string]interface{}
