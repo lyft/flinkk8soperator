@@ -73,7 +73,7 @@ The above command will create the flink application custom resource in kubernete
 Command below should show deployments created for the application
 ```bash
 $ kubectl get deployments -n flink-operator
-```
+```8
 
 Check the phase and other status attributes in the custom resource
 ```bash
