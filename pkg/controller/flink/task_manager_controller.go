@@ -215,6 +215,7 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 					ImagePullSecrets: app.Spec.ImagePullSecrets,
 					NodeSelector:     app.Spec.TaskManagerConfig.NodeSelector,
 					Tolerations:      app.Spec.TaskManagerConfig.Tolerations,
+					Affinity:         app.Spec.TaskManagerConfig.Affinity,
 				},
 			},
 		},

@@ -336,6 +336,11 @@ func (in *JobManagerConfig) DeepCopyInto(out *JobManagerConfig) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Affinity != nil {
+		in, out := &in.Affinity, &out.Affinity
+		*out = new(v1.Affinity)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
@@ -402,6 +407,11 @@ func (in *TaskManagerConfig) DeepCopyInto(out *TaskManagerConfig) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.Affinity != nil {
+		in, out := &in.Affinity, &out.Affinity
+		*out = new(v1.Affinity)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }
