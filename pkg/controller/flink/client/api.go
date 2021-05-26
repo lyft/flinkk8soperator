@@ -36,7 +36,7 @@ const httpGet = "GET"
 const httpPost = "POST"
 const httpPatch = "PATCH"
 const retryCount = 3
-const httpGetTimeOut = 5 * time.Second
+const httpGetTimeOut = 5 * time.Minute
 const defaultTimeOut = 5 * time.Minute
 const checkSavepointStatusRetries = 3
 
