@@ -114,6 +114,7 @@ type JobManagerConfig struct {
 	SystemMemoryFraction  *float64                    `json:"systemMemoryFraction,omitempty"`
 	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
 	Tolerations           []apiv1.Toleration          `json:"tolerations,omitempty"`
+	Affinity              *apiv1.Affinity             `json:"affinity,omitempty"`
 }
 
 type TaskManagerConfig struct {
@@ -124,6 +125,7 @@ type TaskManagerConfig struct {
 	SystemMemoryFraction  *float64                    `json:"systemMemoryFraction,omitempty"`
 	NodeSelector          map[string]string           `json:"nodeSelector,omitempty"`
 	Tolerations           []apiv1.Toleration          `json:"tolerations,omitempty"`
+	Affinity              *apiv1.Affinity             `json:"affinity,omitempty"`
 }
 
 type EnvironmentConfig struct {
