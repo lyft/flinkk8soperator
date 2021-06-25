@@ -128,6 +128,13 @@ func (in *FlinkApplicationSpec) DeepCopyInto(out *FlinkApplicationSpec) {
 		*out = make([]v1.LocalObjectReference, len(*in))
 		copy(*out, *in)
 	}
+	if in.IngressAnnotations != nil {
+		in, out := &in.IngressAnnotations, &out.IngressAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.SecurityContext != nil {
 		in, out := &in.SecurityContext, &out.SecurityContext
 		*out = new(v1.PodSecurityContext)

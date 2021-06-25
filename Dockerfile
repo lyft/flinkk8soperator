@@ -23,6 +23,6 @@ RUN make linux_compile
 ENV PATH="/artifacts:${PATH}"
 
 # This will eventually move to centurylink/ca-certs:latest for minimum possible image size
-FROM alpine:3.10
+FROM alpine:3.13
 COPY --from=builder /artifacts /bin
 CMD ["flinkoperator"]
