@@ -37,7 +37,7 @@ func TestComputeTaskManagerReplicas(t *testing.T) {
 	app.Spec.Parallelism = 9
 	app.Spec.FlinkVersion = "1.7"
 
-	assert.Equal(t, int32(3), ComputeTaskManagerReplicas(&app))
+	assert.Equal(t, int32(4), ComputeTaskManagerReplicas(&app))
 }
 
 func TestGetTaskManagerName(t *testing.T) {
