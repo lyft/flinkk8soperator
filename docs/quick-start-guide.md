@@ -21,7 +21,7 @@ $ kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5
 * Before creating the flink operator deployment, edit/update the operator config:
 
 ``` bash
-$ curl https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/config.yaml
+wget https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/config.yaml
 ```
 
 Replace the `{ingress_suffix}` to indicate your cluster's ingress url.
