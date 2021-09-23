@@ -1111,7 +1111,50 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 		if err != nil {
 			logger.Warnf(ctx, "Cannot find flink application with tearDownVersionhash %s. The hash may be obsolete; Ignoring hash", versionHashToTeardown)
 		} else {
-			return s.teardownApplicationVersion(ctx, application)
+			return s.teardownApplicationVersion(ctx, application, application.Spec.TearDownVersionHash)
+		}
+	}
+
+	var deployHash = application.Status.DeployHash
+	var updatingHash = application.Status.UpdatingHash
+
+	logger.Infof(ctx, "Checking the state of Updating job with hash %s", updatingHash)
+
+	// get the state of the current application
+	job, err := s.flinkController.GetJobForApplication(ctx, application, updatingHash)
+	if err != nil {
+		return statusUnchanged, err
+	}
+	if job == nil {
+		return statusUnchanged, errors.Errorf("Could not find job %s", s.flinkController.GetLatestJobID(ctx, application))
+	}
+
+	// wait until all vertices have been scheduled and started more than 5 minutes
+	allVerticesStarted := true
+	for _, v := range job.Vertices {
+		allVerticesStarted = allVerticesStarted && (v.Duration > 300000)
+		logger.Infof(ctx, "Duration of job %s is %s where job.state is %s", v.Name, v.Duration, job.State)
+	}
+
+	if job.State == client.Running && allVerticesStarted {
+		logger.Infof(ctx, "Updating job has been started successfully")
+		_, _, err := s.flinkController.GetVersionAndJobIDForHash(ctx, application, deployHash)
+		if err != nil {
+			logger.Warnf(ctx, "Cannot find flink application with hash %s. The hash may be obsolete; Ignoring hash", deployHash)
+		} else {
+			return s.teardownApplicationVersion(ctx, application, deployHash)
+		}
+	} else {
+		durationOfJob := time.Now().Unix()*1000 - job.StartTime
+		logger.Infof(ctx, "Updating job is still starting where duration is %s", durationOfJob)
+
+		if durationOfJob > 600000 {
+			_, _, err := s.flinkController.GetVersionAndJobIDForHash(ctx, application, updatingHash)
+			if err != nil {
+				logger.Warnf(ctx, "Cannot find flink application with hash %s. The hash may be obsolete; Ignoring hash", updatingHash)
+			} else {
+				return s.teardownApplicationVersion(ctx, application, updatingHash)
+			}
 		}
 	}
 
@@ -1134,8 +1177,7 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 	return statusUnchanged, nil
 }
 
-func (s *FlinkStateMachine) teardownApplicationVersion(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
-	versionHashToTeardown := application.Spec.TearDownVersionHash
+func (s *FlinkStateMachine) teardownApplicationVersion(ctx context.Context, application *v1beta1.FlinkApplication, versionHashToTeardown string) (bool, error) {
 	versionToTeardown, jobID, _ := s.flinkController.GetVersionAndJobIDForHash(ctx, application, versionHashToTeardown)
 
 	s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "TeardownInitated",

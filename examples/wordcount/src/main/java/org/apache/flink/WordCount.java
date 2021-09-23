@@ -26,6 +26,12 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.WordCountData;
 import org.apache.flink.util.Collector;
+import org.apache.flink.api.java.io.TextInputFormat;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
+import org.apache.flink.api.common.io.FilePathFilter;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.streaming.api.functions.source.FileProcessingMode;
 
 /**
  * Implements the "WordCount" program that computes a simple word occurrence
@@ -64,8 +70,13 @@ public class WordCount {
 		// get input data
 		DataStream<String> text;
 		if (params.has("input")) {
-			// read the text file from given input path
-			text = env.readTextFile(params.get("input"));
+		    String filePath = params.get("input");
+            TextInputFormat format = new TextInputFormat(new Path(filePath));
+            format.setFilesFilter(FilePathFilter.createDefaultFilter());
+            TypeInformation<String> typeInfo = BasicTypeInfo.STRING_TYPE_INFO;
+            format.setCharsetName("UTF-8");
+
+            text = env.readFile(format, filePath, FileProcessingMode.PROCESS_CONTINUOUSLY, 100, typeInfo);
 		} else {
 			System.out.println("Executing WordCount example with default input data set.");
 			System.out.println("Use --input to specify file input.");
@@ -86,6 +97,28 @@ public class WordCount {
 			System.out.println("Printing result to stdout. Use --output to specify output path.");
 			counts.print();
 		}
+
+		// start a checkpoint every 1000 ms
+        env.enableCheckpointing(1000);
+
+        // advanced options:
+
+        // set mode to exactly-once (this is the default)
+        env.getCheckpointConfig().setCheckpointingMode(org.apache.flink.streaming.api.CheckpointingMode.EXACTLY_ONCE);
+
+        // make sure 500 ms of progress happen between checkpoints
+        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(500);
+
+        // checkpoints have to complete within one minute, or are discarded
+        env.getCheckpointConfig().setCheckpointTimeout(60000);
+
+        // allow only one checkpoint to be in progress at the same time
+        env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
+
+        // enable externalized checkpoints which are retained
+        // after job cancellation
+        env.getCheckpointConfig().enableExternalizedCheckpoints(
+            org.apache.flink.streaming.api.environment.CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
 
 		// execute program
 		env.execute("Streaming WordCount");
