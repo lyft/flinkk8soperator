@@ -1137,7 +1137,7 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 	allVerticesStarted := true
 	for _, v := range job.Vertices {
 		allVerticesStarted = allVerticesStarted && (v.Duration > 300000)
-		logger.Infof(ctx, "Duration of job %s is %s where job.state is %s", v.Name, v.Duration, job.State)
+		logger.Infof(ctx, "Duration of job %s is %v where job.state is %s", v.Name, v.Duration, string(job.State))
 	}
 
 	if job.State == client.Running && allVerticesStarted {
@@ -1150,7 +1150,7 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 		}
 	} else {
 		durationOfJob := time.Now().Unix()*1000 - job.StartTime
-		logger.Infof(ctx, "Updating job is still starting where duration is %s", durationOfJob)
+		logger.Infof(ctx, "Updating job is still starting where duration is %v", durationOfJob)
 
 		if durationOfJob > 600000 {
 			_, _, err := s.flinkController.GetVersionAndJobIDForHash(ctx, application, updatingHash)
