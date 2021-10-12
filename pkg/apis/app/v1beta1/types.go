@@ -183,6 +183,7 @@ type FlinkApplicationStatus struct {
 	ClusterStatus          FlinkClusterStatus              `json:"clusterStatus,omitempty"`
 	JobStatus              FlinkJobStatus                  `json:"jobStatus,omitempty"`
 	VersionStatuses        []FlinkApplicationVersionStatus `json:"versionStatuses,omitempty"`
+	TaskManagersSelector   string                          `json:"taskManagersSelector,omitempty"`
 	FailedDeployHash       string                          `json:"failedDeployHash,omitempty"`
 	RollbackHash           string                          `json:"rollbackHash,omitempty"`
 	DeployHash             string                          `json:"deployHash"`

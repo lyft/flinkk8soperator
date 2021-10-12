@@ -778,6 +778,8 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 			return statusChanged, nil
 		}
 		app.Status.DeployHash = hash
+		app.Status.JobStatus = jobStatus
+		app.Status.TaskManagersSelector = "flink-deployment-type=taskmanager,flink-application-version=" + string(app.Status.DeployVersion)
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRunning)
 		return statusChanged, nil
 	}
@@ -883,6 +885,8 @@ func (s *FlinkStateMachine) handleApplicationRunning(ctx context.Context, applic
 			logger.Infof(ctx, "Application resource has changed. Moving to Updating")
 			s.updateApplicationPhase(application, v1beta1.FlinkApplicationUpdating)
 		}
+
+		application.Status.TaskManagersSelector = ""
 
 		return statusChanged, nil
 	}

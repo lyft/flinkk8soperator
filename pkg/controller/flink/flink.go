@@ -932,6 +932,11 @@ func (f *Controller) DeleteStatusPostTeardown(ctx context.Context, application *
 	}
 	application.Status.VersionStatuses[0] = application.Status.VersionStatuses[indexOffset-indexToDelete]
 	application.Status.VersionStatuses[1] = v1beta1.FlinkApplicationVersionStatus{}
+
+	application.Status.JobStatus = application.Status.VersionStatuses[0].JobStatus
+	application.Status.ClusterStatus = application.Status.VersionStatuses[0].ClusterStatus
+	application.Spec.Parallelism = application.Status.JobStatus.Parallelism
+	application.Status.TaskManagersSelector = "flink-deployment-type=taskmanager,flink-application-version=" + string(application.Status.VersionStatuses[0].Version)
 }
 
 func (f *Controller) GetJobToDeleteForApplication(ctx context.Context, app *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {

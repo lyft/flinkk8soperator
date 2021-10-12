@@ -2,12 +2,12 @@ apiVersion: flink.k8s.io/v1beta1
 kind: FlinkApplication
 metadata:
   name: wordcount-operator-example
-  namespace: flink-operator
   annotations:
   labels:
     environment: development
 spec:
   image: docker.io/lyft/wordcount-operator-example:{sha}
+  deploymentMode: BlueGreen
   deleteMode: None
   flinkConfig:
     taskmanager.heap.size: 200
@@ -24,12 +24,14 @@ spec:
         cpu: "0.1"
     replicas: 1
   taskManagerConfig:
-    taskSlots: 2
+    taskSlots: 1
     resources:
       requests:
         memory: "200Mi"
         cpu: "0.1"
   flinkVersion: "1.8"
   jarName: "wordcount-operator-example-1.0.0-SNAPSHOT.jar"
-  parallelism: 3
+  savepointDisabled: true
   entryClass: "org.apache.flink.WordCount"
+  programArgs: --input /code/words.txt
+

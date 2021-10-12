@@ -105,6 +105,11 @@ func (r *ReconcileFlinkApplication) Reconcile(request reconcile.Request) (reconc
 		// Error reading the object - we will check again in next loop
 		return r.getReconcileResultForError(err), nil
 	}
+
+	if instance.Spec.Parallelism == 0 {
+		instance.Spec.Parallelism = 1
+	}
+
 	// We are seeing instances where getResource is removing TypeMeta
 	instance.TypeMeta = typeMeta
 	ctx = contextutils.WithPhase(ctx, string(instance.Status.Phase))

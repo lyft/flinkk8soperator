@@ -998,10 +998,13 @@ spec:
           required:
             - image
             - jarName
-            - parallelism
             - entryClass
   subresources:
     status: {}
+    scale:
+      labelSelectorPath: .status.taskManagersSelector
+      specReplicasPath: .spec.parallelism
+      statusReplicasPath: .status.jobStatus.parallelism
   additionalPrinterColumns:
     - name: Phase
       type: string
