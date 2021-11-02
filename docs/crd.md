@@ -98,7 +98,7 @@ Below is the list of fields in the custom resource and their description:
     Name of the jar file to be run. The application image needs to ensure that the jar file is present at the right location, as
     the operator uses the Web API to submit jobs.
 
-  * **parallelism** `type:int32 required=true`
+  * **parallelism** `type:int32`
     Job level parallelism for the Flink Job.
 
   * **entryClass** `type:string`
