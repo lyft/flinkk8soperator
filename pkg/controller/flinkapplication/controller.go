@@ -2,6 +2,8 @@ package flinkapplication
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
@@ -36,6 +38,7 @@ type ReconcileFlinkApplication struct {
 	cache             cache.Cache
 	metrics           *reconcilerMetrics
 	flinkStateMachine FlinkHandlerInterface
+	locks             *sync.Map
 }
 
 type reconcilerMetrics struct {
@@ -86,6 +89,20 @@ func (r *ReconcileFlinkApplication) Reconcile(request reconcile.Request) (reconc
 	ctx := context.Background()
 	ctx = contextutils.WithNamespace(ctx, request.Namespace)
 	ctx = contextutils.WithAppName(ctx, request.Name)
+
+	key := fmt.Sprintf("%s.%s", request.Namespace, request.Name)
+	logger.Debugf(ctx, "Trying to get a Mutex for a resource: %v", key)
+	i, ok := r.locks.LoadOrStore(key, &sync.Mutex{})
+
+	if !ok {
+		logger.Debugf(ctx, "Creating a new mutex for key: %v", key)
+	}
+
+	m := i.(*sync.Mutex)
+	logger.Debugf(ctx, "Acquiring a lock to reconcile the resource: %v, mutex address : %p", key, m)
+	m.Lock()
+	defer m.Unlock()
+
 	typeMeta := metaV1.TypeMeta{
 		Kind:       v1beta1.FlinkApplicationKind,
 		APIVersion: v1beta1.SchemeGroupVersion.String(),
@@ -134,6 +151,7 @@ func Add(ctx context.Context, mgr manager.Manager, cfg config.RuntimeConfig) err
 		cache:             mgr.GetCache(),
 		metrics:           metrics,
 		flinkStateMachine: flinkStateMachine,
+		locks:             &sync.Map{},
 	}
 
 	c, err := controller.New(config.AppName, mgr, controller.Options{
