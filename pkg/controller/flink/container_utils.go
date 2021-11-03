@@ -172,9 +172,13 @@ func HashForApplication(app *v1beta1.FlinkApplication) string {
 	// we round-trip through json to normalize the deployment objects
 	jmDeployment := jobmanagerTemplate(app)
 	jmDeployment.OwnerReferences = make([]metav1.OwnerReference, 0)
+	сleanUpLastAppliedConfiguration(&jmDeployment.ObjectMeta.Annotations)
+	сleanUpLastAppliedConfiguration(&jmDeployment.Spec.Template.ObjectMeta.Annotations)
 
 	tmDeployment := taskmanagerTemplate(app)
 	tmDeployment.OwnerReferences = make([]metav1.OwnerReference, 0)
+	сleanUpLastAppliedConfiguration(&tmDeployment.ObjectMeta.Annotations)
+	сleanUpLastAppliedConfiguration(&tmDeployment.Spec.Template.ObjectMeta.Annotations)
 
 	jmHashBytes, err := ComputeDeploymentHash(*jmDeployment)
 	if err != nil {
@@ -201,6 +205,10 @@ func HashForApplication(app *v1beta1.FlinkApplication) string {
 	}
 
 	return fmt.Sprintf("%08x", hasher.Sum32())
+}
+
+func сleanUpLastAppliedConfiguration(annotations *map[string]string) {
+	delete(*annotations, "kubectl.kubernetes.io/last-applied-configuration")
 }
 
 func InjectOperatorCustomizedConfig(deployment *appsv1.Deployment, app *v1beta1.FlinkApplication, hash string, deploymentType string) {
