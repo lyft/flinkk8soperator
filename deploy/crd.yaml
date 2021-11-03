@@ -87,6 +87,9 @@ spec:
             parallelism:
               type: integer
               minimum: 1
+            initialParallelism:
+              type: integer
+              minimum: 1
             deleteMode:
               type: string
               enum: [Savepoint, None, ForceCancel]

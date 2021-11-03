@@ -39,6 +39,7 @@ type FlinkApplicationSpec struct {
 	JobManagerConfig   JobManagerConfig             `json:"jobManagerConfig,omitempty"`
 	JarName            string                       `json:"jarName"`
 	Parallelism        int32                        `json:"parallelism"`
+	InitialParallelism int32                        `json:"initialParallelism,omitempty"`
 	EntryClass         string                       `json:"entryClass,omitempty"`
 	ProgramArgs        string                       `json:"programArgs,omitempty"`
 	// Deprecated: use SavepointPath instead

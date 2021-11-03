@@ -124,7 +124,11 @@ func (r *ReconcileFlinkApplication) Reconcile(request reconcile.Request) (reconc
 	}
 
 	if instance.Spec.Parallelism == 0 {
-		instance.Spec.Parallelism = 1
+		if instance.Spec.InitialParallelism != 0 {
+			instance.Spec.Parallelism = instance.Spec.InitialParallelism
+		} else {
+			instance.Spec.Parallelism = 1
+		}
 	}
 
 	// We are seeing instances where getResource is removing TypeMeta
