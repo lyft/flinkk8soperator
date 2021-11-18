@@ -179,7 +179,11 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 			updateApplication, appErr = s.handleClusterStarting(ctx, application)
 		case v1beta1.FlinkApplicationSubmittingJob:
 			updateApplication, appErr = s.handleSubmittingJob(ctx, application)
-		case v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed:
+		//todo: consider better way of handling DeployFailed phase
+		case v1beta1.FlinkApplicationDeployFailed:
+			logger.Infof(ctx, "Handle state skipped for application due to DeployFailed phase")
+			return updateApplication, appErr
+		case v1beta1.FlinkApplicationRunning:
 			updateApplication, appErr = s.handleApplicationRunning(ctx, application)
 		case v1beta1.FlinkApplicationCancelling:
 			updateApplication, appErr = s.handleApplicationCancelling(ctx, application)
