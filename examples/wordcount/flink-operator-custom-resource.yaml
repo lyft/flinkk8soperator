@@ -6,7 +6,7 @@ metadata:
   labels:
     environment: development
 spec:
-  image: docker.io/lyft/wordcount-operator-example:{sha}
+  image: us-east4-docker.pkg.dev/elementalcognition-app-source/docker-all/lyft/initialParallelism:continious2
   deploymentMode: BlueGreen
   initialParallelism: 4
   deleteMode: None
