@@ -8,6 +8,7 @@ metadata:
 spec:
   image: docker.io/lyft/wordcount-operator-example:{sha}
   deploymentMode: BlueGreen
+  initialParallelism: 4
   deleteMode: None
   flinkConfig:
     taskmanager.heap.size: 200
