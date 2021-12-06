@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 	"strings"
 
@@ -75,6 +76,16 @@ func init() {
 	// allows `$ flinkoperator --logtostderr` to work
 	klog.InitFlags(nil)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+
+	logrus.SetFormatter(&logrus.JSONFormatter{
+		FieldMap: logrus.FieldMap{
+			logrus.FieldKeyTime:  "timestamp",
+			logrus.FieldKeyLevel: "severity",
+			logrus.FieldKeyMsg:   "message",
+			logrus.FieldKeyFunc:  "logName",
+		},
+	})
+
 	err := flag.CommandLine.Parse([]string{})
 	if err != nil {
 		logAndExit(err)
