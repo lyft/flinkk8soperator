@@ -85,11 +85,6 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1b
 	if application.Spec.ForceRollback && application.Status.Phase != v1beta1.FlinkApplicationRollingBackJob {
 		return true, "forceRollback is set in the resource"
 	}
-	if application.Status.DeployHash == "" {
-		// TODO: we may want some more sophisticated way of handling this case
-		// there's no previous deploy for this application, so nothing to roll back to
-		return false, ""
-	}
 
 	// Check if the error is retryable
 	if application.Status.LastSeenError != nil && s.retryHandler.IsErrorRetryable(application.Status.LastSeenError) {
@@ -589,6 +584,13 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 	// TODO: the old job might still be running at this point... we should maybe try to force cancel it
 	//       (but if the JM is unavailable, our options there might be limited)
 
+	if app.Status.DeployHash == "" {
+		// Rolling back is impossible
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
+			fmt.Sprintf("Failed to recover to original deployment: %s", "old running job is absent"))
+		return s.deployFailed(app)
+	}
+
 	// try to find an externalized checkpoint
 	path, err := s.flinkController.FindExternalizedCheckpoint(ctx, app, app.Status.DeployHash)
 	if err != nil {
@@ -799,6 +801,13 @@ func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.
 		// move immediately to the DeployFailed state so that the user can recover.
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RollbackFailed",
 			fmt.Sprintf("Failed to rollback to original deployment, manual intervention needed: %s", reason))
+		return s.deployFailed(app)
+	}
+
+	if app.Status.DeployHash == "" {
+		// Rolling back is impossible
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RollbackFailed",
+			fmt.Sprintf("Failed to rollback to original deployment: %s", "old job is absent"))
 		return s.deployFailed(app)
 	}
 
@@ -1201,7 +1210,6 @@ func (s *FlinkStateMachine) teardownApplicationVersion(ctx context.Context, appl
 		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownFailed",
 			fmt.Sprintf("Failed to force-cancel application version %v and hash %s; will attempt to tear down cluster immediately: %s",
 				versionToTeardown, versionHashToTeardown, err))
-		return s.deployFailed(application)
 	}
 
 	// Delete all resources associated with the teardown version
