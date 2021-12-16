@@ -1240,7 +1240,7 @@ func (s *FlinkStateMachine) teardownApplicationVersion(ctx context.Context, appl
 				versionToTeardown, err))
 		return s.deployFailed(application)
 	}
-	s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "TeardownCompleted",
+	s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "TeardownCompleted",
 		fmt.Sprintf("Tore down application with hash %s and version %v", versionHashToTeardown,
 			versionToTeardown))
 
