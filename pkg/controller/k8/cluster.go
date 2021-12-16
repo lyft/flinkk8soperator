@@ -2,6 +2,7 @@ package k8
 
 import (
 	"context"
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
@@ -14,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -37,15 +37,20 @@ type ClusterInterface interface {
 
 	CreateK8Object(ctx context.Context, object runtime.Object) error
 	UpdateK8Object(ctx context.Context, object runtime.Object) error
+	UpdateK8Service(ctx context.Context, namespace string, name string, version string, service *coreV1.Service) error
+	UpdateK8FlinkApplication(ctx context.Context, service *v1beta1.FlinkApplication) error
+	UpdateK8Deployment(ctx context.Context, key types.NamespacedName, service *v1.Deployment) error
 	DeleteK8Object(ctx context.Context, object runtime.Object) error
 
 	UpdateStatus(ctx context.Context, object runtime.Object) error
+	UpdateFlinkApplicationStatus(ctx context.Context, service *v1beta1.FlinkApplication) error
+
+	GetClient() client.Client
 }
 
 func NewK8Cluster(mgr manager.Manager, cfg config.RuntimeConfig) ClusterInterface {
 	metrics := newK8ClusterMetrics(cfg.MetricsScope)
 	return &Cluster{
-		cache:   mgr.GetCache(),
 		client:  mgr.GetClient(),
 		metrics: metrics,
 	}
@@ -70,7 +75,6 @@ func newK8ClusterMetrics(scope promutils.Scope) *k8ClusterMetrics {
 }
 
 type Cluster struct {
-	cache   cache.Cache
 	client  client.Client
 	metrics *k8ClusterMetrics
 }
@@ -105,7 +109,7 @@ func (k *Cluster) GetService(ctx context.Context, namespace string, name string,
 		Name:      serviceName,
 		Namespace: namespace,
 	}
-	err := k.cache.Get(ctx, key, service)
+	err := k.client.Get(ctx, key, service)
 	if err != nil {
 		if IsK8sObjectDoesNotExist(err) {
 			err := k.client.Get(ctx, key, service)
@@ -130,7 +134,7 @@ func (k *Cluster) GetDeploymentsWithLabel(ctx context.Context, namespace string,
 
 	namespaceOpt := client.InNamespace(namespace)
 	matchLabel := client.MatchingLabels(labelMap)
-	err := k.cache.List(ctx, deploymentList, namespaceOpt, matchLabel)
+	err := k.client.List(ctx, deploymentList, namespaceOpt, matchLabel)
 	if err == nil {
 		k.metrics.getDeploymentCacheHit.Inc(ctx)
 		return deploymentList, nil
@@ -159,7 +163,7 @@ func (k *Cluster) GetServicesWithLabel(ctx context.Context, namespace string, la
 	namespaceOpt := client.InNamespace(namespace)
 	matchLabel := client.MatchingLabels(labelMap)
 
-	err := k.cache.List(ctx, serviceList, namespaceOpt, matchLabel)
+	err := k.client.List(ctx, serviceList, namespaceOpt, matchLabel)
 	if err != nil {
 		if IsK8sObjectDoesNotExist(err) {
 			err := k.client.List(ctx, serviceList, namespaceOpt, matchLabel)
@@ -204,6 +208,67 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) err
 	}
 	k.metrics.updateSuccess.Inc(ctx)
 	return nil
+}
+
+func (k *Cluster) UpdateK8Service(ctx context.Context, namespace string, name string, version string, service *coreV1.Service) error {
+	s, e := k.GetService(ctx, namespace, name, version)
+
+	if e != nil {
+		logger.Errorf(ctx, "Error while getting the service %v", e)
+	} else {
+		service.Generation = s.Generation
+		service.ResourceVersion = s.ResourceVersion
+	}
+
+	return k.UpdateK8Object(ctx, service)
+}
+
+func (k *Cluster) UpdateK8FlinkApplication(ctx context.Context, application *v1beta1.FlinkApplication) error {
+	s := v1beta1.FlinkApplication{}
+	e := k.client.Get(ctx, types.NamespacedName{Name: application.Name, Namespace: application.Namespace}, &s)
+
+	if e != nil {
+		logger.Errorf(ctx, "Error while getting the flink application %v", e)
+	} else {
+		application.Generation = s.Generation
+		application.ResourceVersion = s.ResourceVersion
+	}
+
+	return k.UpdateK8Object(ctx, application)
+}
+
+func (k *Cluster) UpdateK8Deployment(ctx context.Context, key types.NamespacedName, service *v1.Deployment) error {
+	s := v1.Deployment{}
+	e := k.client.Get(ctx, key, &s)
+
+	if e != nil {
+		logger.Errorf(ctx, "Error while getting the deployment %v", e)
+	} else {
+		service.Generation = s.Generation
+		service.ResourceVersion = s.ResourceVersion
+	}
+
+	return k.UpdateK8Object(ctx, service)
+}
+
+func (k *Cluster) GetClient() client.Client {
+	return k.client
+}
+
+func (k *Cluster) UpdateFlinkApplicationStatus(ctx context.Context, application *v1beta1.FlinkApplication) error {
+	// Fetch the FlinkApplication instance
+	app := &v1beta1.FlinkApplication{}
+
+	err := k.client.Get(ctx, types.NamespacedName{Name: application.Name, Namespace: application.Namespace}, app)
+
+	if err != nil {
+		logger.Errorf(ctx, "Error getting the resource with message %v", err.Error())
+	} else {
+		application.ObjectMeta.Generation = app.ObjectMeta.Generation
+		application.ObjectMeta.ResourceVersion = app.ObjectMeta.ResourceVersion
+	}
+
+	return k.UpdateStatus(ctx, application)
 }
 
 func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error {

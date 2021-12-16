@@ -3,6 +3,8 @@ package flinkapplication
 import (
 	"context"
 	"fmt"
+	"github.com/lyft/flytestdlib/atomic"
+	"github.com/pkg/errors"
 	"sync"
 
 	"github.com/lyft/flytestdlib/promutils"
@@ -22,7 +24,6 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -35,7 +36,6 @@ import (
 // ReconcileFlinkApplication reconciles a FlinkApplication resource
 type ReconcileFlinkApplication struct {
 	client            client.Client
-	cache             cache.Cache
 	metrics           *reconcilerMetrics
 	flinkStateMachine FlinkHandlerInterface
 	locks             *sync.Map
@@ -59,15 +59,7 @@ func newReconcilerMetrics(scope promutils.Scope) *reconcilerMetrics {
 }
 
 func (r *ReconcileFlinkApplication) getResource(ctx context.Context, key types.NamespacedName, obj runtime.Object) error {
-	err := r.cache.Get(ctx, key, obj)
-	if err != nil && k8.IsK8sObjectDoesNotExist(err) {
-		r.metrics.cacheMiss.Inc(ctx)
-		return r.client.Get(ctx, key, obj)
-	}
-	if err == nil {
-		r.metrics.cacheHit.Inc(ctx)
-	}
-	return err
+	return r.client.Get(ctx, key, obj)
 }
 
 // For failures, we do not want to retry immediately, as we want the underlying resource to recover.
@@ -92,16 +84,22 @@ func (r *ReconcileFlinkApplication) Reconcile(request reconcile.Request) (reconc
 
 	key := fmt.Sprintf("%s.%s", request.Namespace, request.Name)
 	logger.Debugf(ctx, "Trying to get a Mutex for a resource: %v", key)
-	i, ok := r.locks.LoadOrStore(key, &sync.Mutex{})
+	i, ok := r.locks.LoadOrStore(key, &atomic.Bool{})
 
 	if !ok {
-		logger.Debugf(ctx, "Creating a new mutex for key: %v", key)
+		logger.Debugf(ctx, "Creating a new atomic boolean for key: %v", key)
 	}
 
-	m := i.(*sync.Mutex)
-	logger.Debugf(ctx, "Acquiring a lock to reconcile the resource: %v, mutex address : %p", key, m)
-	m.Lock()
-	defer m.Unlock()
+	m := i.(*atomic.Bool)
+
+	logger.Debugf(ctx, "Acquiring a lock to reconcile the resource: %v, atomic boolean address : %p", key, m)
+	if !m.CompareAndSwap(false, true) {
+		logger.Debugf(ctx, "Operator is busy then enqueueing: %v", key)
+		err := errors.New("Operator is busy")
+		return r.getReconcileResultForError(err), err
+	}
+
+	defer m.Store(false)
 
 	typeMeta := metaV1.TypeMeta{
 		Kind:       v1beta1.FlinkApplicationKind,
@@ -151,8 +149,8 @@ func Add(ctx context.Context, mgr manager.Manager, cfg config.RuntimeConfig) err
 
 	metrics := newReconcilerMetrics(cfg.MetricsScope)
 	reconciler := ReconcileFlinkApplication{
-		client:            mgr.GetClient(),
-		cache:             mgr.GetCache(),
+		client: mgr.GetClient(),
+		//cache:             mgr.GetCache(),
 		metrics:           metrics,
 		flinkStateMachine: flinkStateMachine,
 		locks:             &sync.Map{},

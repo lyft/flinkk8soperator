@@ -2,6 +2,7 @@ package flinkapplication
 
 import (
 	"context"
+	"github.com/lyft/flytestdlib/contextutils"
 	"math"
 	"time"
 
@@ -117,33 +118,52 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1b
 }
 
 func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.FlinkApplication) error {
-	currentPhase := application.Status.Phase
-	if _, ok := s.metrics.stateMachineHandlePhaseMap[currentPhase]; !ok {
-		errMsg := fmt.Sprintf("Invalid state %s for the application", currentPhase)
-		return errors.New(errMsg)
-	}
-	timer := s.metrics.stateMachineHandlePhaseMap[currentPhase].Start(ctx)
-	successTimer := s.metrics.stateMachineHandleSuccessPhaseMap[currentPhase].Start(ctx)
 
-	defer timer.Stop()
-	updateStatus, err := s.handle(ctx, application)
-
-	// Update k8s object
-	if updateStatus {
-		now := v1.NewTime(s.clock.Now())
-		application.Status.LastUpdatedAt = &now
-		updateAppErr := s.k8Cluster.UpdateStatus(ctx, application)
-		if updateAppErr != nil {
-			s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
-			return updateAppErr
+	for {
+		currentPhase := application.Status.Phase
+		if _, ok := s.metrics.stateMachineHandlePhaseMap[currentPhase]; !ok {
+			errMsg := fmt.Sprintf("Invalid state %s for the application", currentPhase)
+			return errors.New(errMsg)
 		}
+		timer := s.metrics.stateMachineHandlePhaseMap[currentPhase].Start(ctx)
+		successTimer := s.metrics.stateMachineHandleSuccessPhaseMap[currentPhase].Start(ctx)
+
+		defer timer.Stop()
+		updateStatus, err := s.handle(ctx, application)
+		ctx = contextutils.WithPhase(ctx, string(application.Status.Phase))
+
+		// Update k8s object
+		if updateStatus {
+			now := v1.NewTime(s.clock.Now())
+			application.Status.LastUpdatedAt = &now
+
+			updateAppErr := s.k8Cluster.UpdateFlinkApplicationStatus(ctx, application)
+			if updateAppErr != nil {
+				s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
+				//return updateAppErr
+			}
+		}
+		if err != nil {
+			s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
+			//return err
+		} else {
+			successTimer.Stop()
+		}
+
+		if v1beta1.IsRunningPhase(application.Status.Phase) || application.Status.Phase == v1beta1.FlinkApplicationDeleting {
+			logger.Infof(ctx, "Finish reconciling loop because application is %v", application.Status.Phase)
+			break
+		}
+
+		timer.Stop()
+
+		duration := config.GetConfig().ResyncPeriod.Duration
+		if application.Status.Phase == v1beta1.FlinkApplicationUpdating {
+			duration = time.Second
+		}
+		time.Sleep(duration)
 	}
-	if err != nil {
-		s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
-	} else {
-		successTimer.Stop()
-	}
-	return err
+	return nil
 }
 
 func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.FlinkApplication) (bool, error) {
@@ -690,7 +710,7 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 		service.Spec.Selector[flink.PodDeploymentSelector] = selector
 		// remove the old app hash selector if it's still present
 		delete(service.Spec.Selector, flink.FlinkAppHash)
-		err = s.k8Cluster.UpdateK8Object(ctx, service)
+		err = s.k8Cluster.UpdateK8Service(ctx, app.Namespace, app.Name, string(app.Status.UpdatingVersion), service)
 		if err != nil {
 			return err
 		}
@@ -959,7 +979,7 @@ func (s *FlinkStateMachine) addFinalizerIfMissing(ctx context.Context, applicati
 
 	// finalizer not present; add
 	application.Finalizers = append(application.Finalizers, finalizer)
-	return s.k8Cluster.UpdateK8Object(ctx, application)
+	return s.k8Cluster.UpdateK8FlinkApplication(ctx, application)
 }
 
 func removeString(list []string, target string) []string {
@@ -975,7 +995,7 @@ func removeString(list []string, target string) []string {
 
 func (s *FlinkStateMachine) clearFinalizers(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	app.Finalizers = removeString(app.Finalizers, jobFinalizer)
-	return statusUnchanged, s.k8Cluster.UpdateK8Object(ctx, app)
+	return statusUnchanged, s.k8Cluster.UpdateK8FlinkApplication(ctx, app)
 }
 
 func jobFinished(job *client.FlinkJobOverview) bool {
