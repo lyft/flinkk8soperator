@@ -150,11 +150,6 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.Fli
 			successTimer.Stop()
 		}
 
-		if v1beta1.IsRunningPhase(application.Status.Phase) || application.Status.Phase == v1beta1.FlinkApplicationDeleting {
-			logger.Infof(ctx, "Finish reconciling loop because application is %v", application.Status.Phase)
-			break
-		}
-
 		timer.Stop()
 
 		duration := config.GetConfig().ResyncPeriod.Duration
@@ -162,6 +157,16 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.Fli
 			duration = time.Second
 		}
 		time.Sleep(duration)
+
+		if v1beta1.IsRunningPhase(application.Status.Phase) || application.Status.Phase == v1beta1.FlinkApplicationDeleting {
+			logger.Infof(ctx, "Finish reconciling loop because application is %v", application.Status.Phase)
+			break
+		}
+
+		if s.k8Cluster.IsFlinkApplicationDoesNotExist(ctx, application) {
+			logger.Warnf(ctx, "Finish reconciling loop due to k8s object doesn't exist anymore %v", application.Status.Phase)
+			break
+		}
 	}
 	return nil
 }
@@ -509,7 +514,6 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		} else {
 			s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "SavepointingJob",
 				fmt.Sprintf("Savepointing job %s with a final savepoint", s.flinkController.GetLatestJobID(ctx, application)))
-
 		}
 
 		application.Status.SavepointTriggerID = triggerID

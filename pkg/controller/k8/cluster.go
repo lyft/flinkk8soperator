@@ -44,6 +44,7 @@ type ClusterInterface interface {
 
 	UpdateStatus(ctx context.Context, object runtime.Object) error
 	UpdateFlinkApplicationStatus(ctx context.Context, service *v1beta1.FlinkApplication) error
+	IsFlinkApplicationDoesNotExist(ctx context.Context, service *v1beta1.FlinkApplication) bool
 
 	GetClient() client.Client
 }
@@ -269,6 +270,13 @@ func (k *Cluster) UpdateFlinkApplicationStatus(ctx context.Context, application 
 	}
 
 	return k.UpdateStatus(ctx, application)
+}
+
+func (k *Cluster) IsFlinkApplicationDoesNotExist(ctx context.Context, application *v1beta1.FlinkApplication) bool {
+	// Fetch the FlinkApplication instance
+	app := &v1beta1.FlinkApplication{}
+	err := k.client.Get(ctx, types.NamespacedName{Name: application.Name, Namespace: application.Namespace}, app)
+	return IsK8sObjectDoesNotExist(err) || app.ObjectMeta.UID != application.ObjectMeta.UID
 }
 
 func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error {
