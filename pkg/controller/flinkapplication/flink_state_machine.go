@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/lyft/flytestdlib/contextutils"
 	"math"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -523,6 +524,14 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 	// check the savepoints in progress
 	savepointStatusResponse, err := s.flinkController.GetSavepointStatus(ctx, application, application.Status.DeployHash, s.flinkController.GetLatestJobID(ctx, application))
 	if err != nil {
+		if flinkAppError, ok := err.(*v1beta1.FlinkApplicationError); ok {
+			// Check if the operation of taking a savepoint doesn't exist anymore
+			if strings.HasPrefix(flinkAppError.AppError, "CheckSavepointStatus call failed with status 404 Not Found") {
+				// retry to take a savepoint
+				application.Status.SavepointTriggerID = ""
+			}
+		}
+
 		return statusUnchanged, err
 	}
 
@@ -530,12 +539,12 @@ func (s *FlinkStateMachine) handleApplicationSavepointing(ctx context.Context, a
 		savepointStatusResponse.SavepointStatus.Status != client.SavePointInProgress {
 		// Savepointing failed
 		// TODO: we should probably retry this a few times before failing
-		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed",
-			fmt.Sprintf("Failed to take savepoint for job %s: %v",
-				s.flinkController.GetLatestJobID(ctx, application), savepointStatusResponse.Operation.FailureCause))
-		application.Status.RetryCount = 0
-		s.updateApplicationPhase(application, v1beta1.FlinkApplicationRecovering)
-		return statusChanged, nil
+		message := fmt.Sprintf("Failed to take savepoint for job %s: %v",
+			s.flinkController.GetLatestJobID(ctx, application), savepointStatusResponse.Operation.FailureCause)
+		s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "SavepointFailed", message)
+		application.Status.SavepointTriggerID = ""
+
+		return statusUnchanged, client.GetRetryableError(err, v1beta1.SavepointJob, message, 5)
 	} else if savepointStatusResponse.SavepointStatus.Status == client.SavePointCompleted {
 		if cancelFlag {
 			s.flinkController.LogEvent(ctx, application, corev1.EventTypeNormal, "CanceledJob",
