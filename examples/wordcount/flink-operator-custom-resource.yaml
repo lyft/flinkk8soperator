@@ -1,3 +1,41 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wordcount-service-account
+  labels:
+    app.kubernetes.io/name: wordcount
+    app.kubernetes.io/instance: wordcount
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: wordcount-cluster-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - watch
+      - create
+      - delete
+      - update
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: wordcount-cluster-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: wordcount-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: wordcount-service-account
+    namespace: wordcount
+---
 apiVersion: flink.k8s.io/v1beta1
 kind: FlinkApplication
 metadata:
@@ -6,29 +44,35 @@ metadata:
   labels:
     environment: development
 spec:
-  image: us-east4-docker.pkg.dev/elementalcognition-app-source/docker-all/lyft/wordcount:continious2
+  serviceAccountName: wordcount-service-account
+  image: us-east4-docker.pkg.dev/elementalcognition-app-source/docker-all/lyft/wordcount:kubernetes2
   deploymentMode: BlueGreen
   initialParallelism: 4
   deleteMode: None
   flinkConfig:
-    taskmanager.heap.size: 200
-    taskmanager.network.memory.fraction: 0.1
-    taskmanager.network.memory.min: 10m
+    taskmanager.memory.managed.size: 80m
+    taskmanager.memory.jvm-metaspace.size: 128m
+    taskmanager.memory.flink.size: 400m
+    taskmanager.memory.process.size: 600m
+    taskmanager.memory.jvm-overhead.min: 70m
+    kubernetes.namespace: wordcount
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints
     web.upload.dir: /opt/flink
+    high-availability: org.apache.flink.kubernetes.highavailability.KubernetesHaServicesFactory
+    high-availability.storageDir: /tmp/checkpoints/ha
   jobManagerConfig:
     resources:
       requests:
-        memory: "200Mi"
+        memory: "600Mi"
         cpu: "0.1"
-    replicas: 1
+    replicas: 2
   taskManagerConfig:
     taskSlots: 1
     resources:
       requests:
-        memory: "200Mi"
+        memory: "550Mi"
         cpu: "0.1"
   flinkVersion: "1.8"
   jarName: "wordcount-operator-example-1.0.0-SNAPSHOT.jar"
