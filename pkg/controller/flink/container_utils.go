@@ -219,6 +219,8 @@ func InjectOperatorCustomizedConfig(deployment *appsv1.Deployment, app *v1beta1.
 			if env.Name == OperatorFlinkConfig {
 				if isHAEnabled(app.Spec.FlinkConfig) {
 					env.Value = fmt.Sprintf("%s\nhigh-availability.cluster-id: %s-%s\n", env.Value, app.Name, hash)
+					env.Value = fmt.Sprintf("%s\nkubernetes.cluster-id: %s-%s\n", env.Value, app.Name, hash)
+					env.Value = fmt.Sprintf("%s\nkubernetes.namespace: %s\n", env.Value, app.Namespace)
 					if deploymentType == FlinkDeploymentTypeJobmanager {
 						env.Value = fmt.Sprintf("%sjobmanager.rpc.address: $HOST_IP\n", env.Value)
 					}

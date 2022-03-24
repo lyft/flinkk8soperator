@@ -55,7 +55,6 @@ spec:
     taskmanager.memory.flink.size: 400m
     taskmanager.memory.process.size: 600m
     taskmanager.memory.jvm-overhead.min: 70m
-    kubernetes.namespace: wordcount
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints
