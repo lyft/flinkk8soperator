@@ -25,6 +25,102 @@ spec:
     openAPIV3Schema:
       type: object
       properties:
+        status:
+          type: object
+          properties:
+            phase:
+              type: string
+            reason:
+              type: string
+            failedDeployHash:
+              type: string
+            rollbackHash:
+              type: string
+            deployHash:
+              type: string
+            retryCount:
+              type: integer
+            startedAt:
+              type: string
+            lastUpdatedAt:
+              type: string
+            savepointTriggerId:
+              type: string
+            savepointPath:
+              type: string
+            clusterStatus:
+              type: object
+              properties:
+                clusterOverviewURL:
+                  type: string
+                numberOfTaskManagers:
+                  type: integer
+                healthyTaskManagers:
+                  type: integer
+                numberOfTaskSlots:
+                  type: integer
+                availableTaskSlots:
+                  type: integer
+                health:
+                  type: string
+            jobStatus:
+              type: object
+              properties:
+                jobOverviewURL:
+                  type: string
+                jobID:
+                  type: string
+                health:
+                  type: string
+                state:
+                  type: string
+                jarName:
+                  type: string
+                parallelism:
+                  type: integer
+                entryClass:
+                  type: string
+                programArgs:
+                  type: string
+                allowNonRestoredState:
+                  type: boolean
+                startTime:
+                  type: string
+                jobRestartCount:
+                  type: integer
+                completedCheckpointCount:
+                  type: integer
+                failedCheckpointCount:
+                  type: integer
+                restorePath:
+                  type: string
+                restoreTime:
+                  type: string
+                lastFailingTime:
+                  type: string
+                lastCheckpoint:
+                  type: string
+                lastCheckpointTime:
+                  type: string
+                runningTasks:
+                  type: integer
+                totalTasks:
+                  type: integer
+            lastSeenError:
+              type: object
+              properties:
+                appError:
+                  type: string
+                method:
+                  type: string
+                errorCode:
+                  type: string
+                isRetryable:
+                  type: boolean
+                isFailFast:
+                  type: boolean
+                maxRetries:
+                  type: integer
         spec:
           type: object
           properties:
