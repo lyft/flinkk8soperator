@@ -98,10 +98,12 @@ spec:
                   type: string
                 lastFailingTime:
                   type: string
+                  nullable: true
                 lastCheckpoint:
                   type: string
                 lastCheckpointTime:
                   type: string
+                  nullable: true
                 runningTasks:
                   type: integer
                 totalTasks:
