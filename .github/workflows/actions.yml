@@ -1,4 +1,7 @@
 on: [push, pull_request]
+defaults:
+  run:
+    working-directory: $HOME/go/src/github.com/lyft/flinkk8soperator
 jobs:
   unit-tests:
     runs-on: ubuntu-18.04
