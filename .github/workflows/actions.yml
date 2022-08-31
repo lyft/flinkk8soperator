@@ -1,7 +1,9 @@
-on: [push, pull_request]
-defaults:
-  run:
-    working-directory: $HOME/go/src/github.com/lyft/flinkk8soperator
+name: checks
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 jobs:
   unit-tests:
     runs-on: ubuntu-18.04
