@@ -8,6 +8,9 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          path: go/src/github.com/lyft/flinkk8soperator
       - name: install go
         uses: actions/setup-go@v2
         with:
