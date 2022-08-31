@@ -17,13 +17,18 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.12
+        working-directory: ./go/src/github.com/lyft/flinkk8soperator
       - name: debug pwd
+        working-directory: ./go/src/github.com/lyft/flinkk8soperator
         run: pwd
       - name: debug ls
+        working-directory: ./go/src/github.com/lyft/flinkk8soperator
         run: ls -la
       - name: install
+        working-directory: ./go/src/github.com/lyft/flinkk8soperator
         run: make install
       - name: test
+        working-directory: ./go/src/github.com/lyft/flinkk8soperator
         run: make test_unit
   lint:
     runs-on: ubuntu-18.04
