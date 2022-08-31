@@ -1,6 +1,43 @@
 on: [push, pull_request]
 jobs:
-  update-ci:
-    runs-on: ubuntu-latest
+  unit-tests:
+    runs-on: ubuntu-bionic
     steps:
-      - run: echo "CI is no longer running on this repo, update the files in .github/workflows to re-enable it. See the .travis.yml file for your previous CI config"; exit 1
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: install go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.12
+      - name: install
+        run: make install
+      - name: test
+        run: make test_unit
+  lint:
+    runs-on: ubuntu-bionic
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: install go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.12
+      - name: install
+        run: make install
+      - name: test
+        run: make lint
+  integration-tests:
+    runs-on: ubuntu-bionic
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: install go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.12
+      - name: setup
+        run: integ/setup.sh
+      - name: install
+        run: integ/install.sh
+      - name: test
+        run: sudo -E \"PATH=$PATH\" integ/test.sh
