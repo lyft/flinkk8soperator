@@ -11,7 +11,7 @@ jobs:
       run:
         working-directory: go/src/github.com/lyft/flinkk8soperator
     env:
-      GOPATH: "$PWD/../../.."
+      GOPATH: "/home/runner/work/flinkk8soperator/flinkk8soperator/go/"
     steps:
       - name: checkout
         uses: actions/checkout@v2
