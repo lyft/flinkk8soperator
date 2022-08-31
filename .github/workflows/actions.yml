@@ -69,4 +69,4 @@ jobs:
       - name: setup
         run: integ/setup.sh
       - name: test
-        run: integ/test.sh
+        run: sudo "PATH=$PATH" "GOPATH=$GOPATH" integ/test.sh
