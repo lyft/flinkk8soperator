@@ -17,6 +17,10 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: 1.12
+      - name: debug pwd
+        run: pwd
+      - name: debug ls
+        run: ls -la
       - name: install
         run: make install
       - name: test
