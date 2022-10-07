@@ -1182,7 +1182,7 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 	// wait until all vertices have been scheduled and started more than 5 minutes
 	allVerticesStarted := true
 	for _, v := range job.Vertices {
-		allVerticesStarted = allVerticesStarted && (v.Duration > 300000)
+		allVerticesStarted = allVerticesStarted && (v.Duration > 900000)
 		logger.Infof(ctx, "Duration of job %s is %v where job.state is %s", v.Name, v.Duration, string(job.State))
 	}
 
