@@ -1198,7 +1198,7 @@ func (s *FlinkStateMachine) handleDualRunning(ctx context.Context, application *
 		durationOfJob := time.Now().Unix()*1000 - job.StartTime
 		logger.Infof(ctx, "Updating job is still starting where duration is %v", durationOfJob)
 
-		if durationOfJob > 600000 {
+		if durationOfJob > 1800000 {
 			_, _, err := s.flinkController.GetVersionAndJobIDForHash(ctx, application, updatingHash)
 			if err != nil {
 				logger.Warnf(ctx, "Cannot find flink application with hash %s. The hash may be obsolete; Ignoring hash", updatingHash)
