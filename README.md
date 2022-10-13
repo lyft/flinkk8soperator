@@ -9,7 +9,7 @@
 [![Slack](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](http://go.lyft.com/flinkoperator_slack)
 
 
-# Flinkk8soperator
+# Flinkk8soperator 
 FlinkK8sOperator is a [Kubernetes operator](https://coreos.com/operators/) that manages [Flink](https://flink.apache.org/) applications on Kubernetes. The operator acts as control plane to manage the complete deployment lifecycle of the application.
 
 
