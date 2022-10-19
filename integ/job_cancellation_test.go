@@ -169,7 +169,7 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 
 		job = s.Util.GetJobOverview(currApp)
 		if job["status"] == "CANCELED" {
-			fmt.Sprintf("after %d seconds, job is finally cancelled", counter)
+			fmt.Printf("after %d seconds, job is finally cancelled", counter)
 			break
 		}
 		counter++

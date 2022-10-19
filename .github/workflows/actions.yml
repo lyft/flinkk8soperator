@@ -1,7 +1,7 @@
 name: checks
 on:
   push:
-    branches: [ master, integration-test-fix ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 jobs:
