@@ -122,20 +122,26 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	_, err = s.Util.FlinkApps().Update(app)
 	c.Assert(err, IsNil)
 
-	for {
+	deletingCounter := 0
+	for deletingCounter < 120 {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
+
+		fmt.Printf("====== cancelsuccess Existing pods: %+v\n", pods.Items)
 		if len(pods.Items) == 0 {
 			break
 		}
+
+		time.Sleep(1000 * time.Millisecond)
+		deletingCounter++
 	}
 	log.Info("All pods torn down")
 }
 
 // tests a job update with the existing job already in cancelled state.
 // here, the new submitted job starts without a savepoint.
-/*
+
 func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 
 	testName := "invalidcancel"
@@ -206,17 +212,22 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 
 	// start deleting
 	c.Assert(s.Util.FlinkApps().Delete(config.Name, &v1.DeleteOptions{}), IsNil)
-	for {
+	deletingCounter := 0
+	for deletingCounter < 120 {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
+
+		fmt.Printf("====== invalidcancel Existing pods: %+v\n", pods.Items)
 		if len(pods.Items) == 0 {
 			break
 		}
+
+		time.Sleep(1000 * time.Millisecond)
+		deletingCounter++
 	}
 	log.Info("All pods torn down")
 }
-*/
 
 // tests the recovery workflow of the job when savepoint is disabled.
 func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
@@ -301,14 +312,19 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 	c.Assert(err, IsNil)
 
 	// wait until all pods are deleted
-	for {
+	deletingCounter := 0
+	for deletingCounter < 120 {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
+
+		fmt.Printf("====== cancelrecovery Existing pods: %+v\n", pods.Items)
 		if len(pods.Items) == 0 {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+
+		time.Sleep(1000 * time.Millisecond)
+		deletingCounter++
 	}
 	log.Info("All pods torn down")
 }
