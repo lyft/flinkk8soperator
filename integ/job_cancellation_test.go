@@ -162,10 +162,19 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	_, err = s.Util.FlinkAPIPatch(currApp, endpoint)
 	c.Assert(err, IsNil)
 
-	// wait a bit
-	time.Sleep(1 * time.Second)
+	counter := 0
+	for counter < 120 {
+		// wait a bit
+		time.Sleep(1 * time.Second)
 
-	job = s.Util.GetJobOverview(currApp)
+		job = s.Util.GetJobOverview(currApp)
+		if job["status"] == "CANCELED" {
+			fmt.Sprintf("after %d seconds, job is finally cancelled", counter)
+			break
+		}
+		counter++
+	}
+
 	c.Assert(job["status"], Equals, "CANCELED")
 
 	newApp, err := s.Util.Update(config.Name, func(app *v1beta1.FlinkApplication) {
