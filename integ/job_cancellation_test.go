@@ -135,6 +135,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 
 // tests a job update with the existing job already in cancelled state.
 // here, the new submitted job starts without a savepoint.
+/*
 func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 
 	testName := "invalidcancel"
@@ -215,6 +216,7 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	}
 	log.Info("All pods torn down")
 }
+*/
 
 // tests the recovery workflow of the job when savepoint is disabled.
 func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
