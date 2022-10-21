@@ -54,13 +54,16 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	// delete the application and ensure everything is cleaned up successfully
 	c.Assert(s.Util.FlinkApps().Delete(app.Name, &v1.DeleteOptions{}), IsNil)
 
-	for {
+	deletingCounter := 0
+	for deletingCounter < 12 {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
 		if len(pods.Items) == 0 {
 			break
 		}
+		time.Sleep(10 * time.Second)
+		deletingCounter++
 	}
 	log.Info("All pods torn down")
 }
