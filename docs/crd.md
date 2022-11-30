@@ -172,3 +172,10 @@ Below is the list of fields in the custom resource and their description:
   * **tearDownVersionHash** `type:string`
     Used **only** with the BlueGreen deployment mode. This is set typically once a FlinkApplication successfully transitions to the `DualRunning` phase.
     Once set, the application version corresponding to the hash is torn down. On successful teardown, the FlinkApplication transitions to a `Running` phase.
+
+  * **ingressAnnotations** `type:map[string]string`
+    Optional: Can be set or modified to set ingress Annotion like `kubernetes.io/ingress.class=nginx` or `kubernetes.io/tls-acme=true` to support certmanager/letsencrypt
+
+  * **ingressTLSSecretName** `type:string`
+   Optional: can be set to add a TLS secretname of the the https ingress
+

@@ -39,6 +39,12 @@ spec:
                 properties:
                   name:
                     type: string
+            ingressAnnotations:
+              description: May be used to configure the ingress objects
+              type: object
+            ingressTLSSecretName:
+              description: May be used to configure the ingress TLS
+              type: string
             serviceAccountName:
               type: string
             securityContext:

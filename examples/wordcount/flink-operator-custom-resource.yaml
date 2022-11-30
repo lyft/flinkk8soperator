@@ -33,3 +33,11 @@ spec:
   jarName: "wordcount-operator-example-1.0.0-SNAPSHOT.jar"
   parallelism: 3
   entryClass: "org.apache.flink.WordCount"
+  # Any ingress annotations can be set there
+  # ingressAnnotations:
+  #   kubernetes.io/ingress.class: nginx
+  #   kubernetes.io/tls-acme: "true" # support cert-manager / letsencrypt
+  #   nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+  # Declare the secret that stores the TLS key and cert
+  # ingressTLSSecretName: "wordcount-operator-example-tls"

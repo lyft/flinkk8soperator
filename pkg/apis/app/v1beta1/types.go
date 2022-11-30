@@ -60,6 +60,8 @@ type FlinkApplicationSpec struct {
 	ForceRollback                  bool                `json:"forceRollback"`
 	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
 	TearDownVersionHash            string              `json:"tearDownVersionHash,omitempty"`
+	IngressAnnotations             map[string]string   `json:"ingressAnnotations,omitempty"`
+	IngressTLSSecretName           string              `json:"ingressTLSSecretName,omitempty"`
 }
 
 type FlinkConfig map[string]interface{}
