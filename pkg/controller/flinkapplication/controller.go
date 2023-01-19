@@ -140,7 +140,7 @@ func Add(ctx context.Context, mgr manager.Manager, cfg config.RuntimeConfig) err
 		return err
 	}
 
-	if err = c.Watch(&source.Kind{Type: &v1beta1.FlinkApplication{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err = c.Watch(&source.Kind{Type: &v1beta1.FlinkApplication{}}, &handler.EnqueueRequestForObject{}, getOrgPredicateFuncs()); err != nil {
 		return err
 	}
 
@@ -165,22 +165,48 @@ func isOwnedByFlinkApplication(ownerReferences []metaV1.OwnerReference) bool {
 	return false
 }
 
+func isOwnedByOrganization(labels map[string]string) bool {
+	for k, v := range labels {
+		if k == "organization" && v == "HUNTERS" {
+			return true
+		}
+	}
+	return false
+}
+
 // Predicate filters events before enqueuing the keys.
 // We are only interested in kubernetes objects that are owned by the FlinkApplication
 // This filters all the objects not owned by the flinkApplication, and ensures only subset reaches event handlers
 func getPredicateFuncs() predicate.Funcs {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return isOwnedByFlinkApplication(e.Meta.GetOwnerReferences())
+			return isOwnedByFlinkApplication(e.Meta.GetOwnerReferences()) && isOwnedByOrganization(e.Meta.GetLabels())
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return isOwnedByFlinkApplication(e.MetaNew.GetOwnerReferences())
+			return isOwnedByFlinkApplication(e.MetaNew.GetOwnerReferences()) && isOwnedByOrganization(e.MetaNew.GetLabels())
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return isOwnedByFlinkApplication(e.Meta.GetOwnerReferences())
+			return isOwnedByFlinkApplication(e.Meta.GetOwnerReferences()) && isOwnedByOrganization(e.Meta.GetLabels())
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
-			return isOwnedByFlinkApplication(e.Meta.GetOwnerReferences())
+			return isOwnedByFlinkApplication(e.Meta.GetOwnerReferences()) && isOwnedByOrganization(e.Meta.GetLabels())
+		},
+	}
+}
+
+func getOrgPredicateFuncs() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return isOwnedByOrganization(e.Meta.GetLabels())
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return isOwnedByOrganization(e.MetaNew.GetLabels())
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return isOwnedByOrganization(e.Meta.GetLabels())
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return isOwnedByOrganization(e.Meta.GetLabels())
 		},
 	}
 }
