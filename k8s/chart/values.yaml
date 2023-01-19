@@ -9,7 +9,7 @@ appName: flink
 teamOwner: detection
 
 rbac:
-  create: true
+  create: false
 
 serviceAccounts:
   flink:
