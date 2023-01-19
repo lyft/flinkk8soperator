@@ -1,0 +1,88 @@
+version: 2.1
+orbs:
+  aws-ecr: circleci/aws-ecr@8.2.1
+  aws-eks: circleci/aws-eks@2.2.0
+  docker: circleci/docker@2.2.0
+  node: circleci/node@5.0.3
+
+# executors:
+#   scala:
+#     docker:
+#       - image: hseeberger/scala-sbt:11.0.14.1_1.6.2_2.12.15
+#     environment:
+#       SBT_VERSION: 1.8.0
+
+commands:
+  prepare:
+    steps:
+      - setup_env
+      - docker/install-docker-tools
+
+  setup_env:
+    steps:
+      - run:
+          name: Install Packages
+          command: |
+            apt update
+            apt-get install -y jq
+      - run:
+          name: Set up AWS Credentials
+          command: |
+            echo 'export DYNAMIC_AWS_ACCOUNT_ID=${AWS_PROD_ACCOUNT_ID}' >> $BASH_ENV
+            echo 'export AWS_ACCESS_KEY_ID=${MULTITENANT_AWS_ACCESS_KEY_ID}' >> $BASH_ENV
+            echo 'export AWS_SECRET_ACCESS_KEY=${MULTITENANT_AWS_SECRET_ACCESS_KEY}' >> $BASH_ENV
+            echo 'export EKS_CLUSTER=${US_MULTITENANT_AWS_EKS_CLUSTER_NAME}' >> $BASH_ENV
+
+jobs:
+  build_and_push_image:
+    #executor: scala
+    steps:
+      - prepare
+      - setup_remote_docker:
+          docker_layer_caching: true
+
+      - aws-ecr/ecr-login:
+          region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
+          registry-id: DYNAMIC_AWS_ACCOUNT_ID
+      - run:
+          name: Build pipeline image
+          command: |
+            cd detectors/hunting-pipeline
+            IMAGE_NAME=flinkk8soperator-fork:${CIRCLE_SHA1}
+            REGISTRY=${DYNAMIC_AWS_ACCOUNT_ID}.dkr.ecr.${US_MULTITENANT_AWS_DEFAULT_REGION}.amazonaws.com
+            docker build -t ${REGISTRY}/${IMAGE_NAME} .
+
+      # - run:
+      #     name: Orca Image Security Scan
+      #     command: |
+      #       cd detectors/hunting-pipeline
+      #       IMAGE_NAME=hunting-pipeline:${CIRCLE_SHA1}
+      #       REGISTRY=${DYNAMIC_AWS_ACCOUNT_ID}.dkr.ecr.${US_MULTITENANT_AWS_DEFAULT_REGION}.amazonaws.com
+      #       docker run -v /var/run/docker.sock:/var/run/docker.sock --rm ghcr.io/orcasecurity/orca-cli:${CLI_VERSION}  -p ${PROJECT_KEY} --api-token ${ORCA_SECURITY_API_TOKEN} image scan ${REGISTRY}/${IMAGE_NAME} --exit-code 0
+
+      - when:
+          condition:
+            or:
+              - equal: [master, << pipeline.git.branch >>]
+              - equal: [staging-detectors, << pipeline.git.branch >>]
+
+          steps:
+            - aws-ecr/ecr-login:
+                region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
+                registry-id: DYNAMIC_AWS_ACCOUNT_ID
+            - aws-ecr/push-image:
+                region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
+                registry-id: DYNAMIC_AWS_ACCOUNT_ID
+                repo: flinkk8soperator
+                tag: ${CIRCLE_SHA1}
+
+  
+workflows:
+  # Just try to build the image without publishing anything
+  build_image_only:
+    jobs:
+      - build_and_push_image:
+          context:
+            - aws-credentials
+            - aws-eks
+            - detection
