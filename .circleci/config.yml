@@ -22,6 +22,8 @@ commands:
       region:
         type: string
         default: ${AWS_REGION}
+      tenants: 
+        type: string
     steps:
       - run:
           name: Fetch tenants from config manager
