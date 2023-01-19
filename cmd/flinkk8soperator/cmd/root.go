@@ -81,7 +81,7 @@ func init() {
 	}
 
 	if !isEnvExist("organization") {
-		logAndExit("Could not find organization environment variable")
+		logAndExit(errors.New("Could not find organization environment variable"))
 	}
 
 	// Here you will define your flags and configuration settings. Cobra supports persistent flags, which, if defined
