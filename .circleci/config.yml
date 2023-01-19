@@ -18,8 +18,8 @@ commands:
       - run:
           name: Install Packages
           command: |
-            apt update
-            apt-get install -y jq
+            sudo apt update -y
+            sudo apt-get install -y jq
       - run:
           name: Set up AWS Credentials
           command: |
@@ -32,26 +32,7 @@ jobs:
   build_and_push_image:
     executor: aws-ecr/default
     steps:
-      #- setup_env
-      - aws-ecr/ecr-login:
-          region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
-          registry-id: DYNAMIC_AWS_ACCOUNT_ID
-      - run:
-          name: Build pipeline image
-          command: |
-            cd detectors/hunting-pipeline
-            IMAGE_NAME=flinkk8soperator-fork:${CIRCLE_SHA1}
-            REGISTRY=${DYNAMIC_AWS_ACCOUNT_ID}.dkr.ecr.${US_MULTITENANT_AWS_DEFAULT_REGION}.amazonaws.com
-            docker build -t ${REGISTRY}/${IMAGE_NAME} .
-
-      # - run:
-      #     name: Orca Image Security Scan
-      #     command: |
-      #       cd detectors/hunting-pipeline
-      #       IMAGE_NAME=hunting-pipeline:${CIRCLE_SHA1}
-      #       REGISTRY=${DYNAMIC_AWS_ACCOUNT_ID}.dkr.ecr.${US_MULTITENANT_AWS_DEFAULT_REGION}.amazonaws.com
-      #       docker run -v /var/run/docker.sock:/var/run/docker.sock --rm ghcr.io/orcasecurity/orca-cli:${CLI_VERSION}  -p ${PROJECT_KEY} --api-token ${ORCA_SECURITY_API_TOKEN} image scan ${REGISTRY}/${IMAGE_NAME} --exit-code 0
-
+      - setup_env
       - when:
           condition:
             or:
@@ -59,7 +40,7 @@ jobs:
               - equal: [staging-detectors, << pipeline.git.branch >>]
 
           steps:
-            - aws-ecr/push-image:
+            - aws-ecr/build-and-push-image:
                 region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
                 registry-id: DYNAMIC_AWS_ACCOUNT_ID
                 repo: flinkk8soperator
