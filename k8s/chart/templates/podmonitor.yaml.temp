@@ -1,3 +1,4 @@
+{{- if .Values.podmonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -27,4 +28,4 @@ spec:
       targetPort: 8080
       honorLabels: true
       interval: 60s
-
+{{- end }}

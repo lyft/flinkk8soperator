@@ -10,7 +10,7 @@ teamOwner: detection
 
 namespaces:
   jobNamespace: ""
-  
+
 rbac:
   create: false
 
@@ -42,3 +42,6 @@ role: ppd-infra-spot
 
 additionalLabels:
   team-owner: detection
+
+podmonitor:
+  enabled: false
