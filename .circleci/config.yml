@@ -30,7 +30,7 @@ commands:
           name: Fetch tenants from config manager
           command: |
             cd .circleci
-            PARSED_TENANTS=$(echo '<< parameters.tenants >>' | jq -c 'split(",")')
+            PARSED_TENANTS=$(echo '"<< parameters.tenants >>"' | jq -c 'split(",")')
             if [[ -z $PARSED_TENANTS ]] ; then
               PARSED_TENANTS=[]
             fi
