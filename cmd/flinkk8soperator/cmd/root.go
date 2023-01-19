@@ -80,6 +80,10 @@ func init() {
 		logAndExit(err)
 	}
 
+	if !isEnvExist("organization") {
+		logAndExit("Could not find organization environment variable")
+	}
+
 	// Here you will define your flags and configuration settings. Cobra supports persistent flags, which, if defined
 	// here, will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "",
@@ -104,6 +108,13 @@ func initConfig(flags *pflag.FlagSet) error {
 func logAndExit(err error) {
 	logger.Error(context.Background(), err)
 	os.Exit(-1)
+}
+
+func isEnvExist(key string) bool {
+	if _, ok := os.LookupEnv(key); ok {
+		return true
+	}
+	return false
 }
 
 func executeRootCmd(controllerCfg *controllerConfig.Config) error {

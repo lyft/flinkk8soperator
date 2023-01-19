@@ -1,0 +1,111 @@
+{{- if .Values.rbac.create }}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "flink-operator.fullname" $ }}
+  namespace: {{ .Values.namespaces.operatorNamespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "flink-operator.name" $ }}
+    helm.sh/chart: {{ include "flink-operator.chart" $ }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    team-owner: {{ .Values.teamOwner }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - create
+      - get
+      - list
+      - watch
+      - update
+      - delete
+  - apiGroups:
+      - extensions
+      - apps
+    resources:
+      - deployments
+      - deployments/status
+      - ingresses
+      - ingresses/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - delete
+  # Allow Event recording access
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - update
+      - patch
+  # Allow Access to CRD
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+  # Allow Access to flink applications under flink.k8s.io
+  - apiGroups:
+      - flink.k8s.io
+    resources:
+      - flinkapplications
+      - flinkapplications/status
+      - flinkapplications/finalizers
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - delete
+      - patch
+  - apiGroups:
+      - ""
+      - route.openshift.io
+    resources:
+      - routes/custom-host
+    verbs:
+      - create
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: {{ include "flink-operator.fullname" $ }}
+  namespace: {{ .Values.namespaces.operatorNamespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "flink-operator.name" $ }}
+    helm.sh/chart: {{ include "flink-operator.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    team-owner: {{ .Values.teamOwner }}
+
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "flink-operator.fullname" $ }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "flink-operator.serviceAccountName" $ }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

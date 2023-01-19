@@ -1,0 +1,46 @@
+{{- if and (.Values.rbac.create) (ne .Values.namespaces.jobNamespace "") }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: {{ .Values.namespaces.jobNamespace }}
+  name: {{ .Values.appName }}-role
+  labels:
+    app.kubernetes.io/name: {{ include "flink-operator.name" . }}
+    helm.sh/chart: {{ include "flink-operator.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    team-owner: {{ .Values.teamOwner }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - "pods"
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - "services"
+  verbs:
+  - "*"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.appName }}-role-binding
+  namespace: {{ .Values.namespaces.jobNamespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "flink-operator.name" . }}
+    helm.sh/chart: {{ include "flink-operator.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    team-owner: {{ .Values.teamOwner }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "flink.serviceAccountName" . }}
+  namespace: {{ .Values.namespaces.jobNamespace }}
+roleRef:
+  kind: Role
+  name: flink-role
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

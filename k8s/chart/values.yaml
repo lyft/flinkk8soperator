@@ -1,0 +1,45 @@
+operatorImageName: lyft/flinkk8soperator
+operatorVersion: v0.5.0
+imagePullPolicy: IfNotPresent
+
+nameOverride: flink-operator
+
+appName: flink
+
+teamOwner: detection
+
+rbac:
+  create: true
+
+namespaces:
+  jobNamespace: detectors
+  operatorNamespace: flink-operator
+
+serviceAccounts:
+  flink:
+    create: true
+    name:
+  flinkoperator:
+    create: true
+    name:
+
+resourceRequests:
+  memory: "1Gi"
+  cpu: 0.5
+
+resourceLimits:
+  memory: "46Gi"
+  cpu: 3
+
+# Comma separated list of namespaces that the operator is configured to watch
+# Empty string by default, which indicates all namespaces will be watched
+resyncPeriod: "15s"
+workers: 16
+maxErrDuration: "60m"
+
+organization: 
+
+role: ppd-infra-spot
+
+additionalLabels:
+  team-owner: detection

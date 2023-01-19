@@ -1,0 +1,11 @@
+name: flink-operator
+description: A Helm chart for Flink operator
+version: 0.8.2
+appVersion: 0.5.0
+apiVersion: v1
+kubeVersion: ">=1.10.0-0"
+keywords:
+  - flink
+home: https://github.com/lyft/flinkk8soperator
+maintainers:
+  - name: Lightbend Cloudflow Team

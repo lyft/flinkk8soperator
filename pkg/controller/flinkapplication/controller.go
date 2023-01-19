@@ -2,6 +2,7 @@ package flinkapplication
 
 import (
 	"context"
+	"os"
 
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
@@ -167,7 +168,7 @@ func isOwnedByFlinkApplication(ownerReferences []metaV1.OwnerReference) bool {
 
 func isOwnedByOrganization(labels map[string]string) bool {
 	for k, v := range labels {
-		if k == "organization" && v == "HUNTERS" {
+		if k == "organization" && v == os.Getenv("organization") {
 			return true
 		}
 	}
