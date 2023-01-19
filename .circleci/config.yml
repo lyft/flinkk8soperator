@@ -1,10 +1,14 @@
 version: 2.1
+
+# this allows you to use CircleCI's dynamic configuration feature
+setup: true
+
 orbs:
   aws-ecr: circleci/aws-ecr@8.2.1
   aws-eks: circleci/aws-eks@2.2.0
   docker: circleci/docker@2.2.0
   continuation: circleci/continuation@0.1.2
-  node: circleci/node@5.0.3
+  #node: circleci/node@5.0.3
 
 # executors:
 #   scala:
