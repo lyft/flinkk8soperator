@@ -110,7 +110,7 @@ commands:
             else
               echo 'export DYNAMIC_AWS_ACCOUNT_ID=${AWS_STAGING_ACCOUNT_ID}' >> $BASH_ENV
             fi
-
+  
 jobs:
   build_and_push_image:
     executor: aws-ecr/default
@@ -157,6 +157,7 @@ jobs:
 
   static-helm-deployment:
     executor: continuation/default
+    working_directory: ~/flinkk8soperator
     parameters:
       region:
         type: string
