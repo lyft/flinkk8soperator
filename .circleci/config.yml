@@ -13,6 +13,63 @@ orbs:
 #       SBT_VERSION: 1.8.0
 
 commands:
+  set-static-tenants:
+    parameters:
+      cluster-name:
+        type: string
+      env:
+        type: string
+      region:
+        type: string
+        default: ${AWS_REGION}
+    steps:
+      - run:
+          name: Fetch tenants from config manager
+          command: |
+            cd .circleci
+            PARSED_TENANTS=$(echo '<< parameters.tenants >>' | jq -c 'split(",")')
+            if [[ -z $PARSED_TENANTS ]] ; then
+              PARSED_TENANTS=[]
+            fi
+            echo "Here we are replacing all the templates in deploy.yml file and creating a new <REGION>-deploy.yml to deploy for multiple regions at once"
+            sed "s|<REGION>|<< parameters.region >>|g" deploy.yml >> << parameters.region >>-deploy.yml
+            sed -i "s|<ENV>|<< parameters.env >>|g" << parameters.region >>-deploy.yml
+            sed -i "s|<CLUSTER_NAME>|<< parameters.cluster-name >>|g" << parameters.region >>-deploy.yml
+            sed -i "s|<GIT_TAG>|${CIRCLE_SHA1:0:7}|g" << parameters.region >>-deploy.yml
+            sed -i "s|<TENANTS>|${PARSED_TENANTS[@]}|g" << parameters.region >>-deploy.yml
+
+  fetch-tenants:
+    parameters:
+      cluster-name:
+        type: string
+      env:
+        type: string
+      region:
+        type: string
+        default: ${AWS_REGION}
+    steps:
+      - run:
+          name: Fetch tenants from config manager
+          command: |
+            cd .circleci
+            kubectl port-forward -n configuration svc/configuration-manager-service 8080 &
+            sleep 10
+            TENANTS=`\
+              curl \
+              --header "Content-Type: application/json" \
+              --request GET http://localhost:8080/organization/<< parameters.region >>/release_names`
+
+            PARSED_TENANTS=$(echo $TENANTS | jq -c 'keys')
+            if [[ -z $PARSED_TENANTS ]] ; then
+              PARSED_TENANTS=[]
+            fi
+            echo "Here we are replacing all the templates in deploy.yml file and creating a new <REGION>-deploy.yml to deploy for multiple regions at once"
+            sed "s|<REGION>|<< parameters.region >>|g" deploy.yml >> << parameters.region >>-deploy.yml
+            sed -i "s|<ENV>|<< parameters.env >>|g" << parameters.region >>-deploy.yml
+            sed -i "s|<CLUSTER_NAME>|<< parameters.cluster-name >>|g" << parameters.region >>-deploy.yml
+            sed -i "s|<GIT_TAG>|${CIRCLE_SHA1:0:7}|g" << parameters.region >>-deploy.yml
+            sed -i "s|<TENANTS>|${PARSED_TENANTS[@]}|g" << parameters.region >>-deploy.yml
+
   setup_env:
     steps:
       - run:
@@ -27,12 +84,31 @@ commands:
             echo 'export AWS_ACCESS_KEY_ID=${MULTITENANT_AWS_ACCESS_KEY_ID}' >> $BASH_ENV
             echo 'export AWS_SECRET_ACCESS_KEY=${MULTITENANT_AWS_SECRET_ACCESS_KEY}' >> $BASH_ENV
             echo 'export EKS_CLUSTER=${US_MULTITENANT_AWS_EKS_CLUSTER_NAME}' >> $BASH_ENV
+  set-static-creds:
+    steps:
+      - run:
+          name: Setting workflow dynamic data according to branch
+          command: |
+            if [[ "<< pipeline.git.branch >>" == "staging" ]]; then
+              echo 'export DYNAMIC_AWS_ACCOUNT_ID=${AWS_STAGING_ACCOUNT_ID}' >> $BASH_ENV
+              echo 'export AWS_ACCESS_KEY_ID=${STAGING_AWS_ACCESS_KEY}' >> $BASH_ENV
+              echo 'export AWS_SECRET_ACCESS_KEY=${STAGING_AWS_SECRET_KEY}' >> $BASH_ENV
+              echo 'export EKS_CLUSTER=${EKS_STAGING_US}' >> $BASH_ENV 
+            elif [[ "<< pipeline.git.branch >>" == "master" ]]; then
+              echo 'export DYNAMIC_AWS_ACCOUNT_ID=${AWS_PROD_ACCOUNT_ID}' >> $BASH_ENV
+              echo 'export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}' >> $BASH_ENV
+              echo 'export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}' >> $BASH_ENV
+              echo 'export EKS_CLUSTER=${EKS_PROS_US}' >> $BASH_ENV
+            else
+              echo 'export DYNAMIC_AWS_ACCOUNT_ID=${AWS_STAGING_ACCOUNT_ID}' >> $BASH_ENV
+            fi
 
 jobs:
   build_and_push_image:
     executor: aws-ecr/default
     steps:
-      - setup_env
+      #- setup_env
+      - set-static-creds
       - when:
           condition:
             or:
@@ -46,13 +122,76 @@ jobs:
                 repo: flinkk8soperator
                 tag: ${CIRCLE_SHA1}
 
+  dynamic-helm-deployment:
+    executor: continuation/default
+    parameters:
+      region:
+        type: string
+      cluster-name:
+        type: string
+      env:
+        type: string
+    steps:
+      - checkout
+      - set-static-creds
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << parameters.cluster-name >>
+          aws-region: << parameters.region >>
+          install-kubectl: true
+      - fetch-tenants:
+          cluster-name: << parameters.cluster-name >>
+          region: << parameters.region >>
+          env: << parameters.env >>
+      - continuation/continue:
+          configuration_path: /home/circleci/flinkk8soperator/.circleci/<< parameters.region >>-deploy.yml
+
+  static-helm-deployment:
+    executor: continuation/default
+    parameters:
+      region:
+        type: string
+      cluster-name:
+        type: string
+      env:
+        type: string
+      tenants:
+        type: string
+    steps:
+      - checkout
+      - set-static-creds
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << parameters.cluster-name >>
+          aws-region: << parameters.region >>
+          install-kubectl: true
+      - set-static-tenants:
+          cluster-name: << parameters.cluster-name >>
+          region: << parameters.region >>
+          env: << parameters.env >>
+          tenants: << parameters.tenants >>
+      - continuation/continue:
+          configuration_path: /home/circleci/flinkk8soperator/.circleci/<< parameters.region >>-deploy.yml
   
 workflows:
   # Just try to build the image without publishing anything
-  build_image_only:
+  build_image_and_deploy:
     jobs:
       - build_and_push_image:
           context:
             - aws-credentials
             - aws-eks
             - detection
+      - static-helm-deployment:
+          name: US Deployment (staging-detectors)
+          context:
+            - aws-credentials
+            - aws-eks
+          region: us-west-2
+          cluster-name: ${EKS_PROD_US}
+          env: staging-detectors
+          tenants: HUNTERS,HUNTERS-LAB,SOLUTIONS_STAGING
+          requires:
+            - build_and_push_image
+          filters:
+            branches:
+              only:
+                - staging-detectors
