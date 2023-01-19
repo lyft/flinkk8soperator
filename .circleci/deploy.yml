@@ -88,7 +88,7 @@ workflows:
           region: <REGION>
           env: <ENV>
           cluster-name: <CLUSTER_NAME>
-          namespace: <NAMESPACE>
+          namespace: staging-detectors
           tag: <GIT_TAG>
           matrix:
             parameters:
