@@ -59,7 +59,7 @@ jobs:
               - equal: [staging-detectors, << pipeline.git.branch >>]
 
           steps:
-            - aws-ecr/push-image:da
+            - aws-ecr/push-image:
                 region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
                 registry-id: DYNAMIC_AWS_ACCOUNT_ID
                 repo: flinkk8soperator
