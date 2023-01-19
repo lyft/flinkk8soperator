@@ -44,4 +44,4 @@ additionalLabels:
   team-owner: detection
 
 podmonitor:
-  enabled: false
+  enabled: true

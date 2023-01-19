@@ -1,0 +1,29 @@
+{{- if .Values.podmonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "flink-operator.fullname" . }}
+  labels:
+    app: {{ include "flink-operator.name" . }}
+    environment: staging
+spec:
+  jobLabel: __meta_kubernetes_service_label_app
+  selector:
+    matchLabels:
+      app: {{ include "flink-operator.name" . }}
+  podMetricsEndpoints:
+    # - path: /metrics
+    #   targetPort: 10254
+    #   honorLabels: true
+    #   interval: 60s
+    #   scrapeTimeout: 60s
+
+    #   metricRelabelings:
+    #     - sourceLabels: [ __name__ ]
+    #       regex: 'flinkk8soperator:state_machine:(ClusterStarting_handle_time_ms_sum|SubmittingJob_handle_time_ms_sum|DeployFailed_handle_time_ms_sum|Running_handle_time_ms_sum|Savepointing_handle_time_ms_sum|Updating_handle_time_ms_sum|ClusterStarting_handle_time_ms_count|SubmittingJob_handle_time_ms_count|DeployFailed_handle_time_ms_count|Running_handle_time_ms_count|Savepointing_handle_time_ms_count|Updating_handle_time_ms_count)'
+    #       action: keep
+    - path: /metrics
+      targetPort: 8080
+      honorLabels: true
+      interval: 60s
+{{- end }}
