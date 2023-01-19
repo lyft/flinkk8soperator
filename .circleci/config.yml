@@ -16,7 +16,6 @@ commands:
   prepare:
     steps:
       - setup_env
-      - docker/install-docker-tools
 
   setup_env:
     steps:
@@ -38,9 +37,6 @@ jobs:
     executor: aws-ecr/default
     steps:
       - prepare
-      - setup_remote_docker:
-          docker_layer_caching: true
-
       - aws-ecr/ecr-login:
           region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
           registry-id: DYNAMIC_AWS_ACCOUNT_ID
@@ -67,10 +63,10 @@ jobs:
               - equal: [staging-detectors, << pipeline.git.branch >>]
 
           steps:
-            - aws-ecr/ecr-login:
+            - aws-ecr/ecr-login:saf
                 region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
                 registry-id: DYNAMIC_AWS_ACCOUNT_ID
-            - aws-ecr/push-image:
+            - aws-ecr/push-image:da
                 region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
                 registry-id: DYNAMIC_AWS_ACCOUNT_ID
                 repo: flinkk8soperator
