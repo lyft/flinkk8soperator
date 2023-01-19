@@ -1,10 +1,10 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: {{ include "flink-operator.name" . }}-config
-  namespace: {{ .Values.namespaces.jobNamespace }}
+  name: {{ include "flink-operator.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: {{ include "flink-operator.name" . }}-config
+    app.kubernetes.io/name: {{ include "flink-operator.fullname" . }}-config
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
     app.kubernetes.io/instance: "{{ .Release.Name }}"
     app.kubernetes.io/managed-by: "{{ .Release.Service }}"
@@ -12,7 +12,7 @@ metadata:
 data:
   config: |-
     operator:
-        limitNamespace: {{ .Values.namespaces.jobNamespace }}
+        limitNamespace: {{ .Release.Namespace }}
         resyncPeriod: {{ .Values.resyncPeriod }}
         workers: {{ .Values.workers }}
         maxErrDuration: {{ .Values.maxErrDuration }}

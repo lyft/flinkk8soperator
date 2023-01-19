@@ -11,17 +11,13 @@ teamOwner: detection
 rbac:
   create: true
 
-namespaces:
-  jobNamespace: detectors
-  operatorNamespace: flink-operator
-
 serviceAccounts:
   flink:
-    create: true
-    name:
+    create: false
+    name: 
   flinkoperator:
-    create: true
-    name:
+    create: false
+    name: flinkoperator
 
 resourceRequests:
   memory: "1Gi"
