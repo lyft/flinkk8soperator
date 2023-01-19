@@ -1,0 +1,91 @@
+version: 2.1
+
+executors:
+  python:
+    docker:
+      - image: cimg/python:3.8.5
+
+orbs:
+  aws-eks: circleci/aws-eks@2.2.0
+  helm: circleci/helm@1.2.0
+
+commands:
+  parse-tenant-name:
+    parameters:
+      tenant:
+        type: string
+    steps:
+      - run:
+          name: Parse << parameters.tenant >> release name
+          command: |
+            echo "export HU_TENANT_RELEASE_NAME=$(echo << parameters.tenant >> | awk '{print to tolower($0)}' | sed "s|_|-|g")" >> $BASH_ENV
+  set-static-creds:
+    steps:
+      - run:
+          name: Setting workflow dynamic data according to branch
+          command: |
+            if [[ "<< pipeline.git.branch >>" == "staging" ]]; then
+              echo 'export DYNAMIC_AWS_ACCOUNT_ID=${AWS_STAGING_ACCOUNT_ID}' >> $BASH_ENV
+              echo 'export AWS_ACCESS_KEY_ID=${STAGING_AWS_ACCESS_KEY}' >> $BASH_ENV
+              echo 'export AWS_SECRET_ACCESS_KEY=${STAGING_AWS_SECRET_KEY}' >> $BASH_ENV
+              echo 'export EKS_CLUSTER=${EKS_STAGING_US}' >> $BASH_ENV 
+            elif [[ "<< pipeline.git.branch >>" == "master" ]]; then
+              echo 'export DYNAMIC_AWS_ACCOUNT_ID=${AWS_PROD_ACCOUNT_ID}' >> $BASH_ENV
+              echo 'export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}' >> $BASH_ENV
+              echo 'export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}' >> $BASH_ENV
+              echo 'export EKS_CLUSTER=${EKS_PROS_US}' >> $BASH_ENV
+            else
+              echo 'export DYNAMIC_AWS_ACCOUNT_ID=${AWS_STAGING_ACCOUNT_ID}' >> $BASH_ENV
+            fi
+
+
+jobs:
+  helm-upgrade:
+    executor: python
+    parameters:
+      tenant:
+        type: string
+      tag:
+        type: string
+      cluster-name:
+        type: string
+      region:
+        type: string
+        default: ${AWS_REGION}
+      env:
+        type: string
+        default: staging
+    steps:
+      - checkout
+      - set-static-creds
+      - parse-tenant-name:
+          tenant: << parameters.tenant >>
+      - aws-eks/update-kubeconfig-with-authenticator:
+          cluster-name: << parameters.cluster-name >>
+          aws-region: << parameters.region >>
+          install-kubectl: true
+      - parse-tenant-name:
+          tenant: << parameters.tenant >>
+      - helm/upgrade-helm-chart:
+          chart: k8s/chart
+          helm-version: v3.5.4
+          release-name: flink-operator-$HU_TENANT_RELEASE_NAME
+          values: k8s/chart/values.yaml
+          values-to-override: organization=<< parameters.tenant >>,region=<< parameters.region >>,tag=<< parameters.tag >>,tenant=<< parameters.tenant >>,tenant_release_name=$HU_TENANT_RELEASE_NAME,accountId=$DYNAMIC_AWS_ACCOUNT_ID,env=<< parameters.env >>
+          timeout: "5m0s"
+
+workflows:
+  version: 2
+  deploy:
+    jobs:
+      - helm-upgrade:
+          context:
+            - aws-credentials
+            - aws-eks
+          region: <REGION>
+          env: <ENV>
+          cluster-name: <CLUSTER_NAME>
+          tag: <GIT_TAG>
+          matrix:
+            parameters:
+              tenant: <TENANTS>
