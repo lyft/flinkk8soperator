@@ -35,7 +35,7 @@ commands:
 
 jobs:
   build_and_push_image:
-    #executor: scala
+    executor: aws-ecr/default
     steps:
       - prepare
       - setup_remote_docker:
