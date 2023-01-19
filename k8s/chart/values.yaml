@@ -8,6 +8,9 @@ appName: flink
 
 teamOwner: detection
 
+namespaces:
+  jobNamespace: ""
+  
 rbac:
   create: false
 
