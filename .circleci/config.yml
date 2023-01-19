@@ -59,9 +59,6 @@ jobs:
               - equal: [staging-detectors, << pipeline.git.branch >>]
 
           steps:
-            - aws-ecr/ecr-login:saf
-                region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
-                registry-id: DYNAMIC_AWS_ACCOUNT_ID
             - aws-ecr/push-image:da
                 region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
                 registry-id: DYNAMIC_AWS_ACCOUNT_ID
