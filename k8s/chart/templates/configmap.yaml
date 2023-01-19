@@ -2,7 +2,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: {{ include "flink-operator.name" . }}-config
-  namespace: {{ .Values.jobNamespace }}
+  namespace: {{ .Values.namespaces.jobNamespace }}
   labels:
     app.kubernetes.io/name: {{ include "flink-operator.name" . }}-config
     helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"

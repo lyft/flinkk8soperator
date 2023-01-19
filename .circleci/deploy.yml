@@ -55,6 +55,8 @@ jobs:
       env:
         type: string
         default: staging
+      namespace:
+        type: string
     steps:
       - checkout
       - set-static-creds
@@ -67,6 +69,7 @@ jobs:
       - parse-tenant-name:
           tenant: << parameters.tenant >>
       - helm/upgrade-helm-chart:
+          namespace: << parameters.namespace >>
           chart: k8s/chart
           helm-version: v3.5.4
           release-name: flink-operator-$HU_TENANT_RELEASE_NAME
@@ -85,6 +88,7 @@ workflows:
           region: <REGION>
           env: <ENV>
           cluster-name: <CLUSTER_NAME>
+          namespace: <NAMESPACE>
           tag: <GIT_TAG>
           matrix:
             parameters:
