@@ -37,7 +37,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: flinkoperator-gojson
-          image: {{ .Values.accountId}}.dkr.ecr.{{ .Values.region }}.amazonaws.com/flinkk8soperator:{{ .Values.tag }}
+          image: 685648138888.dkr.ecr.{{ .Values.region }}.amazonaws.com/flinkk8soperator:{{ .Values.tag }}
           command:
             - flinkoperator
           args:
