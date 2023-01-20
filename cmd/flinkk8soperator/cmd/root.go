@@ -77,7 +77,6 @@ func init() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	err := flag.CommandLine.Parse([]string{})
 	if err != nil {
-		logger.Infof("could not parse?? why??")
 		logAndExit(err)
 	}
 
@@ -94,6 +93,7 @@ func init() {
 }
 
 func initConfig(flags *pflag.FlagSet) error {
+	println("GOT", flags)
 	configAccessor = viper.NewAccessor(config.Options{
 		SearchPaths: []string{cfgFile},
 	})
