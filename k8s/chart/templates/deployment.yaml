@@ -17,7 +17,6 @@ spec:
       app.kubernetes.io/version: {{ .Values.operatorVersion }}
   template:
     metadata:
-      namespace: {{ .Release.Namespace }}
       labels:
         app.kubernetes.io/name: {{ include "flink-operator.fullname" . }}
         app.kubernetes.io/version: {{ .Values.operatorVersion }}
