@@ -29,7 +29,7 @@ commands:
               echo 'export AWS_ACCESS_KEY_ID=${STAGING_AWS_ACCESS_KEY}' >> $BASH_ENV
               echo 'export AWS_SECRET_ACCESS_KEY=${STAGING_AWS_SECRET_KEY}' >> $BASH_ENV
               echo 'export EKS_CLUSTER=${EKS_STAGING_US}' >> $BASH_ENV 
-            elif [[ "<< pipeline.git.branch >>" == "master" ]]; then
+            elif [[ "<< pipeline.git.branch >>" == "master" || "<< pipeline.git.branch >>" == "staging-detectors" ]]; then
               echo 'export DYNAMIC_AWS_ACCOUNT_ID=${AWS_PROD_ACCOUNT_ID}' >> $BASH_ENV
               echo 'export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}' >> $BASH_ENV
               echo 'export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}' >> $BASH_ENV
