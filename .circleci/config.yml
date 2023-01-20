@@ -42,7 +42,7 @@ commands:
             sed "s|<REGION>|<< parameters.region >>|g" deploy.yml >> << parameters.region >>-deploy.yml
             sed -i "s|<ENV>|<< parameters.env >>|g" << parameters.region >>-deploy.yml
             sed -i "s|<CLUSTER_NAME>|<< parameters.cluster-name >>|g" << parameters.region >>-deploy.yml
-            sed -i "s|<GIT_TAG>|${CIRCLE_SHA1}|g" << parameters.region >>-deploy.yml
+            sed -i "s|<GIT_TAG>|${CIRCLE_SHA1:0:7}|g" << parameters.region >>-deploy.yml
             sed -i "s|<TENANTS>|${PARSED_TENANTS[@]}|g" << parameters.region >>-deploy.yml
 
   fetch-tenants:
@@ -129,7 +129,7 @@ jobs:
                 region: ${US_MULTITENANT_AWS_DEFAULT_REGION}
                 registry-id: DYNAMIC_AWS_ACCOUNT_ID
                 repo: flinkk8soperator
-                tag: ${CIRCLE_SHA1}
+                tag: ${CIRCLE_SHA1:0:7}
 
   dynamic-helm-deployment:
     executor: continuation/default
