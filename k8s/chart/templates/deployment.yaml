@@ -48,6 +48,7 @@ spec:
               value: flinkk8soperator
             - name: organization
               value: {{ .Values.organization }}
+          enableServiceLinks: false
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: 10254
