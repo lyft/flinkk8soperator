@@ -45,3 +45,9 @@ additionalLabels:
 
 podmonitor:
   enabled: true
+
+accountId:
+
+region:
+
+tag:
