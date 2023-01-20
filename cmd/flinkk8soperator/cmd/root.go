@@ -77,6 +77,7 @@ func init() {
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	err := flag.CommandLine.Parse([]string{})
 	if err != nil {
+		logger.Infof("could not parse?? why??")
 		logAndExit(err)
 	}
 
