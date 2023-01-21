@@ -52,6 +52,8 @@ spec:
           imagePullPolicy: {{ .Values.imagePullPolicy }}
           ports:
             - containerPort: 10254
+            - containerPort: 8080
+              name: controller-metrics
           resources:
             requests:
               memory: {{ .Values.resourceRequests.memory }}
