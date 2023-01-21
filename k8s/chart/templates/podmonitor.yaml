@@ -10,7 +10,7 @@ spec:
   jobLabel: __meta_kubernetes_service_label_app
   selector:
     matchLabels:
-      app: {{ include "flink-operator.name" . }}
+      app.kubernetes.io/name: {{ include "flink-operator.fullname" . }}
   podMetricsEndpoints:
     # - path: /metrics
     #   targetPort: 10254
