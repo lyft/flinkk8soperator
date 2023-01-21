@@ -53,7 +53,7 @@ spec:
           ports:
             - containerPort: 10254
             - containerPort: 8080
-              name: controller-metrics
+              name: controller
           resources:
             requests:
               memory: {{ .Values.resourceRequests.memory }}
