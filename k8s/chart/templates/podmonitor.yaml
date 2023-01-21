@@ -23,6 +23,6 @@ spec:
     #       regex: 'flinkk8soperator:state_machine:(ClusterStarting_handle_time_ms_sum|SubmittingJob_handle_time_ms_sum|DeployFailed_handle_time_ms_sum|Running_handle_time_ms_sum|Savepointing_handle_time_ms_sum|Updating_handle_time_ms_sum|ClusterStarting_handle_time_ms_count|SubmittingJob_handle_time_ms_count|DeployFailed_handle_time_ms_count|Running_handle_time_ms_count|Savepointing_handle_time_ms_count|Updating_handle_time_ms_count)'
     #       action: keep
     - path: /metrics
-      port: controller-metrics
+      port: controller
       interval: 60s
 {{- end }}
