@@ -206,3 +206,28 @@ workflows:
             branches:
               only:
                 - staging-detectors
+
+  build_image_and_deploy:
+    jobs:
+      - build_and_push_image:
+          context:
+            - aws-credentials
+            - aws-eks
+            - detection
+      - static-helm-deployment:
+          name: US Deployment (staging-detectors)
+          context:
+            - aws-credentials
+            - aws-eks
+          region: us-west-2
+          cluster-name: ${EKS_PROD_US}
+          env: staging-detectors
+          tenants: BLOCKFI,CHARGEPOINT,CLUMIO,GONG,GUILD,INVI
+          requires:
+            - build_and_push_image
+          filters:
+            branches:
+              only:
+                - master
+
+

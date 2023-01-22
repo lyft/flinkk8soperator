@@ -24,7 +24,7 @@ serviceAccounts:
 
 resourceRequests:
   memory: "1Gi"
-  cpu: 2
+  cpu: 1
 
 resourceLimits:
   memory: "46Gi"
