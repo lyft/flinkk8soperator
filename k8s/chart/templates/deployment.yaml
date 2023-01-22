@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
     owner-team: {{ .Values.teamOwner }}
+    organization: {{ .Values.organization }}
     role: flink-operator
 spec:
   replicas: 1
@@ -22,6 +23,7 @@ spec:
         app.kubernetes.io/name: {{ include "flink-operator.fullname" . }}
         app.kubernetes.io/version: {{ .Values.operatorVersion }}
         team-owner: {{ .Values.teamOwner }}
+        organization: {{ .Values.organization }}
         role: flink-operator
     spec:
       serviceAccountName: {{ include "flink-operator.serviceAccountName" $ }}
