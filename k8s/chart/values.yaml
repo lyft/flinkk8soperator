@@ -24,11 +24,11 @@ serviceAccounts:
 
 resourceRequests:
   memory: "1Gi"
-  cpu: 0.5
+  cpu: 2
 
 resourceLimits:
   memory: "46Gi"
-  cpu: 3
+  cpu: 5
 
 # Comma separated list of namespaces that the operator is configured to watch
 # Empty string by default, which indicates all namespaces will be watched
