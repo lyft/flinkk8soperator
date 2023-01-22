@@ -8,7 +8,8 @@ metadata:
     helm.sh/chart: {{ include "flink-operator.chart" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-    team-owner: {{ .Values.teamOwner }}
+    owner-team: {{ .Values.owner }}
+    role: flink-operator
 spec:
   replicas: 1
   selector:
@@ -20,7 +21,8 @@ spec:
       labels:
         app.kubernetes.io/name: {{ include "flink-operator.fullname" . }}
         app.kubernetes.io/version: {{ .Values.operatorVersion }}
-        team-owner: {{ .Values.teamOwner }}
+        team-owner: {{ .Values.owner }}
+        role: flink-operator
     spec:
       serviceAccountName: {{ include "flink-operator.serviceAccountName" $ }}
       volumes:

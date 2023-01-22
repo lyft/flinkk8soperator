@@ -6,7 +6,7 @@ nameOverride: flink-operator
 
 appName: flink
 
-teamOwner: detection
+owner: detection
 
 namespaces:
   jobNamespace: ""
