@@ -184,7 +184,7 @@ jobs:
   
 workflows:
   # Just try to build the image without publishing anything
-  build_image_and_deploy:
+  build_image_and_deploy_staging_detectors:
     jobs:
       - build_and_push_image:
           context:
@@ -207,7 +207,7 @@ workflows:
               only:
                 - staging-detectors
 
-  build_image_and_deploy:
+  build_image_and_deploy_us:
     jobs:
       - build_and_push_image:
           context:
