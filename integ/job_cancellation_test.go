@@ -163,11 +163,17 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	c.Assert(err, IsNil)
 
 	// wait a bit
-	time.Sleep(1 * time.Second)
 
-	job = s.Util.GetJobOverview(currApp)
+	counter := 0
+	for counter < 120 {
+		time.Sleep(1 * time.Second)
+
+		job = s.Util.GetJobOverview(currApp)
+		log.Infof("job status: %s", job["status"])
+		counter++
+	}
+
 	c.Assert(job["status"], Equals, "CANCELED")
-
 	newApp, err := s.Util.Update(config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
 	})
