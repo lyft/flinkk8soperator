@@ -215,6 +215,8 @@ func (c *FlinkJobManagerClient) ForceCancelJob(ctx context.Context, url string, 
 	url = url + path + "?mode=cancel"
 
 	response, err := c.executeRequest(ctx, httpPatch, url, nil)
+	logger.Info(ctx, "response is ", response)
+	logger.Info(ctx, "err is ", err)
 	if err != nil {
 		c.metrics.forceCancelJobFailureCounter.Inc(ctx)
 		logger.Errorf(ctx, fmt.Sprintf("Force cancel job failed with error %v", err))
@@ -225,7 +227,7 @@ func (c *FlinkJobManagerClient) ForceCancelJob(ctx context.Context, url string, 
 		logger.Errorf(ctx, fmt.Sprintf("Force cancel job failed with response %v", response))
 		return GetRetryableError(err, v1beta1.ForceCancelJob, response.Status(), DefaultRetries)
 	}
-
+	logger.Info(ctx, "Successfully cancelled the job")
 	c.metrics.forceCancelJobSuccessCounter.Inc(ctx)
 	return nil
 }
