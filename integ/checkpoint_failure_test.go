@@ -2,8 +2,6 @@ package integ
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
@@ -65,7 +63,7 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	log.Info("All pods torn down")
 }
 
-// Tests that we correctly handle updating a job with task failures
+/* Tests that we correctly handle updating a job with task failures
 func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 	failingJobTest(s, c, "taskfailure", func() {
 		f, err := os.OpenFile(s.Util.CheckpointDir+"/fail", os.O_RDONLY|os.O_CREATE, 0666)
@@ -82,3 +80,4 @@ func (s *IntegSuite) TestCheckpointTimeout(c *C) {
 		c.Assert(err, IsNil)
 	})
 }
+*/

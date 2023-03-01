@@ -984,6 +984,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	}
 	job, err := s.flinkController.GetJobForApplication(ctx, app, app.Status.DeployHash)
 	if err != nil {
+		logger.Warn(ctx, "Error: "+err.Error(), err)
 		return statusUnchanged, err
 	}
 
@@ -995,6 +996,7 @@ func (s *FlinkStateMachine) handleApplicationDeleting(ctx context.Context, app *
 	case v1beta1.DeleteModeForceCancel:
 		if job.State == client.Cancelling {
 			// we've already cancelled the job, waiting for it to finish
+			logger.Info(ctx, "Still in cancelling..")
 			return statusUnchanged, nil
 		} else if jobFinished(job) {
 			// job was successfully cancelled
