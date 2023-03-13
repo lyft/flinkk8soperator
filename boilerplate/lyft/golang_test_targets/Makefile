@@ -1,18 +1,13 @@
 .PHONY: lint
 lint: #lints the package for common code smells
 	which golangci-lint || sh boilerplate/lyft/golang_test_targets/golangci-lint.sh -b $$GOPATH/bin v1.51.2
-	golangci-lint run
+	golangci-lint run --timeout 5m
 
 # If code is failing goimports linter, this will fix.
 # skips 'vendor'
 .PHONY: goimports
 goimports:
 	@boilerplate/lyft/golang_test_targets/goimports
-
-.PHONY: install
-install: #download dependencies (including test deps) for the package
-	which dep || sh boilerplate/lyft/golang_test_targets/dep_install.sh
-	dep ensure
 
 .PHONY: test_unit
 test_unit:
