@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"k8s.io/klog"
 
@@ -25,7 +27,6 @@ import (
 	controllerConfig "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	ctrlRuntimeConfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"github.com/kubernetes-sigs/controller-runtime/pkg/runtime/signals"
 	apis "github.com/lyft/flinkk8soperator/pkg/apis/app"
 	"github.com/lyft/flytestdlib/profutils"
 	"github.com/lyft/flytestdlib/promutils"
@@ -187,6 +188,6 @@ func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
 
 	// Start the Cmd
 	logger.Infof(ctx, "Starting the Cmd.")
-	stopCh = signals.SetupSignalHandler()
-	return stopCh, mgr.Start(stopCh)
+	ctx, _ = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	return stopCh, mgr.Start(ctx.Done())
 }
