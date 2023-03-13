@@ -23,9 +23,19 @@ $ kubectl proxy &
 $ open http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/overview
 ```
 
+### Set up your Go environment
+
+```bash
+$ export GOPATH=~/src/go
+```
+
+(should probably go into your shell's profile)
+
 ### Checkout the code
 
 ```bash
+$ mkdir -p $GOPATH/src/github.com/lyft
+$ cd $GOPATH/src/github.com/lyft
 $ git clone git@github.com:lyft/flinkk8soperator.git
 ```
 
