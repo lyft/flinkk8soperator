@@ -2,7 +2,6 @@ package integ
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -78,7 +77,7 @@ func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 func (s *IntegSuite) TestCheckpointTimeout(c *C) {
 	failingJobTest(s, c, "checkpointtimeout", func() {
 		// cause checkpoints to take 120 seconds
-		err := ioutil.WriteFile(s.Util.CheckpointDir+"/checkpoint_delay", []byte("120000"), 0644)
+		err := os.WriteFile(s.Util.CheckpointDir+"/checkpoint_delay", []byte("120000"), 0644) // nolint: gosec
 		c.Assert(err, IsNil)
 	})
 }

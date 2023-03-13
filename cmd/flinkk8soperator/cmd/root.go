@@ -126,30 +126,21 @@ func executeRootCmd(controllerCfg *controllerConfig.Config) error {
 		}
 	}()
 
-	stopCh, err := operatorEntryPoint(ctx, operatorScope, controllerCfg)
-	if err != nil {
+	if err := operatorEntryPoint(ctx, operatorScope, controllerCfg); err != nil {
 		cancelNow()
 		return err
 	}
 
-	for {
-		select {
-		case <-stopCh:
-			cancelNow()
-			os.Exit(0)
-		case <-ctx.Done():
-			cancelNow()
-		}
-	}
+	<-ctx.Done()
+	cancelNow()
+	return nil
 }
 
-func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
-	controllerCfg *controllerConfig.Config) (stopCh <-chan struct{}, err error) {
-
+func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope, controllerCfg *controllerConfig.Config) error {
 	// Get a config to talk to the apiserver
 	cfg, err := ctrlRuntimeConfig.GetConfig()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	limitNameSpace := strings.TrimSpace(controllerCfg.LimitNamespace)
@@ -168,14 +159,14 @@ func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
 	}
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	logger.Infof(ctx, "Registering Components.")
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Setup all Controllers
@@ -183,11 +174,11 @@ func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope,
 	if err := controller.AddToManager(ctx, mgr, controllerConfig.RuntimeConfig{
 		MetricsScope: metricsScope,
 	}); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Start the Cmd
 	logger.Infof(ctx, "Starting the Cmd.")
 	ctx, _ = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	return stopCh, mgr.Start(ctx.Done())
+	return mgr.Start(ctx.Done())
 }

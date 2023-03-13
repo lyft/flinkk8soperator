@@ -93,6 +93,7 @@ func (f *TestUtil) Cleanup() {
 		} else {
 			// make sure none of the apps have left-over finalizers
 			for _, app := range flinkApps.Items {
+				app := app
 				if len(app.Finalizers) != 0 {
 					app.Finalizers = []string{}
 					_, _ = f.FlinkApps().Update(&app)

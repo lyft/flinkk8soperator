@@ -1,6 +1,6 @@
 .PHONY: lint
 lint: #lints the package for common code smells
-	which golangci-lint || sh boilerplate/lyft/golang_test_targets/golangci-lint.sh -b $$GOPATH/bin v1.16.0
+	which golangci-lint || sh boilerplate/lyft/golang_test_targets/golangci-lint.sh -b $$GOPATH/bin v1.51.2
 	golangci-lint run
 
 # If code is failing goimports linter, this will fix.
@@ -28,4 +28,4 @@ test_unit_cover:
 
 .PHONY: test_unit_visual
 test_unit_visual:
-	go test ./... -coverprofile /tmp/cover.out -covermode=count; go tool cover -html=/tmp/cover.out 
+	go test ./... -coverprofile /tmp/cover.out -covermode=count; go tool cover -html=/tmp/cover.out
