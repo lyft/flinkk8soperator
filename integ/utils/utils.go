@@ -12,11 +12,11 @@ import (
 
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/go-resty/resty"
 	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
 	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
 	"github.com/prometheus/common/log"
+	resty "gopkg.in/resty.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"

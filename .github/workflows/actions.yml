@@ -21,7 +21,7 @@ jobs:
       - name: install go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.12
+          go-version: 1.20
       - name: install
         run: make install
       - name: test
@@ -42,7 +42,7 @@ jobs:
       - name: install go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.12
+          go-version: 1.20
       - name: install
         run: make install
       - name: test
@@ -64,7 +64,7 @@ jobs:
   #     - name: install go
   #       uses: actions/setup-go@v2
   #       with:
-  #         go-version: 1.12
+  #         go-version: 1.20
   #     - name: install
   #       run: integ/install.sh
   #     - name: setup

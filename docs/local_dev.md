@@ -23,19 +23,9 @@ $ kubectl proxy &
 $ open http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/#!/overview
 ```
 
-### Set up your Go environment
-
-```bash
-$ export GOPATH=~/src/go
-```
-
-(should probably go into your shell's profile)
-
 ### Checkout the code
 
 ```bash
-$ mkdir -p $GOPATH/src/github.com/lyft
-$ cd $GOPATH/src/github.com/lyft
 $ git clone git@github.com:lyft/flinkk8soperator.git
 ```
 
@@ -59,8 +49,6 @@ quickly, use a debugger, etc.
 $ dep ensure
 $ KUBERNETES_CONFIG="$HOME/.kube/config" go run ./cmd/flinkk8soperator/main.go  --config=local_config.yaml
 ```
-
-(you may need to accept a firewall prompt and `brew install dep` if you don't have it installed)
 
 #### Option 2: run inside the kubernetes cluster
 
