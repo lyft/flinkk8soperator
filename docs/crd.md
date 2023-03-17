@@ -172,3 +172,8 @@ Below is the list of fields in the custom resource and their description:
   * **tearDownVersionHash** `type:string`
     Used **only** with the BlueGreen deployment mode. This is set typically once a FlinkApplication successfully transitions to the `DualRunning` phase.
     Once set, the application version corresponding to the hash is torn down. On successful teardown, the FlinkApplication transitions to a `Running` phase.
+
+  * **fallbackWithoutState** `type:bool`
+    Can be set to true to attempt to force a successful upgrade by starting the new job without state when either
+    the job fails to savepoint during upgrade or fails to submit during upgrade. In the case where this step fails,
+    the old job will still be deployed in the RollingBackJob phase.

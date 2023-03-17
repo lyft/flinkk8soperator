@@ -60,6 +60,7 @@ type FlinkApplicationSpec struct {
 	ForceRollback                  bool                `json:"forceRollback"`
 	MaxCheckpointRestoreAgeSeconds *int32              `json:"maxCheckpointRestoreAgeSeconds,omitempty"`
 	TearDownVersionHash            string              `json:"tearDownVersionHash,omitempty"`
+	FallbackWithoutState           bool                `json:"fallbackWithoutState"`
 }
 
 type FlinkConfig map[string]interface{}
@@ -244,19 +245,20 @@ func (p FlinkApplicationPhase) VerboseString() string {
 
 // As you add more ApplicationPhase please add it to FlinkApplicationPhases list
 const (
-	FlinkApplicationNew             FlinkApplicationPhase = ""
-	FlinkApplicationUpdating        FlinkApplicationPhase = "Updating"
-	FlinkApplicationRescaling       FlinkApplicationPhase = "Rescaling"
-	FlinkApplicationClusterStarting FlinkApplicationPhase = "ClusterStarting"
-	FlinkApplicationSubmittingJob   FlinkApplicationPhase = "SubmittingJob"
-	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
-	FlinkApplicationSavepointing    FlinkApplicationPhase = "Savepointing"
-	FlinkApplicationCancelling      FlinkApplicationPhase = "Cancelling"
-	FlinkApplicationDeleting        FlinkApplicationPhase = "Deleting"
-	FlinkApplicationRecovering      FlinkApplicationPhase = "Recovering"
-	FlinkApplicationRollingBackJob  FlinkApplicationPhase = "RollingBackJob"
-	FlinkApplicationDeployFailed    FlinkApplicationPhase = "DeployFailed"
-	FlinkApplicationDualRunning     FlinkApplicationPhase = "DualRunning"
+	FlinkApplicationNew                       FlinkApplicationPhase = ""
+	FlinkApplicationUpdating                  FlinkApplicationPhase = "Updating"
+	FlinkApplicationRescaling                 FlinkApplicationPhase = "Rescaling"
+	FlinkApplicationClusterStarting           FlinkApplicationPhase = "ClusterStarting"
+	FlinkApplicationSubmittingJob             FlinkApplicationPhase = "SubmittingJob"
+	FlinkApplicationRunning                   FlinkApplicationPhase = "Running"
+	FlinkApplicationSavepointing              FlinkApplicationPhase = "Savepointing"
+	FlinkApplicationCancelling                FlinkApplicationPhase = "Cancelling"
+	FlinkApplicationDeleting                  FlinkApplicationPhase = "Deleting"
+	FlinkApplicationRecovering                FlinkApplicationPhase = "Recovering"
+	FlinkApplicationRollingBackJob            FlinkApplicationPhase = "RollingBackJob"
+	FlinkApplicationDeployFailed              FlinkApplicationPhase = "DeployFailed"
+	FlinkApplicationDualRunning               FlinkApplicationPhase = "DualRunning"
+	FlinkApplicationSubmittingJobWithoutState FlinkApplicationPhase = "SubmittingJobWithoutState"
 )
 
 var FlinkApplicationPhases = []FlinkApplicationPhase{
@@ -273,6 +275,7 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationDeployFailed,
 	FlinkApplicationRollingBackJob,
 	FlinkApplicationDualRunning,
+	FlinkApplicationSubmittingJobWithoutState,
 }
 
 func IsRunningPhase(phase FlinkApplicationPhase) bool {

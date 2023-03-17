@@ -785,6 +785,22 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	return statusUnchanged, nil
 }
 
+//func (s *FlinkStateMachine) handleSubmittingJobWithoutState(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
+//	if v1beta1.FallbackWithoutState {
+//		return statusChanged, nil
+//	}
+//
+//	if rollback, reason := s.shouldRollback(ctx, app); rollback {
+//		// Something's gone wrong; roll back
+//		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
+//			fmt.Sprintf("Failed to submit job: %s", reason))
+//		s.flinkController.UpdateLatestJobID(ctx, app, "")
+//		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
+//		return statusChanged, nil
+//	}
+//	return statusChanged, nil
+//}
+
 // Something has gone wrong during the update, post job-cancellation (and cluster tear-down in single mode). We need
 // to try to get things back into a working state
 func (s *FlinkStateMachine) handleRollingBack(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {

@@ -130,6 +130,8 @@ spec:
             maxCheckpointRestoreAgeSeconds:
               type: integer
               minimum: 1
+            fallbackWithoutState:
+              type: boolean
             jobManagerConfig:
               type: object
               properties:
