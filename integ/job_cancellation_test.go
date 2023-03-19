@@ -163,7 +163,7 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	c.Assert(err, IsNil)
 
 	// wait a bit
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	job = s.Util.GetJobOverview(currApp)
 	c.Assert(job["status"], Equals, "CANCELED")
