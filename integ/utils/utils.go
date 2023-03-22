@@ -216,8 +216,8 @@ func (f *TestUtil) CreateOperator() error {
 								{Name: "config-volume", MountPath: "/etc/flinkk8soperator/config"},
 							},
 							// TODO: revert this
-							ImagePullPolicy: v1.PullIfNotPresent,
-							// ImagePullPolicy: v1.PullNever,
+							// ImagePullPolicy: v1.PullIfNotPresent,
+							ImagePullPolicy: v1.PullNever,
 						},
 					},
 				},
@@ -284,6 +284,18 @@ func (f *TestUtil) GetLogs(podName string, lines *int64) error {
 		return err
 	}
 
+	return nil
+}
+
+func (f *TestUtil) GetEvents() error {
+	events, err := f.KubeClient.CoreV1().Events("flinkoperatortest").List(metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, event := range events.Items {
+		fmt.Printf("\nType: %s, Reason: %s, Object: %s, Message: %s \n",
+			event.Type, event.Reason, event.Name, event.Message)
+	}
 	return nil
 }
 

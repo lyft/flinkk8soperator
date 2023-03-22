@@ -111,9 +111,9 @@ func (s *IntegSuite) TearDownSuite(c *C) {
 
 func (s *IntegSuite) SetUpTest(c *C) {
 	// create checkpoint directory
-	if _, err := os.Stat(s.Util.CheckpointDir); os.IsNotExist(err) {
-		c.Assert(os.Mkdir(s.Util.CheckpointDir, 0777), IsNil)
-	}
+	//if _, err := os.Stat(s.Util.CheckpointDir); os.IsNotExist(err) {
+	//	c.Assert(os.Mkdir(s.Util.CheckpointDir, 0777), IsNil)
+	//}
 }
 
 func (s *IntegSuite) TearDownTest(c *C) {
@@ -132,13 +132,20 @@ func (s *IntegSuite) TearDownTest(c *C) {
 		}
 	}
 
+	flinkApps, err := s.Util.FlinkApps().List(v1.ListOptions{})
+	for _, app := range flinkApps.Items {
+		fmt.Printf("\n\n######### FlinkApplication %s "+
+			"#########\n---------------------------\n", app.Name)
+		fmt.Println(app)
+	}
+
 	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Failed to clean up flink applications")
 	}
 
-	err = os.RemoveAll(s.Util.CheckpointDir)
-	if err != nil {
-		log.Fatalf("Failed to clean up checkpoints directory: %v", err)
-	}
+	//err = os.RemoveAll(s.Util.CheckpointDir)
+	//if err != nil {
+	//	log.Fatalf("Failed to clean up checkpoints directory: %v", err)
+	//}
 }
