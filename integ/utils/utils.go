@@ -216,8 +216,8 @@ func (f *TestUtil) CreateOperator() error {
 								{Name: "config-volume", MountPath: "/etc/flinkk8soperator/config"},
 							},
 							// TODO: revert this
-							// ImagePullPolicy: v1.PullIfNotPresent,
-							ImagePullPolicy: v1.PullNever,
+							ImagePullPolicy: v1.PullIfNotPresent,
+							// ImagePullPolicy: v1.PullNever,
 						},
 					},
 				},
