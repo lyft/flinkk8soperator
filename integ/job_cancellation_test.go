@@ -157,13 +157,15 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	job := s.Util.GetJobOverview(currApp)
 	c.Assert(job["status"], Equals, "RUNNING")
 
+	time.Sleep(10 * time.Second)
+
 	// trigger a cancel on the existing job
 	endpoint := fmt.Sprintf("jobs/%s?mode=cancel", currApp.Status.JobStatus.JobID)
 	_, err = s.Util.FlinkAPIPatch(currApp, endpoint)
 	c.Assert(err, IsNil)
 
 	// wait a bit
-	time.Sleep(1 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	job = s.Util.GetJobOverview(currApp)
 	c.Assert(job["status"], Equals, "CANCELED")

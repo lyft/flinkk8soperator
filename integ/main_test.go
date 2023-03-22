@@ -79,7 +79,7 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 			LimitNamespace: namespace,
 			UseProxy:       true,
 			ResyncPeriod:   flyteConfig.Duration{Duration: 3 * time.Second},
-			MaxErrDuration: flyteConfig.Duration{Duration: 30 * time.Second},
+			MaxErrDuration: flyteConfig.Duration{Duration: 60 * time.Second},
 			MetricsPrefix:  "flinkk8soperator",
 			ProxyPort:      flyteConfig.Port{Port: 8001},
 		}
