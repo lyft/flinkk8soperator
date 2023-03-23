@@ -9,7 +9,7 @@ spec:
   image: 127.0.0.1:3200/flink-test-app:local.1
   # image: operator-test-app:test1
   # image: lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
-  imagePullPolicy: Never
+  imagePullPolicy: IfNotPresent
   imagePullSecrets:
     - name: dockerhub
   flinkConfig:

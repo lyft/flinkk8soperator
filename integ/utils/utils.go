@@ -375,6 +375,7 @@ func (f *TestUtil) GetFlinkApplication(name string) (*flinkapp.FlinkApplication,
 }
 
 func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhase, failurePhases ...flinkapp.FlinkApplicationPhase) error {
+	waitTime := 0
 	for {
 		app, err := f.FlinkApps().Get(name, metav1.GetOptions{})
 
@@ -392,7 +393,12 @@ func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhas
 			}
 		}
 
-		time.Sleep(200 * time.Millisecond)
+		waitTime += 1
+		time.Sleep(1 * time.Second)
+
+		if waitTime > 30 {
+			return errors.New("did not get to phase Running")
+		}
 	}
 }
 

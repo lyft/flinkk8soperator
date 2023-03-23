@@ -150,6 +150,26 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 		Commentf("Failed to create flink application"))
 
 	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	//for {
+	//	app, err := s.Util.FlinkApps().Get(config.Name, metav1.GetOptions{})
+	//
+	//	if err != nil {
+	//		log.Errorf("Application failed to running %s", err)
+	//	}
+	//
+	//	if app.Status.Phase == v1beta1.FlinkApplicationRunning {
+	//		break
+	//	}
+	//
+	//	if app.Status.Phase == v1beta1.FlinkApplicationDeployFailed {
+	//		log.Errorf("application entered %s phase", v1beta1.FlinkApplicationDeployFailed)
+	//	}
+	//
+	//	time.Sleep(60 * time.Second)
+	//
+	//
+	//}
+
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	currApp, _ := s.Util.GetFlinkApplication(config.Name)
