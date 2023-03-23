@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 export TEST_APP_IMAGE=operator-test-app:$(git rev-parse HEAD)
-microk8s.docker build -f integ/Dockerfile -t ${TEST_APP_IMAGE}
+microk8s.docker build -f integ/operator-test-app/Dockerfile -t ${TEST_APP_IMAGE} .
 microk8s.docker tag $TEST_APP_IMAGE 127.0.0.1:3200/flink-test-app:local.1
 microk8s.docker tag $TEST_APP_IMAGE 127.0.0.1:3200/flink-test-app:local.2
 

@@ -24,7 +24,7 @@ restart-strategy.fixed-delay.attempts: 2147483647
 # These parameters control how often TaskManagers try to connect to a JobManager.
 # These values are set a bit lower than the defaults to make recovery and cluster restarts
 # a bit faster
-taskmanager.maxRegistrationDuration: inf
+taskmanager.maxRegistrationDuration: Inf
 taskmanager.initial-registration-pause: 500 ms
 taskmanager.max-registration-pause: 5 s
 taskmanager.refused-registration-pause: 5 s
