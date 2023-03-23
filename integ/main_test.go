@@ -139,6 +139,8 @@ func (s *IntegSuite) TearDownTest(c *C) {
 		fmt.Println(app)
 	}
 
+	_ = s.Util.GetEvents()
+
 	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Failed to clean up flink applications")
