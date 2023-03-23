@@ -6,11 +6,23 @@ metadata:
   labels:
     environment: development
 spec:
-  image: lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
-  # imagePullPolicy: Never
+  image: 127.0.0.1:3200/flink-test-app:local.1
+  # image: operator-test-app:test1
+  # image: lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
+  imagePullPolicy: Never
   imagePullSecrets:
     - name: dockerhub
   flinkConfig:
+    jobmanager.memory.jvm-overhead.min: "50 mb"
+    jobmanager.memory.jvm-metaspace.size: "80 mb"
+    jobmanager.memory.off-heap.size: "40 mb"
+    taskmanager.memory.jvm-overhead.min: "30 mb"
+    taskmanager.memory.jvm-metaspace.size: "50 mb"
+    taskmanager.memory.off-heap.size: "20 mb"
+    taskmanager.memory.task.heap.size: "20 mb"
+    taskmanager.memory.network.min: "20 mb"
+    taskmanager.memory.framework.heap.size: "20 mb"
+    taskmanager.memory.framework.off-heap.size: "20 mb"
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints
@@ -18,7 +30,7 @@ spec:
     systemMemoryFraction: 0.2
     resources:
       requests:
-        memory: "200Mi"
+        memory: "400Mi"
         cpu: "0.2"
     replicas: 1
   taskManagerConfig:
@@ -26,10 +38,10 @@ spec:
     systemMemoryFraction: 0.5
     resources:
       requests:
-        memory: "400Mi"
+        memory: "500Mi"
         cpu: "0.2"
 #      limits:
-#        memory: "400Mi"
+#        memory: "500Mi"
   volumeMounts:
     - mountPath: /checkpoints
       name: checkpoints
