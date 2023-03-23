@@ -139,6 +139,8 @@ func (s *IntegSuite) TearDownTest(c *C) {
 		fmt.Println(app)
 	}
 
+	fmt.Printf("\n\n######### K8s Events" +
+		"#########\n---------------------------\n")
 	_ = s.Util.GetEvents()
 
 	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
