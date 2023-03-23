@@ -117,12 +117,6 @@ func (s *IntegSuite) SetUpTest(c *C) {
 }
 
 func (s *IntegSuite) TearDownTest(c *C) {
-	jm, err := s.Util.GetJobManagerPod()
-	if err == nil {
-		fmt.Printf("\n\n######### JobManager logs for debugging #########\n---------------------------\n")
-		_ = s.Util.GetLogs(jm, nil)
-	}
-
 	tms, err := s.Util.GetTaskManagerPods()
 	if err == nil {
 		for i, tm := range tms {
@@ -130,6 +124,12 @@ func (s *IntegSuite) TearDownTest(c *C) {
 				"#########\n---------------------------\n", i)
 			_ = s.Util.GetLogs(tm, nil)
 		}
+	}
+
+	jm, err := s.Util.GetJobManagerPod()
+	if err == nil {
+		fmt.Printf("\n\n######### JobManager logs for debugging #########\n---------------------------\n")
+		_ = s.Util.GetLogs(jm, nil)
 	}
 
 	flinkApps, err := s.Util.FlinkApps().List(v1.ListOptions{})
