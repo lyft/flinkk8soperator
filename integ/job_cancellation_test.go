@@ -190,6 +190,9 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	err = s.Util.ExecuteCommand("kubectl", "describe", "nodes")
 	c.Assert(err, IsNil)
 
+	err = s.Util.ExecuteCommand("kubectl", "get", "pods", "-n", "flinkoperatortest")
+	c.Assert(err, IsNil)
+
 	err = s.Util.ExecuteCommand("kubectl", "describe", "pods", "-n", "flinkoperatortest")
 	c.Assert(err, IsNil)
 
