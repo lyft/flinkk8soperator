@@ -20,7 +20,8 @@ spec:
 #    taskmanager.memory.jvm-metaspace.size: "50 mb"
 #    taskmanager.memory.off-heap.size: "20 mb"
     taskmanager.memory.task.heap.size: "100 mb"
-#    taskmanager.memory.network.min: "20 mb"
+    taskmanager.memory.managed.fraction: 0.2
+    #    taskmanager.memory.network.min: "20 mb"
 #    taskmanager.memory.framework.heap.size: "20 mb"
 #    taskmanager.memory.framework.off-heap.size: "20 mb"
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
