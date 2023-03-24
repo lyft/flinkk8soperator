@@ -21,4 +21,4 @@ docker build -t $DOCKER_IMAGE .
 docker tag $DOCKER_IMAGE $OPERATOR_IMAGE
 minikube image push $OPERATOR_IMAGE
 
-microk8s.kubectl proxy --port 8001 &
+kubectl proxy --port 8001 &
