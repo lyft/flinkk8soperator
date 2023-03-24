@@ -17,6 +17,8 @@ import (
 
 const NewImage = "127.0.0.1:3200/flink-test-app:local.2"
 
+// const NewImage = "operator-test-app:test1.2"
+
 func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
 	app, err := s.Util.Update(name, updateFn)
 	c.Assert(err, IsNil)
