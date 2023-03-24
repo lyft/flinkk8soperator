@@ -36,20 +36,22 @@ spec:
     systemMemoryFraction: 0.2
     resources:
       requests:
-        memory: "200Mi"
+        memory: "400Mi"
         cpu: "0.2"
       limits:
         memory: "400Mi"
+        cpu: "0.2"
     replicas: 1
   taskManagerConfig:
     taskSlots: 2
     systemMemoryFraction: 0.5
     resources:
       requests:
-        memory: "400Mi"
+        memory: "800Mi"
         cpu: "0.2"
       limits:
         memory: "800Mi"
+        cpu: "0.2"
   volumeMounts:
     - mountPath: /checkpoints
       name: checkpoints
