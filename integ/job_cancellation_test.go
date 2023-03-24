@@ -187,7 +187,14 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	// wait a bit
 	time.Sleep(20 * time.Second)
 
-	_ = s.Util.GetEvents()
+	err = s.Util.ExecuteCommand("kubectl", "describe", "nodes")
+	c.Assert(err, IsNil)
+
+	err = s.Util.ExecuteCommand("kubectl", "describe", "pods", "-n", "flinkoperatortest")
+	c.Assert(err, IsNil)
+
+	err = s.Util.ExecuteCommand("kubectl", "describe", "flinkapplications", "-n", "flinkoperatortest")
+	c.Assert(err, IsNil)
 
 	job = s.Util.GetJobOverview(currApp)
 	c.Assert(job["status"], Equals, "CANCELED")

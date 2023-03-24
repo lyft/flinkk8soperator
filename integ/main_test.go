@@ -132,17 +132,6 @@ func (s *IntegSuite) TearDownTest(c *C) {
 		_ = s.Util.GetLogs(jm, nil)
 	}
 
-	flinkApps, err := s.Util.FlinkApps().List(v1.ListOptions{})
-	for _, app := range flinkApps.Items {
-		fmt.Printf("\n\n######### FlinkApplication %s "+
-			"#########\n---------------------------\n", app.Name)
-		fmt.Println(app)
-	}
-
-	fmt.Printf("\n\n######### K8s Events" +
-		"#########\n---------------------------\n")
-	_ = s.Util.GetEvents()
-
 	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Failed to clean up flink applications")

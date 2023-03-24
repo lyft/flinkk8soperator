@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -99,12 +100,26 @@ func (f *TestUtil) Cleanup() {
 				}
 			}
 		}
-
 		err = f.KubeClient.CoreV1().Namespaces().Delete(f.Namespace.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			log.Errorf("Failed to clean up after test: %v", err)
 		}
 	}
+}
+
+func (f *TestUtil) ExecuteCommand(name string, arg ...string) error {
+	cmd := exec.Command(name, arg...)
+	stdout, err := cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	return nil
 }
 
 func getFile(relativePath string) (*os.File, error) {
@@ -284,18 +299,6 @@ func (f *TestUtil) GetLogs(podName string, lines *int64) error {
 		return err
 	}
 
-	return nil
-}
-
-func (f *TestUtil) GetEvents() error {
-	events, err := f.KubeClient.CoreV1().Events("flinkoperatortest").List(metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	for _, event := range events.Items {
-		fmt.Printf("\nType: %s, Reason: %s, Object: %s, Message: %s \n",
-			event.Type, event.Reason, event.Name, event.Message)
-	}
 	return nil
 }
 
