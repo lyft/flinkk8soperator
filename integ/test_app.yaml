@@ -38,7 +38,7 @@ spec:
     systemMemoryFraction: 0.5
     resources:
       requests:
-        memory: "2Gi"
+        memory: "3Gi"
         cpu: "0.2"
 #      limits:
 #        memory: "500Mi"
