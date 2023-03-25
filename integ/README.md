@@ -95,7 +95,7 @@ and the upgrade is non-trivial.
 2. Create directory /tmp/checkpoints if it does not exist already.
 
 3. Start minikube
-   minikube start --kubernetes-version=v1.20.15 --mount --mount-string="/tmp/checkpoints:/tmp/checkpoints"
+   minikube start --kubernetes-version=v1.20.15 --extra-config=apiserver.authorization-mode=AlwaysAllow
 
 4. Proxy minikube
    kubectl proxy --port 8001 &
