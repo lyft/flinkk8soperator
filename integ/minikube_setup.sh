@@ -12,6 +12,12 @@
 #
 #cd ../../
 
+docker pull lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
+docker pull lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2
+minikube image load lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
+minikube image load lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2
+
+
 # Operator Setup
 
 export DOCKER_IMAGE=flinkk8soperator:$(git rev-parse HEAD)

@@ -2,8 +2,6 @@ package integ
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
@@ -68,9 +66,10 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 // Tests that we correctly handle updating a job with task failures
 func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 	failingJobTest(s, c, "taskfailure", func() {
-		f, err := os.OpenFile(s.Util.CheckpointDir+"/fail", os.O_RDONLY|os.O_CREATE, 0666)
+		// f, err := os.OpenFile(s.Util.CheckpointDir+"/fail", os.O_RDONLY|os.O_CREATE, 0666)
+		err := s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
 		c.Assert(err, IsNil)
-		c.Assert(f.Close(), IsNil)
+		// c.Assert(f.Close(), IsNil)
 	})
 }
 
@@ -78,7 +77,8 @@ func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 func (s *IntegSuite) TestCheckpointTimeout(c *C) {
 	failingJobTest(s, c, "checkpointtimeout", func() {
 		// cause checkpoints to take 120 seconds
-		err := ioutil.WriteFile(s.Util.CheckpointDir+"/checkpoint_delay", []byte("120000"), 0644)
+		err := s.Util.ExecuteCommand("minikube", "ssh", "echo 120000 >> /tmp/checkpoints/checkpoint_delay && sudo chmod 0644 /tmp/checkpoints/checkpoint_delay")
+		// err := ioutil.WriteFile(s.Util.CheckpointDir+"/checkpoint_delay", []byte("120000"), 0644)
 		c.Assert(err, IsNil)
 	})
 }

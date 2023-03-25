@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"os"
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
@@ -316,9 +315,10 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	}
 
 	// cause the app to start failing
-	f, err := os.OpenFile(s.Util.CheckpointDir+"/fail", os.O_RDONLY|os.O_CREATE, 0666)
+	err = s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
+	// f, err := os.OpenFile(s.Util.CheckpointDir+"/fail", os.O_RDONLY|os.O_CREATE, 0666)
 	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
+	// c.Assert(f.Close(), IsNil)
 
 	log.Info("Triggered failure")
 
@@ -347,7 +347,8 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 
 	// stop it from failing
-	c.Assert(os.Remove(s.Util.CheckpointDir+"/fail"), IsNil)
+	c.Assert(s.Util.ExecuteCommand("minikube", "ssh", "sudo rm /tmp/checkpoints/fail"), IsNil)
+	// c.Assert(os.Remove(s.Util.CheckpointDir+"/fail"), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	// delete the application

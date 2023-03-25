@@ -121,3 +121,14 @@ and the upgrade is non-trivial.
 
 9. Between test failures delete all resources if test timed out
    kubectl delete namespace flinkoperatortest
+
+Helpers:
+- Kill kube proxy
+  ps -ef | grep "kubectl proxy"
+  kill -9 <process_id>
+- Kill stuck flink app
+  kubectl patch FlinkApplication invalidcanceljob -p '{"metadata":{"finalizers":[]}}' --type=merge
+- Set default namespace
+  kubectl config set-context --current --namespace=flinkoperatortest
+- 
+

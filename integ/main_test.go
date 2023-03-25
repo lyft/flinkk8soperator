@@ -114,6 +114,13 @@ func (s *IntegSuite) SetUpTest(c *C) {
 	//if _, err := os.Stat(s.Util.CheckpointDir); os.IsNotExist(err) {
 	//	c.Assert(os.Mkdir(s.Util.CheckpointDir, 0777), IsNil)
 	//}
+	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo mkdir /tmp/checkpoints"); err != nil {
+		c.Fatalf("Failed to create checkpoint directory: %v", err)
+	}
+
+	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo chmod -R 0777 /tmp/checkpoints"); err != nil {
+		c.Fatalf("Failed to elevate permissions on checkpoint directory: %v", err)
+	}
 }
 
 func (s *IntegSuite) TearDownTest(c *C) {
@@ -134,11 +141,15 @@ func (s *IntegSuite) TearDownTest(c *C) {
 
 	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
 	if err != nil {
-		log.Fatalf("Failed to clean up flink applications")
+		log.Fatalf("Failed to clean up flink applications: %v", err)
 	}
 
 	//err = os.RemoveAll(s.Util.CheckpointDir)
 	//if err != nil {
 	//	log.Fatalf("Failed to clean up checkpoints directory: %v", err)
 	//}
+
+	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo rm -rf /tmp/checkpoints"); err != nil {
+		c.Fatalf("Failed to delete checkpoint directory: %v", err)
+	}
 }
