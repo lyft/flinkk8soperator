@@ -58,7 +58,7 @@ func WaitUpdateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *
 
 // tests the workflow of job cancellation without savepoint
 func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
-
+	log.Info("Starting test TestJobCancellationWithoutSavepoint")
 	testName := "cancelsuccess"
 	const finalizer = "simple.finalizers.test.com"
 
@@ -131,11 +131,13 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 		}
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestJobCancellationWithoutSavepoint")
 }
 
 // tests a job update with the existing job already in cancelled state.
 // here, the new submitted job starts without a savepoint.
 func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
+	log.Info("Starting test TestCancelledJobWithoutSavepoint")
 
 	testName := "invalidcancel"
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
@@ -239,10 +241,12 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 		}
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestCancelledJobWithoutSavepoint")
 }
 
 // tests the recovery workflow of the job when savepoint is disabled.
 func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
+	log.Info("Starting test TestJobRecoveryWithoutSavepoint")
 
 	const finalizer = "simple.finalizers.test.com"
 	const testName = "cancelrecovery"
@@ -334,4 +338,5 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestJobRecoveryWithoutSavepoint")
 }

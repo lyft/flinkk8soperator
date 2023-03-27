@@ -11,6 +11,8 @@ import (
 )
 
 func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
+	log.Info("Starting test TestInPlaceScaleUp")
+
 	const finalizer = "scaleup.finalizers.test.com"
 	const testName = "test_in_place_scale_up"
 
@@ -148,4 +150,5 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestInPlaceScaleUp")
 }
