@@ -194,6 +194,7 @@ func (f *TestUtil) CreateOperator() error {
 					},
 				},
 				Spec: v1.PodSpec{
+					ServiceAccountName: "flinkoperator",
 					Volumes: []v1.Volume{
 						{
 							Name: "config-volume",
@@ -230,9 +231,7 @@ func (f *TestUtil) CreateOperator() error {
 							VolumeMounts: []v1.VolumeMount{
 								{Name: "config-volume", MountPath: "/etc/flinkk8soperator/config"},
 							},
-							// TODO: revert this
 							ImagePullPolicy: v1.PullIfNotPresent,
-							// ImagePullPolicy: v1.PullNever,
 						},
 					},
 				},

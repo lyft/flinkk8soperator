@@ -10,4 +10,5 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: flinkoperator
-  namespace: flink-operator
+  # namespace: flink-operator
+  namespace: flinkoperatortest

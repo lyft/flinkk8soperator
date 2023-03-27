@@ -92,6 +92,14 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 			}
 		}()
 	} else {
+		if err = s.Util.ExecuteCommand("kubectl", "create", "-f", "../deploy/role.yaml"); err != nil {
+			c.Fatalf("Failed to create role: %v", err)
+		}
+
+		if err = s.Util.ExecuteCommand("kubectl", "create", "-f", "../deploy/role-binding.yaml"); err != nil {
+			c.Fatalf("Failed to create role binding: %v", err)
+		}
+
 		if err = s.Util.CreateOperator(); err != nil {
 			c.Fatalf("Failed to create operator: %v", err)
 		}
