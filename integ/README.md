@@ -92,36 +92,20 @@ and the upgrade is non-trivial.
 1. Install Dependencies
    Run dep ensure -vendor-only
 
-2. Create directory /tmp/checkpoints if it does not exist already.
-
 3. Start minikube
    minikube start --kubernetes-version=v1.20.15
-   minikube ssh 'sudo cat /etc/kubernetes/manifests/kube-apiserver.yaml | sed -r "s/--authorization-mode=.+/--authorization-mode=AlwaysAllow/g" | sudo tee /etc/kubernetes/manifests/kube-apiserver.yaml'
 
-5. Proxy minikube
+4. Proxy minikube
    kubectl proxy --port 8001 &
 
-6. Create the operator image
-   export DOCKER_IMAGE=flinkk8soperator:$(git rev-parse HEAD)
-   docker build -t $DOCKER_IMAGE .
-   minikube image load $DOCKER_IMAGE
+5. Set up test app images and operator image
+   integ/minikube_setup.sh
 
-7. Load images for integ test to minikube
-    docker pull lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
-    minikube image load lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
-    docker pull lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2
-    minikube image load lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2
-
-8. Configure the test app to use the local image
-    Add imagePullPolicy: Never to integ/test-app.yaml
-
-9. Set the following for the Go test:
+8. Set the following for the Go test:
    Package path: github.com/lyft/flinkk8soperator/integ
-   Env: INTEGRATION=true;OPERATOR_IMAGE=flinkk8soperator:d5883988975fc8fc5d5bd0ccdf9cb035f1f636a4;RUN_DIRECT=true
-   Program Args: -timeout 40m -check.vv
+   Env: INTEGRATION=true;OPERATOR_IMAGE=flinkk8soperator:local;RUN_DIRECT=true
+   Program Args: -timeout 40m -check.vv IntegTest
 
-10. Between test failures delete all resources if test timed out
-    kubectl delete namespace flinkoperatortest
 
 Helpers:
 - Kill kube proxy
@@ -131,5 +115,4 @@ Helpers:
   kubectl patch FlinkApplication invalidcanceljob -p '{"metadata":{"finalizers":[]}}' --type=merge
 - Set default namespace
   kubectl config set-context --current --namespace=flinkoperatortest
-- 
 

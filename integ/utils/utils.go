@@ -398,7 +398,7 @@ func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhas
 		waitTime += 1
 		time.Sleep(1 * time.Second)
 
-		if waitTime > 180 {
+		if waitTime > 500 {
 			return errors.New("did not get to phase Running")
 		}
 	}
