@@ -39,7 +39,7 @@ spec:
         memory: "400Mi"
         cpu: "0.2"
       limits:
-        memory: "400Mi"
+        memory: "800Mi"
         cpu: "0.2"
     replicas: 1
   taskManagerConfig:
@@ -63,5 +63,5 @@ spec:
   flinkVersion: "1.11"
   deploymentMode: Dual
   jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
-  parallelism: 3
+  parallelism: 2
   entryClass: "com.lyft.OperatorTestApp"

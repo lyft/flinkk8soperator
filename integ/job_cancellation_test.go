@@ -81,7 +81,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
-	c.Assert(len(pods.Items), Equals, 3)
+	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
 		c.Assert(pod.Spec.Containers[0].Image, Equals, config.Spec.Image)
 	}
@@ -97,7 +97,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
-	c.Assert(len(pods.Items), Equals, 3)
+	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
 		c.Assert(pod.Spec.Containers[0].Image, Equals, NewImage)
 	}

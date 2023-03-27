@@ -55,7 +55,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
-	c.Assert(len(pods.Items), Equals, 3)
+	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
 		c.Assert(pod.Spec.Containers[0].Image, Equals, config.Spec.Image)
 	}
@@ -72,7 +72,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	// We have 2 applications running
-	c.Assert(len(pods.Items), Equals, 6)
+	c.Assert(len(pods.Items), Equals, 4)
 	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationDualRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.GetJobID(newApp), NotNil)
 	c.Assert(newApp.Status.UpdatingVersion, Equals, v1beta1.BlueFlinkApplication)
