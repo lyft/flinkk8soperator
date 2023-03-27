@@ -147,6 +147,18 @@ func (s *IntegSuite) TearDownTest(c *C) {
 		_ = s.Util.GetLogs(jm, nil)
 	}
 
+	err = s.Util.ExecuteCommand("kubectl", "describe", "nodes")
+	c.Assert(err, IsNil)
+
+	err = s.Util.ExecuteCommand("kubectl", "get", "pods", "-n", "flinkoperatortest")
+	c.Assert(err, IsNil)
+
+	err = s.Util.ExecuteCommand("kubectl", "describe", "pods", "-n", "flinkoperatortest")
+	c.Assert(err, IsNil)
+
+	err = s.Util.ExecuteCommand("kubectl", "describe", "flinkapplications", "-n", "flinkoperatortest")
+	c.Assert(err, IsNil)
+
 	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Failed to clean up flink applications: %v", err)

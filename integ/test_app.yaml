@@ -32,6 +32,7 @@ spec:
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints
+    env.java.opts.jobmanager: "-XX:+UseG1GC"
   jobManagerConfig:
     systemMemoryFraction: 0.2
     resources:
