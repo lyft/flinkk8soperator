@@ -27,7 +27,7 @@ jobs:
       - name: test
         run: make test_unit
   lint:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     defaults:
       run:
         working-directory: go/src/github.com/lyft/flinkk8soperator
