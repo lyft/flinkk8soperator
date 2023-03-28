@@ -65,8 +65,8 @@ jobs:
         with:
           go-version: 1.12
       - name: install
-        run: integ/minikube_install.sh
+        run: integ/install.sh
       - name: setup
-        run: integ/minikube_setup.sh
+        run: integ/setup.sh
       - name: test
-        run: sudo "PATH=$PATH" "GOPATH=$GOPATH" integ/minikube_test.sh
+        run: sudo "PATH=$PATH" "GOPATH=$GOPATH" integ/test.sh

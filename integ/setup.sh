@@ -1,24 +1,31 @@
 #!/usr/bin/env bash
 
-cd integ/operator-test-app
-export TEST_APP_IMAGE=operator-test-app:$(git rev-parse HEAD)
-microk8s.docker build -t ${TEST_APP_IMAGE} .
-microk8s.docker tag $TEST_APP_IMAGE 127.0.0.1:3200/flink-test-app:local.1
-microk8s.docker tag $TEST_APP_IMAGE 127.0.0.1:3200/flink-test-app:local.2
-microk8s.docker push 127.0.0.1:3200/flink-test-app:local.1
-microk8s.docker push 127.0.0.1:3200/flink-test-app:local.2
+# Test App Setup
 
-cd ../../
+# TODO: upgrade flink test app from 1.8
+#cd integ/operator-test-app
+#export TEST_APP_IMAGE=operator-test-app:$(git rev-parse HEAD)
+#docker build -t $TEST_APP_IMAGE .
+#docker tag $TEST_APP_IMAGE flink-test-app:local.1
+#docker tag $TEST_APP_IMAGE flink-test-app:local.2
+#minikube image load flink-test-app:local.1
+#minikube image load flink-test-app:local.2
+#
+#cd ../../
+
+docker pull lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
+docker pull lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2
+minikube image load lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
+minikube image load lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2
+
+
+# Operator Setup
 
 export DOCKER_IMAGE=flinkk8soperator:$(git rev-parse HEAD)
-export OPERATOR_IMAGE=127.0.0.1:32000/flinkk8soperator:local
+export OPERATOR_IMAGE=flinkk8soperator:local
 
-microk8s.docker build -t $DOCKER_IMAGE .
-microk8s.docker tag $DOCKER_IMAGE $OPERATOR_IMAGE
-microk8s.docker push 127.0.0.1:32000/flinkk8soperator
+docker build -t $DOCKER_IMAGE .
+docker tag $DOCKER_IMAGE $OPERATOR_IMAGE
+minikube image load $OPERATOR_IMAGE
 
-microk8s.start
-microk8s.status --wait-ready
-
-microk8s.kubectl proxy --port 8001 &
-microk8s.kubectl config view > ~/.kube/config
+kubectl proxy --port 8001 &

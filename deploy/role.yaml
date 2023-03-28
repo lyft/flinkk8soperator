@@ -80,5 +80,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: flinkoperator
-  # namespace: flink-operator
-  namespace: flinkoperatortest
+  namespace: flink-operator

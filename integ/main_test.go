@@ -92,12 +92,16 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 			}
 		}()
 	} else {
-		if err = s.Util.ExecuteCommand("kubectl", "create", "-f", "../deploy/role.yaml"); err != nil {
+		if err = s.Util.CreateRole(); err != nil {
 			c.Fatalf("Failed to create role: %v", err)
 		}
 
-		if err = s.Util.ExecuteCommand("kubectl", "create", "-f", "../deploy/role-binding.yaml"); err != nil {
-			c.Fatalf("Failed to create role binding: %v", err)
+		if err = s.Util.CreateServiceAccount(); err != nil {
+			c.Fatalf("Failed to create service account: %v", err)
+		}
+
+		if err = s.Util.CreateClusterRoleBinding(); err != nil {
+			c.Fatalf("Failed to create cluster role binding: %v", err)
 		}
 
 		if err = s.Util.CreateOperator(); err != nil {
@@ -119,14 +123,11 @@ func (s *IntegSuite) TearDownSuite(c *C) {
 
 func (s *IntegSuite) SetUpTest(c *C) {
 	// create checkpoint directory
-	//if _, err := os.Stat(s.Util.CheckpointDir); os.IsNotExist(err) {
-	//	c.Assert(os.Mkdir(s.Util.CheckpointDir, 0777), IsNil)
-	//}
-	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo mkdir /tmp/checkpoints"); err != nil {
+	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo mkdir /tmp/checkpoints && sudo chmod -R 0777 /tmp/checkpoints"); err != nil {
 		c.Fatalf("Failed to create checkpoint directory: %v", err)
 	}
 
-	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo chmod -R 0777 /tmp/checkpoints"); err != nil {
+	if err := s.Util.ExecuteCommand("minikube", "ssh", ""); err != nil {
 		c.Fatalf("Failed to elevate permissions on checkpoint directory: %v", err)
 	}
 }
@@ -147,15 +148,19 @@ func (s *IntegSuite) TearDownTest(c *C) {
 		_ = s.Util.GetLogs(jm, nil)
 	}
 
+	fmt.Printf("\n\n######### Nodes for debugging #########\n---------------------------\n")
 	err = s.Util.ExecuteCommand("kubectl", "describe", "nodes")
 	c.Assert(err, IsNil)
 
+	fmt.Printf("\n\n######### Pods for debugging #########\n---------------------------\n")
 	err = s.Util.ExecuteCommand("kubectl", "get", "pods", "-n", "flinkoperatortest")
 	c.Assert(err, IsNil)
 
+	fmt.Printf("\n\n######### Pod details for debugging #########\n---------------------------\n")
 	err = s.Util.ExecuteCommand("kubectl", "describe", "pods", "-n", "flinkoperatortest")
 	c.Assert(err, IsNil)
 
+	fmt.Printf("\n\n######### Flink Applications for debugging #########\n---------------------------\n")
 	err = s.Util.ExecuteCommand("kubectl", "describe", "flinkapplications", "-n", "flinkoperatortest")
 	c.Assert(err, IsNil)
 
@@ -163,11 +168,6 @@ func (s *IntegSuite) TearDownTest(c *C) {
 	if err != nil {
 		log.Fatalf("Failed to clean up flink applications: %v", err)
 	}
-
-	//err = os.RemoveAll(s.Util.CheckpointDir)
-	//if err != nil {
-	//	log.Fatalf("Failed to clean up checkpoints directory: %v", err)
-	//}
 
 	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo rm -rf /tmp/checkpoints"); err != nil {
 		c.Fatalf("Failed to delete checkpoint directory: %v", err)

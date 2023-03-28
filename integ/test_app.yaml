@@ -6,29 +6,11 @@ metadata:
   labels:
     environment: development
 spec:
-  # image: flink-test-app:local.1
-  # image: operator-test-app:test1
   image: lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
   imagePullPolicy: IfNotPresent
   imagePullSecrets:
     - name: dockerhub
   flinkConfig:
-#    jobmanager.memory.jvm-overhead.min: "50 mb"
-#    jobmanager.memory.jvm-metaspace.size: "80 mb"
-#    jobmanager.memory.off-heap.size: "40 mb"
-#    taskmanager.memory.jvm-overhead.min: "30 mb"
-#    taskmanager.memory.jvm-metaspace.size: "50 mb"
-#    taskmanager.memory.off-heap.size: "20 mb"
-
-#
-#    taskmanager.memory.task.heap.size: "80 mb"
-#    taskmanager.memory.managed.fraction: 0.1
-#    taskmanager.memory.task.off-heap.size: "100 mb"
-
-
-    #    taskmanager.memory.network.min: "20 mb"
-#    taskmanager.memory.framework.heap.size: "20 mb"
-#    taskmanager.memory.framework.off-heap.size: "20 mb"
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints

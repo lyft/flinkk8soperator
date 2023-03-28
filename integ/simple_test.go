@@ -14,9 +14,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// const NewImage = "flink-test-app:local.2"
-
-// const NewImage = "operator-test-app:test1.2"
 const NewImage = "lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2"
 
 func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
@@ -321,9 +318,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 
 	// cause the app to start failing
 	err = s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
-	// f, err := os.OpenFile(s.Util.CheckpointDir+"/fail", os.O_RDONLY|os.O_CREATE, 0666)
 	c.Assert(err, IsNil)
-	// c.Assert(f.Close(), IsNil)
 
 	log.Info("Triggered failure")
 
@@ -353,7 +348,6 @@ func (s *IntegSuite) TestRecovery(c *C) {
 
 	// stop it from failing
 	c.Assert(s.Util.ExecuteCommand("minikube", "ssh", "sudo rm /tmp/checkpoints/fail"), IsNil)
-	// c.Assert(os.Remove(s.Util.CheckpointDir+"/fail"), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	// delete the application

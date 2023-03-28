@@ -1,5 +1,6 @@
 package integ
 
+// TODO: https://github.com/lyft/flinkk8soperator/issues/278
 //func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 //	log.Info("Starting test TestInPlaceScaleUp")
 //

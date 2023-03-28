@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	v12 "k8s.io/api/rbac/v1"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -146,6 +147,61 @@ func (f *TestUtil) CreateCRD() error {
 	crd.Namespace = f.Namespace.Name
 
 	_, err = f.APIExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *TestUtil) CreateRole() error {
+	file, err := getFile("../deploy/role.yaml")
+	if err != nil {
+		return err
+	}
+
+	clusterRole := v12.ClusterRole{}
+	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&clusterRole)
+
+	_, err = f.KubeClient.RbacV1().ClusterRoles().Create(&clusterRole)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *TestUtil) CreateServiceAccount() error {
+	file, err := getFile("../deploy/role.yaml")
+	if err != nil {
+		return err
+	}
+
+	serviceAccount := v1.ServiceAccount{}
+	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&serviceAccount)
+
+	serviceAccount.Namespace = f.Namespace.Name
+
+	_, err = f.KubeClient.CoreV1().ServiceAccounts(f.Namespace.Name).Create(&serviceAccount)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *TestUtil) CreateClusterRoleBinding() error {
+	file, err := getFile("../deploy/role-binding.yaml")
+	if err != nil {
+		return err
+	}
+
+	clusterRoleBinding := v12.ClusterRoleBinding{}
+	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&clusterRoleBinding)
+
+	clusterRoleBinding.Namespace = f.Namespace.Name
+
+	_, err = f.KubeClient.RbacV1().ClusterRoleBindings().Create(&clusterRoleBinding)
 	if err != nil {
 		return err
 	}
@@ -399,7 +455,7 @@ func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhas
 		time.Sleep(1 * time.Second)
 
 		if waitTime > 500 {
-			return errors.New("did not get to phase Running")
+			return errors.New(fmt.Sprintf("Timed out 500s before reaching phase %s", phase.VerboseString()))
 		}
 	}
 }
