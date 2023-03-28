@@ -6,6 +6,7 @@ curl -LO -s https://storage.googleapis.com/minikube/releases/latest/minikube-lin
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
 
 minikube config set memory 6800
+minikube config set cpus 3
 minikube start --kubernetes-version=v1.20.15
 
 sh boilerplate/lyft/golang_test_targets/dep_install.sh
