@@ -99,7 +99,7 @@ and the upgrade is non-trivial.
    kubectl proxy --port 8001 &
 
 5. Set up test app images and operator image
-   integ/minikube_setup.sh
+   integ/setup.sh
 
 8. Set the following for the Go test:
    Package path: github.com/lyft/flinkk8soperator/integ
