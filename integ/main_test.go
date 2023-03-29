@@ -92,15 +92,15 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 			}
 		}()
 	} else {
-		if err = s.Util.CreateRole(); err != nil {
+		if err = s.Util.CreateClusterRole(); err != nil && !k8sErrors.IsAlreadyExists(err) {
 			c.Fatalf("Failed to create role: %v", err)
 		}
 
-		if err = s.Util.CreateServiceAccount(); err != nil {
+		if err = s.Util.CreateServiceAccount(); err != nil && !k8sErrors.IsAlreadyExists(err) {
 			c.Fatalf("Failed to create service account: %v", err)
 		}
 
-		if err = s.Util.CreateClusterRoleBinding(); err != nil {
+		if err = s.Util.CreateClusterRoleBinding(); err != nil && !k8sErrors.IsAlreadyExists(err) {
 			c.Fatalf("Failed to create cluster role binding: %v", err)
 		}
 

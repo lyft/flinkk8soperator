@@ -154,7 +154,7 @@ func (f *TestUtil) CreateCRD() error {
 	return nil
 }
 
-func (f *TestUtil) CreateRole() error {
+func (f *TestUtil) CreateClusterRole() error {
 	file, err := getFile("../deploy/role.yaml")
 	if err != nil {
 		return err
@@ -199,6 +199,11 @@ func (f *TestUtil) CreateClusterRoleBinding() error {
 	clusterRoleBinding := v12.ClusterRoleBinding{}
 	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&clusterRoleBinding)
 
+	clusterRoleBinding.Subjects = []v12.Subject{{
+		Kind:      "ServiceAccount",
+		Name:      "flinkoperator",
+		Namespace: f.Namespace.Name,
+	}}
 	clusterRoleBinding.Namespace = f.Namespace.Name
 
 	_, err = f.KubeClient.RbacV1().ClusterRoleBindings().Create(&clusterRoleBinding)
