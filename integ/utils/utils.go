@@ -162,6 +162,9 @@ func (f *TestUtil) CreateClusterRole() error {
 
 	clusterRole := v12.ClusterRole{}
 	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&clusterRole)
+	if err != nil {
+		return err
+	}
 
 	_, err = f.KubeClient.RbacV1().ClusterRoles().Create(&clusterRole)
 	if err != nil {
@@ -179,6 +182,9 @@ func (f *TestUtil) CreateServiceAccount() error {
 
 	serviceAccount := v1.ServiceAccount{}
 	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&serviceAccount)
+	if err != nil {
+		return err
+	}
 
 	serviceAccount.Namespace = f.Namespace.Name
 
@@ -198,6 +204,9 @@ func (f *TestUtil) CreateClusterRoleBinding() error {
 
 	clusterRoleBinding := v12.ClusterRoleBinding{}
 	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&clusterRoleBinding)
+	if err != nil {
+		return err
+	}
 
 	clusterRoleBinding.Subjects = []v12.Subject{{
 		Kind:      "ServiceAccount",
@@ -460,7 +469,7 @@ func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhas
 		time.Sleep(1 * time.Second)
 
 		if waitTime > 500 {
-			return errors.New(fmt.Sprintf("Timed out 500s before reaching phase %s", phase.VerboseString()))
+			return fmt.Errorf("timed out 500s before reaching phase %s", phase.VerboseString())
 		}
 	}
 }
