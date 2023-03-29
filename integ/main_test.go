@@ -126,10 +126,6 @@ func (s *IntegSuite) SetUpTest(c *C) {
 	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo mkdir /tmp/checkpoints && sudo chmod -R 0777 /tmp/checkpoints"); err != nil {
 		c.Fatalf("Failed to create checkpoint directory: %v", err)
 	}
-
-	if err := s.Util.ExecuteCommand("minikube", "ssh", ""); err != nil {
-		c.Fatalf("Failed to elevate permissions on checkpoint directory: %v", err)
-	}
 }
 
 func (s *IntegSuite) TearDownTest(c *C) {
