@@ -117,7 +117,6 @@ func (f *TestUtil) ExecuteCommand(name string, arg ...string) error {
 		return err
 	}
 
-	// Print the output
 	fmt.Println(string(stdout))
 
 	return nil
