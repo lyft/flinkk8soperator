@@ -66,8 +66,6 @@ $ dep ensure
 $ KUBERNETES_CONFIG="$HOME/.kube/config" go run ./cmd/flinkk8soperator/main.go  --config=local_config.yaml
 ```
 
-(you may need to accept a firewall prompt and `brew install dep` if you don't have it installed)
-
 #### Option 2: run inside the kubernetes cluster
 
 This mode more realistically emulates how the operator will run in
