@@ -88,31 +88,38 @@ that is compatible with v1beta1 CRD's which corresponds to <1.22. CRD's v1
 is only available with client >=1.16, however, the client used here is 1.14
 and the upgrade is non-trivial.
 
+Ran on:
+- Go 1.12
+- Docker desktop 4.5.0
+- Minikube v1.29.0 (running 1.20.15)
+- i9 Ventura 13.2.1
+- GoLand 2021.3.3
+
 
 1. Install Dependencies
-   Run dep ensure -vendor-only
+   Run `dep ensure -vendor-only`
 
 3. Start minikube
-   minikube start --kubernetes-version=v1.20.15
+   `minikube start --kubernetes-version=v1.20.15`
 
 4. Proxy minikube
-   kubectl proxy --port 8001 &
+   `kubectl proxy --port 8001 &`
 
 5. Set up test app images and operator image
-   integ/setup.sh
+   `integ/setup.sh`
 
 8. Set the following for the Go test:
-   Package path: github.com/lyft/flinkk8soperator/integ
-   Env: INTEGRATION=true;OPERATOR_IMAGE=flinkk8soperator:local;RUN_DIRECT=true
-   Program Args: -timeout 40m -check.vv IntegTest
+   Package path: `github.com/lyft/flinkk8soperator/integ`
+   Env: `INTEGRATION=true;OPERATOR_IMAGE=flinkk8soperator:local;RUN_DIRECT=true`
+   Program Args: `-timeout 40m -check.vv IntegTest`
 
 
 Helpers:
 - Kill kube proxy
-  ps -ef | grep "kubectl proxy"
-  kill -9 <process_id>
+  `ps -ef | grep "kubectl proxy"`
+  `kill -9 <process_id>`
 - Kill stuck flink app
-  kubectl patch FlinkApplication invalidcanceljob -p '{"metadata":{"finalizers":[]}}' --type=merge
+  `kubectl patch FlinkApplication invalidcanceljob -p '{"metadata":{"finalizers":[]}}' --type=merge`
 - Set default namespace
-  kubectl config set-context --current --namespace=flinkoperatortest
+  `kubectl config set-context --current --namespace=flinkoperatortest`
 
