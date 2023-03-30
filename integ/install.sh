@@ -8,7 +8,7 @@ sudo install minikube-linux-amd64 /usr/local/bin/minikube
 minikube config set memory 6800
 minikube start --kubernetes-version=v1.20.15
 
-export KUBERNETES_CONFIG=/home/runner/.kube/config
+export KUBERNETES_CONFIG=~/.kube/config
 
 sh boilerplate/lyft/golang_test_targets/dep_install.sh
 
