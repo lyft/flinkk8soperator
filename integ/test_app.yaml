@@ -7,17 +7,22 @@ metadata:
     environment: development
 spec:
   image: lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
+  imagePullPolicy: IfNotPresent
   imagePullSecrets:
     - name: dockerhub
   flinkConfig:
     state.backend.fs.checkpointdir: file:///checkpoints/flink/checkpoints
     state.checkpoints.dir: file:///checkpoints/flink/externalized-checkpoints
     state.savepoints.dir: file:///checkpoints/flink/savepoints
+    env.java.opts.jobmanager: "-XX:+UseG1GC"
   jobManagerConfig:
     systemMemoryFraction: 0.2
     resources:
       requests:
-        memory: "200Mi"
+        memory: "400Mi"
+        cpu: "0.2"
+      limits:
+        memory: "800Mi"
         cpu: "0.2"
     replicas: 1
   taskManagerConfig:
@@ -25,10 +30,11 @@ spec:
     systemMemoryFraction: 0.5
     resources:
       requests:
-        memory: "400Mi"
+        memory: "800Mi"
         cpu: "0.2"
       limits:
-        memory: "400Mi"
+        memory: "800Mi"
+        cpu: "0.2"
   volumeMounts:
     - mountPath: /checkpoints
       name: checkpoints
@@ -40,5 +46,5 @@ spec:
   flinkVersion: "1.11"
   deploymentMode: Dual
   jarName: "operator-test-app-1.0.0-SNAPSHOT.jar"
-  parallelism: 3
+  parallelism: 2
   entryClass: "com.lyft.OperatorTestApp"

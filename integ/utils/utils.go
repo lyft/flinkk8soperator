@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/prometheus/common/log"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsClientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -99,12 +101,25 @@ func (f *TestUtil) Cleanup() {
 				}
 			}
 		}
-
 		err = f.KubeClient.CoreV1().Namespaces().Delete(f.Namespace.Name, &metav1.DeleteOptions{})
 		if err != nil {
 			log.Errorf("Failed to clean up after test: %v", err)
 		}
 	}
+}
+
+func (f *TestUtil) ExecuteCommand(name string, arg ...string) error {
+	cmd := exec.Command(name, arg...)
+	stdout, err := cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
+	fmt.Println(string(stdout))
+
+	return nil
 }
 
 func getFile(relativePath string) (*os.File, error) {
@@ -138,10 +153,79 @@ func (f *TestUtil) CreateCRD() error {
 	return nil
 }
 
+func (f *TestUtil) CreateClusterRole() error {
+	file, err := getFile("../deploy/role.yaml")
+	if err != nil {
+		return err
+	}
+
+	clusterRole := v12.ClusterRole{}
+	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&clusterRole)
+	if err != nil {
+		return err
+	}
+
+	_, err = f.KubeClient.RbacV1().ClusterRoles().Create(&clusterRole)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *TestUtil) CreateServiceAccount() error {
+	file, err := getFile("../deploy/role.yaml")
+	if err != nil {
+		return err
+	}
+
+	serviceAccount := v1.ServiceAccount{}
+	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&serviceAccount)
+	if err != nil {
+		return err
+	}
+
+	serviceAccount.Namespace = f.Namespace.Name
+
+	_, err = f.KubeClient.CoreV1().ServiceAccounts(f.Namespace.Name).Create(&serviceAccount)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *TestUtil) CreateClusterRoleBinding() error {
+	file, err := getFile("../deploy/role-binding.yaml")
+	if err != nil {
+		return err
+	}
+
+	clusterRoleBinding := v12.ClusterRoleBinding{}
+	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&clusterRoleBinding)
+	if err != nil {
+		return err
+	}
+
+	clusterRoleBinding.Subjects = []v12.Subject{{
+		Kind:      "ServiceAccount",
+		Name:      "flinkoperator",
+		Namespace: f.Namespace.Name,
+	}}
+	clusterRoleBinding.Namespace = f.Namespace.Name
+
+	_, err = f.KubeClient.RbacV1().ClusterRoleBindings().Create(&clusterRoleBinding)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (f *TestUtil) CreateOperator() error {
 	configValue := make(map[string]string)
 	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n  resyncPeriod: 5s\n" +
-		"  baseBackoffDuration: 50ms\n  maxBackoffDuration: 2s\n  maxErrDuration: 90s\n" +
+		"  baseBackoffDuration: 50ms\n  maxBackoffDuration: 2s\n  maxErrDuration: 240s\n" +
 		"logger:\n  formatter:\n    type: text\n"
 
 	configMap := v1.ConfigMap{
@@ -179,6 +263,7 @@ func (f *TestUtil) CreateOperator() error {
 					},
 				},
 				Spec: v1.PodSpec{
+					ServiceAccountName: "flinkoperator",
 					Volumes: []v1.Volume{
 						{
 							Name: "config-volume",
@@ -361,6 +446,7 @@ func (f *TestUtil) GetFlinkApplication(name string) (*flinkapp.FlinkApplication,
 }
 
 func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhase, failurePhases ...flinkapp.FlinkApplicationPhase) error {
+	waitTime := 0
 	for {
 		app, err := f.FlinkApps().Get(name, metav1.GetOptions{})
 
@@ -378,7 +464,12 @@ func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhas
 			}
 		}
 
-		time.Sleep(200 * time.Millisecond)
+		waitTime++
+		time.Sleep(1 * time.Second)
+
+		if waitTime > 500 {
+			return fmt.Errorf("timed out 500s before reaching phase %s", phase.VerboseString())
+		}
 	}
 }
 

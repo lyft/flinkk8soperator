@@ -2,10 +2,13 @@
 
 set -e
 
-sudo snap install microk8s --classic --channel=1.13/stable
-microk8s.status --wait-ready
-microk8s.enable dns
-microk8s.enable registry
+curl -LO -s https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+minikube config set memory 6800
+minikube start --kubernetes-version=v1.20.15
+
+export KUBERNETES_CONFIG=~/.kube/config
 
 sh boilerplate/lyft/golang_test_targets/dep_install.sh
 
