@@ -51,6 +51,7 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 	}
 
 	kubeconfig := os.Getenv("KUBERNETES_CONFIG")
+	fmt.Printf("Kube config: %s", kubeconfig)
 	if kubeconfig == "" {
 		kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
 		err := os.Setenv("KUBERNETES_CONFIG", kubeconfig)
