@@ -62,7 +62,7 @@ cluster. This is very convinient for development, as we can iterate
 quickly, use a debugger, etc.
 
 ```bash
-$ dep ensure
+$ go mod download
 $ KUBERNETES_CONFIG="$HOME/.kube/config" go run ./cmd/flinkk8soperator/main.go  --config=local_config.yaml
 ```
 

@@ -40,7 +40,7 @@ run `umask 000` before running the tests.
 
 ```
 $ kubectl proxy &
-$ dep ensure
+$ go mod download
 ```
 
 ### Running in Direct mode
@@ -97,7 +97,7 @@ Ran on:
 
 
 1. Install Dependencies
-   Run `dep ensure -vendor-only`
+   Run `go mod vendor`
 
 3. Start minikube
    `minikube start --kubernetes-version=v1.20.15`
