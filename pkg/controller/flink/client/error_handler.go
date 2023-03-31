@@ -69,7 +69,6 @@ type RetryHandler struct {
 }
 
 func NewRetryHandler(baseBackoff time.Duration, timeToWait time.Duration, maxBackOff time.Duration) RetryHandler {
-	rand.Seed(time.Now().UnixNano())
 	return RetryHandler{baseBackoff, timeToWait, maxBackOff}
 }
 func (r RetryHandler) IsErrorRetryable(err error) bool {
@@ -104,7 +103,7 @@ func (r RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
 		timeInMillis = 1
 	}
 	maxBackoffMillis := int(r.maxBackOffMillisDuration.Nanoseconds() / int64(time.Millisecond))
-	delay := 1 << uint(retryCount) * (rand.Intn(timeInMillis) + timeInMillis)
+	delay := 1 << uint(retryCount) * (rand.Intn(timeInMillis) + timeInMillis) // nolint: gosec
 	return time.Duration(min(delay, maxBackoffMillis)) * time.Millisecond
 }
 func (r RetryHandler) IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {

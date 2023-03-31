@@ -84,5 +84,4 @@ func (s *IntegSuite) TestCheckpointTimeout(c *C) {
 		c.Assert(err, IsNil)
 	})
 	log.Info("Completed test TestCheckpointTimeout")
-
 }
