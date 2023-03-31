@@ -6,7 +6,7 @@ on:
     branches: [ master ]
 jobs:
   unit-tests:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: go/src/github.com/lyft/flinkk8soperator
@@ -27,7 +27,7 @@ jobs:
       - name: test
         run: make test_unit
   lint:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     defaults:
       run:
         working-directory: go/src/github.com/lyft/flinkk8soperator
@@ -47,27 +47,26 @@ jobs:
         run: make install
       - name: test
         run: make lint
-  # TODO: restore this test
-  # integration-tests:
-  #   runs-on: ubuntu-18.04
-  #   defaults:
-  #     run:
-  #       working-directory: go/src/github.com/lyft/flinkk8soperator
-  #   env:
-  #     GOPATH: "/home/runner/work/flinkk8soperator/flinkk8soperator/go/"
-  #   steps:
-  #     - name: checkout
-  #       uses: actions/checkout@v2
-  #       with:
-  #         fetch-depth: 1
-  #         path: go/src/github.com/lyft/flinkk8soperator
-  #     - name: install go
-  #       uses: actions/setup-go@v2
-  #       with:
-  #         go-version: 1.12
-  #     - name: install
-  #       run: integ/install.sh
-  #     - name: setup
-  #       run: integ/setup.sh
-  #     - name: test
-  #       run: sudo "PATH=$PATH" "GOPATH=$GOPATH" integ/test.sh
+  integration-tests:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: go/src/github.com/lyft/flinkk8soperator
+    env:
+      GOPATH: "/home/runner/work/flinkk8soperator/flinkk8soperator/go/"
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          path: go/src/github.com/lyft/flinkk8soperator
+      - name: install go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.12
+      - name: install
+        run: integ/install.sh
+      - name: setup
+        run: integ/setup.sh
+      - name: test
+        run: PATH=$PATH GOPATH=$GOPATH integ/test.sh
