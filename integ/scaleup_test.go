@@ -10,7 +10,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// TODO: https://github.com/lyft/flinkk8soperator/issues/278
 func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
+
+	log.Info("Starting test TestInPlaceScaleUp")
+	c.Skip("Skipping due to memory constraints in CI")
 	const finalizer = "scaleup.finalizers.test.com"
 	const testName = "test_in_place_scale_up"
 
@@ -148,4 +152,5 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestInPlaceScaleUp")
 }

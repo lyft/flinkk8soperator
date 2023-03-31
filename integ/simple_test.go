@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"os"
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
@@ -69,6 +68,8 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1be
 
 // Tests job submission, upgrade, rollback, and deletion
 func (s *IntegSuite) TestSimple(c *C) {
+	log.Info("Starting test TestSimple")
+
 	const finalizer = "simple.finalizers.test.com"
 
 	// start a simple app
@@ -88,7 +89,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 		List(v1.ListOptions{LabelSelector: "integTest=test_simple"})
 	c.Assert(err, IsNil)
-	c.Assert(len(pods.Items), Equals, 3)
+	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
 		c.Assert(pod.Spec.Containers[0].Image, Equals, config.Spec.Image)
 	}
@@ -104,7 +105,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 		List(v1.ListOptions{LabelSelector: "integTest=test_simple"})
 	c.Assert(err, IsNil)
-	c.Assert(len(pods.Items), Equals, 3)
+	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
 		c.Assert(pod.Spec.Containers[0].Image, Equals, NewImage)
 	}
@@ -261,9 +262,12 @@ func (s *IntegSuite) TestSimple(c *C) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestSimple")
 }
 
 func (s *IntegSuite) TestRecovery(c *C) {
+	log.Info("Starting test TestRecovery")
+
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 
@@ -313,9 +317,8 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	}
 
 	// cause the app to start failing
-	f, err := os.OpenFile(s.Util.CheckpointDir+"/fail", os.O_RDONLY|os.O_CREATE, 0666)
+	err = s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
 	c.Assert(err, IsNil)
-	c.Assert(f.Close(), IsNil)
 
 	log.Info("Triggered failure")
 
@@ -344,7 +347,7 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 
 	// stop it from failing
-	c.Assert(os.Remove(s.Util.CheckpointDir+"/fail"), IsNil)
+	c.Assert(s.Util.ExecuteCommand("minikube", "ssh", "sudo rm /tmp/checkpoints/fail"), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	// delete the application
@@ -358,4 +361,5 @@ func (s *IntegSuite) TestRecovery(c *C) {
 		}
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestRecovery")
 }

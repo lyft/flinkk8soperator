@@ -51,6 +51,7 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 	}
 
 	kubeconfig := os.Getenv("KUBERNETES_CONFIG")
+	fmt.Printf("Kube config: %s", kubeconfig)
 	if kubeconfig == "" {
 		kubeconfig = filepath.Join(homedir.HomeDir(), ".kube", "config")
 		err := os.Setenv("KUBERNETES_CONFIG", kubeconfig)
@@ -79,7 +80,7 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 			LimitNamespace: namespace,
 			UseProxy:       true,
 			ResyncPeriod:   flyteConfig.Duration{Duration: 3 * time.Second},
-			MaxErrDuration: flyteConfig.Duration{Duration: 30 * time.Second},
+			MaxErrDuration: flyteConfig.Duration{Duration: 60 * time.Second},
 			MetricsPrefix:  "flinkk8soperator",
 			ProxyPort:      flyteConfig.Port{Port: 8001},
 		}
@@ -92,6 +93,18 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 			}
 		}()
 	} else {
+		if err = s.Util.CreateClusterRole(); err != nil && !k8sErrors.IsAlreadyExists(err) {
+			c.Fatalf("Failed to create role: %v", err)
+		}
+
+		if err = s.Util.CreateServiceAccount(); err != nil && !k8sErrors.IsAlreadyExists(err) {
+			c.Fatalf("Failed to create service account: %v", err)
+		}
+
+		if err = s.Util.CreateClusterRoleBinding(); err != nil && !k8sErrors.IsAlreadyExists(err) {
+			c.Fatalf("Failed to create cluster role binding: %v", err)
+		}
+
 		if err = s.Util.CreateOperator(); err != nil {
 			c.Fatalf("Failed to create operator: %v", err)
 		}
@@ -111,18 +124,12 @@ func (s *IntegSuite) TearDownSuite(c *C) {
 
 func (s *IntegSuite) SetUpTest(c *C) {
 	// create checkpoint directory
-	if _, err := os.Stat(s.Util.CheckpointDir); os.IsNotExist(err) {
-		c.Assert(os.Mkdir(s.Util.CheckpointDir, 0777), IsNil)
+	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo mkdir /tmp/checkpoints && sudo chmod -R 0777 /tmp/checkpoints"); err != nil {
+		c.Fatalf("Failed to create checkpoint directory: %v", err)
 	}
 }
 
 func (s *IntegSuite) TearDownTest(c *C) {
-	jm, err := s.Util.GetJobManagerPod()
-	if err == nil {
-		fmt.Printf("\n\n######### JobManager logs for debugging #########\n---------------------------\n")
-		_ = s.Util.GetLogs(jm, nil)
-	}
-
 	tms, err := s.Util.GetTaskManagerPods()
 	if err == nil {
 		for i, tm := range tms {
@@ -132,13 +139,34 @@ func (s *IntegSuite) TearDownTest(c *C) {
 		}
 	}
 
-	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
-	if err != nil {
-		log.Fatalf("Failed to clean up flink applications")
+	jm, err := s.Util.GetJobManagerPod()
+	if err == nil {
+		fmt.Printf("\n\n######### JobManager logs for debugging #########\n---------------------------\n")
+		_ = s.Util.GetLogs(jm, nil)
 	}
 
-	err = os.RemoveAll(s.Util.CheckpointDir)
+	fmt.Printf("\n\n######### Nodes for debugging #########\n---------------------------\n")
+	err = s.Util.ExecuteCommand("kubectl", "describe", "nodes")
+	c.Assert(err, IsNil)
+
+	fmt.Printf("\n\n######### Pods for debugging #########\n---------------------------\n")
+	err = s.Util.ExecuteCommand("kubectl", "get", "pods", "-n", "flinkoperatortest")
+	c.Assert(err, IsNil)
+
+	fmt.Printf("\n\n######### Pod details for debugging #########\n---------------------------\n")
+	err = s.Util.ExecuteCommand("kubectl", "describe", "pods", "-n", "flinkoperatortest")
+	c.Assert(err, IsNil)
+
+	fmt.Printf("\n\n######### Flink Applications for debugging #########\n---------------------------\n")
+	err = s.Util.ExecuteCommand("kubectl", "describe", "flinkapplications", "-n", "flinkoperatortest")
+	c.Assert(err, IsNil)
+
+	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
 	if err != nil {
-		log.Fatalf("Failed to clean up checkpoints directory: %v", err)
+		log.Fatalf("Failed to clean up flink applications: %v", err)
+	}
+
+	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo rm -rf /tmp/checkpoints"); err != nil {
+		c.Fatalf("Failed to delete checkpoint directory: %v", err)
 	}
 }
