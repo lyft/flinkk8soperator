@@ -86,7 +86,8 @@ Ideally we'd use k8s 1.16 to match the deployed k8s version, however, this
 is non-trivial due to cgroup configurations. Instead, we will use a version
 that is compatible with v1beta1 CRD's which corresponds to <1.22. CRD's v1
 is only available with client >=1.16, however, the client used here is 1.14
-and the upgrade is non-trivial.
+and the upgrade is non-trivial. 
+TODO: https://jira.lyft.net/browse/STRMCMP-1659
 
 Ran on:
 - Go 1.12
