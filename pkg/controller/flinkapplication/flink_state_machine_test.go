@@ -429,12 +429,25 @@ func TestSubmittingToRunning(t *testing.T) {
 	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
 		return true, nil
 	}
-
+	mockStartTime := time.Now().Add(-1 * time.Minute).UTC().UnixMilli()
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, appHash, hash)
 		return &client.FlinkJobOverview{
-			JobID: jobID,
-			State: client.Running,
+			JobID:     jobID,
+			State:     client.Running,
+			StartTime: mockStartTime,
+			Vertices: []client.FlinkJobVertex{
+				{
+					Name:      "Vertex 1",
+					Status:    client.Running,
+					StartTime: mockStartTime,
+				},
+				{
+					Name:      "Vertex 2",
+					Status:    client.Running,
+					StartTime: mockStartTime,
+				},
+			},
 		}, nil
 	}
 
@@ -543,6 +556,325 @@ func TestSubmittingToRunning(t *testing.T) {
 			assert.Equal(t, app.Spec.EntryClass, jobStatus.EntryClass)
 			assert.Equal(t, app.Spec.ProgramArgs, jobStatus.ProgramArgs)
 			assert.Equal(t, v1beta1.FlinkApplicationRunning, application.Status.Phase)
+		}
+		statusUpdateCount++
+		return nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+
+	assert.Equal(t, 1, startCount)
+	assert.Equal(t, 3, updateCount)
+	assert.Equal(t, 2, statusUpdateCount)
+}
+
+func TestSubmittingVertexFailsToStart(t *testing.T) {
+	jobID := "j1"
+
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:     "job.jar",
+			Parallelism: 5,
+			EntryClass:  "com.my.Class",
+			ProgramArgs: "--test",
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:      v1beta1.FlinkApplicationSubmittingJob,
+			DeployHash: "old-hash",
+		},
+	}
+	appHash := flink.HashForApplication(&app)
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
+		return true, nil
+	}
+	mockStartTime := time.Now().Add(-1 * time.Minute).UTC().UnixMilli()
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		assert.Equal(t, appHash, hash)
+		return &client.FlinkJobOverview{
+			JobID:     jobID,
+			State:     client.Running,
+			StartTime: mockStartTime,
+			Vertices: []client.FlinkJobVertex{
+				{
+					Name:      "Vertex 1",
+					Status:    client.Running,
+					StartTime: mockStartTime,
+				},
+				{
+					Name:      "Vertex 2",
+					Status:    client.Failed,
+					StartTime: mockStartTime,
+				},
+			},
+		}, nil
+	}
+
+	startCount := 0
+	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
+
+		assert.Equal(t, appHash, hash)
+		assert.Equal(t, app.Spec.JarName, jarName)
+		assert.Equal(t, app.Spec.Parallelism, parallelism)
+		assert.Equal(t, app.Spec.EntryClass, entryClass)
+		assert.Equal(t, app.Spec.ProgramArgs, programArgs)
+		assert.Equal(t, app.Spec.AllowNonRestoredState, allowNonRestoredState)
+		assert.Equal(t, app.Status.SavepointPath, savepointPath)
+
+		startCount++
+		return jobID, nil
+	}
+
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
+		assert.Equal(t, appHash, hash)
+		if startCount > 0 {
+			return []client.FlinkJob{
+				{
+					JobID:  jobID,
+					Status: client.Running,
+				},
+			}, nil
+		}
+		return nil, nil
+	}
+
+	podSelector := "wc7ydhul"
+
+	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
+		jm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		tm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		return &common.FlinkDeployment{
+			Jobmanager:  &jm,
+			Taskmanager: &tm,
+			Hash:        hash,
+		}, nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+
+	getServiceCount := 0
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
+		assert.Equal(t, "flink", namespace)
+		assert.Equal(t, "test-app", name)
+
+		getServiceCount++
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-app",
+				Namespace: "flink",
+			},
+			Spec: v1.ServiceSpec{
+				Selector: map[string]string{
+					"pod-deployment-selector": "blah",
+				},
+			},
+		}, nil
+	}
+
+	updateCount := 0
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		if updateCount == 0 {
+			// update to the service
+			service := object.(*v1.Service)
+			assert.Equal(t, podSelector, service.Spec.Selector["pod-deployment-selector"])
+		} else if updateCount == 1 {
+			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, jobFinalizer, application.Finalizers[0])
+		}
+
+		updateCount++
+		return nil
+	}
+
+	statusUpdateCount := 0
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+		if statusUpdateCount == 0 {
+			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
+		} else if statusUpdateCount == 1 {
+			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
+		}
+		statusUpdateCount++
+		return nil
+	}
+
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Nil(t, err)
+
+	assert.Equal(t, 1, startCount)
+	assert.Equal(t, 3, updateCount)
+	assert.Equal(t, 2, statusUpdateCount)
+}
+
+func TestSubmittingVertexStartTimeout(t *testing.T) {
+	jobID := "j1"
+
+	app := v1beta1.FlinkApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-app",
+			Namespace: "flink",
+		},
+		Spec: v1beta1.FlinkApplicationSpec{
+			JarName:     "job.jar",
+			Parallelism: 5,
+			EntryClass:  "com.my.Class",
+			ProgramArgs: "--test",
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:      v1beta1.FlinkApplicationSubmittingJob,
+			DeployHash: "old-hash",
+		},
+	}
+	appHash := flink.HashForApplication(&app)
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
+		return true, nil
+	}
+	mockStartTime := time.Now().Add(-4 * time.Minute).UTC().UnixMilli()
+	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
+		assert.Equal(t, appHash, hash)
+		return &client.FlinkJobOverview{
+			JobID:     jobID,
+			State:     client.Running,
+			StartTime: mockStartTime,
+			Vertices: []client.FlinkJobVertex{
+				{
+					Name:      "Vertex 1",
+					Status:    client.Running,
+					StartTime: mockStartTime,
+				},
+			},
+		}, nil
+	}
+
+	startCount := 0
+	mockFlinkController.StartFlinkJobFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string,
+		jarName string, parallelism int32, entryClass string, programArgs string, allowNonRestoredState bool, savepointPath string) (string, error) {
+
+		assert.Equal(t, appHash, hash)
+		assert.Equal(t, app.Spec.JarName, jarName)
+		assert.Equal(t, app.Spec.Parallelism, parallelism)
+		assert.Equal(t, app.Spec.EntryClass, entryClass)
+		assert.Equal(t, app.Spec.ProgramArgs, programArgs)
+		assert.Equal(t, app.Spec.AllowNonRestoredState, allowNonRestoredState)
+		assert.Equal(t, app.Status.SavepointPath, savepointPath)
+
+		startCount++
+		return jobID, nil
+	}
+
+	mockFlinkController.GetJobsForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) ([]client.FlinkJob, error) {
+		assert.Equal(t, appHash, hash)
+		if startCount > 0 {
+			return []client.FlinkJob{
+				{
+					JobID:  jobID,
+					Status: client.Running,
+				},
+			}, nil
+		}
+		return nil, nil
+	}
+
+	podSelector := "wc7ydhul"
+
+	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
+		jm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		tm := appsv1.Deployment{
+			Spec: appsv1.DeploymentSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"pod-deployment-selector": podSelector},
+				},
+			},
+		}
+
+		return &common.FlinkDeployment{
+			Jobmanager:  &jm,
+			Taskmanager: &tm,
+			Hash:        hash,
+		}, nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+
+	getServiceCount := 0
+	mockK8Cluster.GetServiceFunc = func(ctx context.Context, namespace string, name string, version string) (*v1.Service, error) {
+		assert.Equal(t, "flink", namespace)
+		assert.Equal(t, "test-app", name)
+
+		getServiceCount++
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-app",
+				Namespace: "flink",
+			},
+			Spec: v1.ServiceSpec{
+				Selector: map[string]string{
+					"pod-deployment-selector": "blah",
+				},
+			},
+		}, nil
+	}
+
+	updateCount := 0
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+		if updateCount == 0 {
+			// update to the service
+			service := object.(*v1.Service)
+			assert.Equal(t, podSelector, service.Spec.Selector["pod-deployment-selector"])
+		} else if updateCount == 1 {
+			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, jobFinalizer, application.Finalizers[0])
+		}
+
+		updateCount++
+		return nil
+	}
+
+	statusUpdateCount := 0
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+		if statusUpdateCount == 0 {
+			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
+		} else if statusUpdateCount == 1 {
+			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
 		}
 		statusUpdateCount++
 		return nil
@@ -1776,10 +2108,24 @@ func TestRunningToDualRunning(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 
+	mockStartTime := time.Now().Add(-1 * time.Minute).UTC().UnixMilli()
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		return &client.FlinkJobOverview{
-			JobID: "jobID2",
-			State: client.Running,
+			JobID:     "jobID2",
+			State:     client.Running,
+			StartTime: mockStartTime,
+			Vertices: []client.FlinkJobVertex{
+				{
+					Name:      "Vertex 1",
+					Status:    client.Running,
+					StartTime: mockStartTime,
+				},
+				{
+					Name:      "Vertex 2",
+					Status:    client.Running,
+					StartTime: mockStartTime,
+				},
+			},
 		}, nil
 
 	}

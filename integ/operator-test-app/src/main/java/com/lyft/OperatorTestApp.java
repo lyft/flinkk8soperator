@@ -6,6 +6,12 @@ import java.nio.file.Files;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -105,6 +111,27 @@ public class OperatorTestApp {
     String uid = "default";
     if (args.length > 0) {
       uid = args[0];
+    }
+
+    Options options = new Options();
+
+    Option option1 = new Option("n", "job_name", true, "job name");
+    option1.setRequired(false);
+    options.addOption(option1);
+
+    Option option2 = new Option("m", "mode", true, "running mode");
+    option2.setRequired(false);
+    options.addOption(option2);
+
+    CommandLineParser parser = new DefaultParser();
+    CommandLine cmd = null;//not a good practice, it serves it purpose
+
+    try {
+      cmd = parser.parse(options, args);
+    } catch (ParseException e) {
+      System.out.println(e.getMessage());
+
+      System.exit(1);
     }
 
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();

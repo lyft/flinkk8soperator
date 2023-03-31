@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	jobFinalizer    = "job.finalizers.flink.k8s.io"
-	statusChanged   = true
-	statusUnchanged = false
+	jobFinalizer                  = "job.finalizers.flink.k8s.io"
+	statusChanged                 = true
+	statusUnchanged               = false
+	jobVertexStateTimeoutInMinute = 3
 )
 
 // The core state machine that manages Flink clusters and jobs. See docs/state_machine.md for a description of the
@@ -755,33 +756,56 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		return statusUnchanged, errors.Errorf("Could not find job %s", s.flinkController.GetLatestJobID(ctx, app))
 	}
 
-	// wait until all vertices have been scheduled and started
-	allVerticesStarted := true
-	for _, v := range job.Vertices {
-		allVerticesStarted = allVerticesStarted && (v.StartTime > 0)
-	}
-
-	if job.State == client.Running && allVerticesStarted {
-		// Update job status
-		jobStatus := s.flinkController.GetLatestJobStatus(ctx, app)
-		jobStatus.JarName = app.Spec.JarName
-		jobStatus.Parallelism = app.Spec.Parallelism
-		jobStatus.EntryClass = app.Spec.EntryClass
-		jobStatus.ProgramArgs = app.Spec.ProgramArgs
-		jobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
-		s.flinkController.UpdateLatestJobStatus(ctx, app, jobStatus)
-		// Update the application status with the running job info
-		app.Status.SavepointPath = ""
-		app.Status.SavepointTriggerID = ""
-		if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) && app.Status.DeployHash != "" {
-			s.updateApplicationPhase(app, v1beta1.FlinkApplicationDualRunning)
+	// wait until all vertices have been scheduled and running
+	jobStartTimeSec := job.StartTime / 1000
+	jobStartTimeNSec := job.StartTime % 1000
+	jobStartTime := time.Unix(jobStartTimeSec, jobStartTimeNSec).UTC()
+	now := time.Now().UTC()
+	if now.Before(jobStartTime.Add(jobVertexStateTimeoutInMinute * time.Minute)) {
+		allVerticesRunning := true
+		hasFailure := false
+		failedVertexIndex := -1
+		for index, v := range job.Vertices {
+			if v.Status == client.Failed || v.Status == client.Failing {
+				failedVertexIndex = index
+				hasFailure = true
+				break
+			}
+			allVerticesRunning = allVerticesRunning && (v.StartTime > 0) && v.Status == client.Running
+		}
+		// fail fast
+		if hasFailure {
+			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobRunningFailed",
+				fmt.Sprintf(
+					"Vertex %d with name [%s] state is Failed", failedVertexIndex, job.Vertices[failedVertexIndex].Name))
+			return s.deployFailed(app)
+		}
+		if job.State == client.Running && allVerticesRunning {
+			// Update job status
+			jobStatus := s.flinkController.GetLatestJobStatus(ctx, app)
+			jobStatus.JarName = app.Spec.JarName
+			jobStatus.Parallelism = app.Spec.Parallelism
+			jobStatus.EntryClass = app.Spec.EntryClass
+			jobStatus.ProgramArgs = app.Spec.ProgramArgs
+			jobStatus.AllowNonRestoredState = app.Spec.AllowNonRestoredState
+			s.flinkController.UpdateLatestJobStatus(ctx, app, jobStatus)
+			// Update the application status with the running job info
+			app.Status.SavepointPath = ""
+			app.Status.SavepointTriggerID = ""
+			if v1beta1.IsBlueGreenDeploymentMode(app.Status.DeploymentMode) && app.Status.DeployHash != "" {
+				s.updateApplicationPhase(app, v1beta1.FlinkApplicationDualRunning)
+				return statusChanged, nil
+			}
+			app.Status.DeployHash = hash
+			s.updateApplicationPhase(app, v1beta1.FlinkApplicationRunning)
 			return statusChanged, nil
 		}
-		app.Status.DeployHash = hash
-		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRunning)
-		return statusChanged, nil
+	} else {
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobRunningFailed",
+			fmt.Sprintf(
+				"Not all vertice of the Flink job state is Running before timeout %d minutes", jobVertexStateTimeoutInMinute))
+		return s.deployFailed(app)
 	}
-
 	return statusUnchanged, nil
 }
 
