@@ -6,8 +6,8 @@ metadata:
   labels:
     environment: development
 spec:
-  image: lyft/operator-test-app:local
-  imagePullPolicy: Never
+  image: lyft/operator-test-app:local.1
+  imagePullPolicy: IfNotPresent
   imagePullSecrets:
     - name: dockerhub
   flinkConfig:
