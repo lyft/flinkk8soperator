@@ -107,7 +107,7 @@ public class OperatorTestApp {
     Logger log = LoggerFactory.getLogger(OperatorTestApp.class);
 
     log.info("Submitting job...");
-
+    log.info("args are: ", args);
     String uid = "default";
     if (args.length > 0) {
       uid = args[0];

@@ -648,7 +648,7 @@ func TestSubmittingVertexFailsToStart(t *testing.T) {
 		return nil, nil
 	}
 
-	podSelector := "wc7ydhul"
+	podSelector := "wc7ydhum"
 
 	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
 		jm := appsv1.Deployment{
@@ -805,7 +805,7 @@ func TestSubmittingVertexStartTimeout(t *testing.T) {
 		return nil, nil
 	}
 
-	podSelector := "wc7ydhul"
+	podSelector := "wc7ydhun"
 
 	mockFlinkController.GetDeploymentsForHashFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (deployment *common.FlinkDeployment, err error) {
 		jm := appsv1.Deployment{
