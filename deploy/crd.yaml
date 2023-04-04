@@ -995,6 +995,8 @@ spec:
                 required:
                   - name
                   - mountPath
+            betaFeaturesEnabled:
+              type: boolean
           required:
             - image
             - jarName

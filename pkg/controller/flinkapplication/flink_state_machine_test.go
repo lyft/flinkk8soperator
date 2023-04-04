@@ -412,10 +412,11 @@ func TestSubmittingToRunning(t *testing.T) {
 			Namespace: "flink",
 		},
 		Spec: v1beta1.FlinkApplicationSpec{
-			JarName:     "job.jar",
-			Parallelism: 5,
-			EntryClass:  "com.my.Class",
-			ProgramArgs: "--test",
+			JarName:             "job.jar",
+			Parallelism:         5,
+			EntryClass:          "com.my.Class",
+			ProgramArgs:         "--test",
+			BetaFeaturesEnabled: true,
 		},
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:      v1beta1.FlinkApplicationSubmittingJob,
@@ -580,10 +581,11 @@ func TestSubmittingVertexFailsToStart(t *testing.T) {
 			Namespace: "flink",
 		},
 		Spec: v1beta1.FlinkApplicationSpec{
-			JarName:     "job.jar",
-			Parallelism: 5,
-			EntryClass:  "com.my.Class",
-			ProgramArgs: "--test",
+			JarName:             "job.jar",
+			Parallelism:         5,
+			EntryClass:          "com.my.Class",
+			ProgramArgs:         "--test",
+			BetaFeaturesEnabled: true,
 		},
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:      v1beta1.FlinkApplicationSubmittingJob,
@@ -742,10 +744,11 @@ func TestSubmittingVertexStartTimeout(t *testing.T) {
 			Namespace: "flink",
 		},
 		Spec: v1beta1.FlinkApplicationSpec{
-			JarName:     "job.jar",
-			Parallelism: 5,
-			EntryClass:  "com.my.Class",
-			ProgramArgs: "--test",
+			JarName:             "job.jar",
+			Parallelism:         5,
+			EntryClass:          "com.my.Class",
+			ProgramArgs:         "--test",
+			BetaFeaturesEnabled: true,
 		},
 		Status: v1beta1.FlinkApplicationStatus{
 			Phase:      v1beta1.FlinkApplicationSubmittingJob,
