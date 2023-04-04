@@ -6,7 +6,7 @@ metadata:
   labels:
     environment: development
 spec:
-  image: operator-test-app:local
+  image: flink-test-app:local.1
   imagePullPolicy: Never
   imagePullSecrets:
     - name: dockerhub
