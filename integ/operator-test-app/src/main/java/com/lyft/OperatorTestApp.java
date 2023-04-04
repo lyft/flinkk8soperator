@@ -107,7 +107,7 @@ public class OperatorTestApp {
     Logger log = LoggerFactory.getLogger(OperatorTestApp.class);
 
     log.info("Submitting job...");
-    log.info("args are: {}", args);
+    log.info("Args are: {}" + args);
     String uid = "default";
     if (args.length > 0) {
       uid = args[0];
@@ -128,12 +128,14 @@ public class OperatorTestApp {
 
     try {
       cmd = parser.parse(options, args);
+      log.info("cmd is {}", cmd);
     } catch (ParseException e) {
       System.out.println(e.getMessage());
 
       System.exit(1);
     }
 
+    log.info("Start counting..");
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
     configureEnvironment(env);
