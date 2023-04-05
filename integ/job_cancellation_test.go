@@ -214,7 +214,7 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 // tests the recovery workflow of the job when savepoint is disabled.
 func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 	log.Info("Starting test TestJobRecoveryWithoutSavepoint")
-	
+
 	const finalizer = "simple.finalizers.test.com"
 	const testName = "cancelrecovery"
 

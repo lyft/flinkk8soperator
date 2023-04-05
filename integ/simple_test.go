@@ -267,7 +267,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 
 func (s *IntegSuite) TestRecovery(c *C) {
 	log.Info("Starting test TestRecovery")
-	
+
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 
