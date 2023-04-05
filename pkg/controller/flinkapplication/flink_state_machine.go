@@ -792,11 +792,11 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 			allVerticesRunning = allVerticesRunning && (v.StartTime > 0)
 		}
 	}
-	return updateJobAndReturn(job, s, allVerticesRunning, ctx, app, hash)
+	return updateJobAndReturn(ctx, job, s, allVerticesRunning, app, hash)
 }
 
-func updateJobAndReturn(job *client.FlinkJobOverview, s *FlinkStateMachine, allVerticesRunning bool,
-	ctx context.Context, app *v1beta1.FlinkApplication, hash string) (bool, error) {
+func updateJobAndReturn(ctx context.Context, job *client.FlinkJobOverview, s *FlinkStateMachine, allVerticesRunning bool,
+	app *v1beta1.FlinkApplication, hash string) (bool, error) {
 	if job.State == client.Running && allVerticesRunning {
 		// Update job status
 		jobStatus := s.flinkController.GetLatestJobStatus(ctx, app)

@@ -34,7 +34,6 @@ func WaitForUpdate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.
 
 func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	log.Info("Starting test TestUpdateWithBlueGreenDeploymentMode")
-	c.Skip("Skipping due to memory constraints in CI")
 	testName := "bluegreenupdate"
 	const finalizer = "bluegreen.finalizers.test.com"
 

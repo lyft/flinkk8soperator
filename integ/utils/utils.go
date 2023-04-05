@@ -467,7 +467,7 @@ func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhas
 		waitTime++
 		time.Sleep(1 * time.Second)
 
-		if waitTime > 100 {
+		if waitTime > 500 {
 			return fmt.Errorf("timed out 500s before reaching phase %s", phase.VerboseString())
 		}
 	}
