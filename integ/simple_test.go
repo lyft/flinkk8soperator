@@ -69,6 +69,7 @@ func updateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1be
 // Tests job submission, upgrade, rollback, and deletion
 func (s *IntegSuite) TestSimple(c *C) {
 	log.Info("Starting test TestSimple")
+
 	const finalizer = "simple.finalizers.test.com"
 
 	// start a simple app
@@ -266,6 +267,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 
 func (s *IntegSuite) TestRecovery(c *C) {
 	log.Info("Starting test TestRecovery")
+	
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
 
