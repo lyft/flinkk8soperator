@@ -758,6 +758,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	allVerticesRunning := true
 	if app.Spec.BetaFeaturesEnabled {
 		// wait until all vertices have been scheduled and running
+		logger.Info(ctx, "Beta features flag is enabled.")
 		jobStartTimeSec := job.StartTime / 1000
 		jobStartTimeNSec := job.StartTime % 1000
 		jobStartTime := time.Unix(jobStartTimeSec, jobStartTimeNSec).UTC()
@@ -799,6 +800,7 @@ func updateJobAndReturn(ctx context.Context, job *client.FlinkJobOverview, s *Fl
 	app *v1beta1.FlinkApplication, hash string) (bool, error) {
 	if job.State == client.Running && allVerticesRunning {
 		// Update job status
+		logger.Info(ctx, "Job and all vertices states are RUNNING.")
 		jobStatus := s.flinkController.GetLatestJobStatus(ctx, app)
 		jobStatus.JarName = app.Spec.JarName
 		jobStatus.Parallelism = app.Spec.Parallelism

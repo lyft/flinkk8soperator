@@ -172,3 +172,6 @@ Below is the list of fields in the custom resource and their description:
   * **tearDownVersionHash** `type:string`
     Used **only** with the BlueGreen deployment mode. This is set typically once a FlinkApplication successfully transitions to the `DualRunning` phase.
     Once set, the application version corresponding to the hash is torn down. On successful teardown, the FlinkApplication transitions to a `Running` phase.
+
+  * **betaFeaturesEnabled** `type:boolean`
+    This is a feature flag to control beta features ON/OFF. 
