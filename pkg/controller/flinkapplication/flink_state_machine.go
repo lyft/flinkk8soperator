@@ -760,15 +760,15 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	if app.Spec.BetaFeaturesEnabled {
 		// wait until all vertices have been scheduled and running
 		logger.Info(ctx, "Beta features flag is enabled.")
-		jobStartTimeSec := job.StartTime / 1000
-		jobStartTimeNSec := job.StartTime % 1000
-		jobStartTime := time.Unix(jobStartTimeSec, jobStartTimeNSec).UTC()
+		jobStartTime := getJobStartTimeInUTC(job.StartTime)
 		now := time.Now().UTC()
-		if now.Before(jobStartTime.Add(jobVertexStateTimeoutInMinute * time.Minute)) {
+		cfg := config.GetConfig()
+		flinkJobVertexTimeout := cfg.FlinkJobVertexTimeout
+		if now.Before(jobStartTime.Add(flinkJobVertexTimeout.Duration)) {
 			hasFailure := false
 			failedVertexIndex := -1
 			for index, v := range job.Vertices {
-				if v.Status == client.Failed || v.Status == client.Failing {
+				if v.Status == client.Failed {
 					failedVertexIndex = index
 					hasFailure = true
 					break
@@ -795,6 +795,12 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		}
 	}
 	return updateJobAndReturn(ctx, job, s, allVerticesRunning, app, hash)
+}
+
+func getJobStartTimeInUTC(startTime int64) time.Time {
+	jobStartTimeSec := startTime / 1000
+	jobStartTimeNSec := startTime % 1000
+	return time.Unix(jobStartTimeSec, jobStartTimeNSec).UTC()
 }
 
 func updateJobAndReturn(ctx context.Context, job *client.FlinkJobOverview, s *FlinkStateMachine, allVerticesRunning bool,

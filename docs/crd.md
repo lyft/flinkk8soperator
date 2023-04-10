@@ -174,4 +174,7 @@ Below is the list of fields in the custom resource and their description:
     Once set, the application version corresponding to the hash is torn down. On successful teardown, the FlinkApplication transitions to a `Running` phase.
 
   * **betaFeaturesEnabled** `type:boolean`
-    This is a feature flag to control beta features ON/OFF. 
+    This is a feature flag to control beta features ON/OFF. Below is list of beta features:
+    1. Monitor Flink job vertex state instead of Flink job overview state. Currently, flink operator will mark the deployment as a success
+    if the Flink job overview state is `RUNNING`. With this beta feature, flink operator will monitor job vertex level states
+    and will only mark the deployment as a success if flink job state AND all vertices state are `RUNNING.`
