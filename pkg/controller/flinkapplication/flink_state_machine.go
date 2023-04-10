@@ -309,6 +309,7 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 	var jmDeployment *appsv1.Deployment
 
 	for i, d := range deployments.Items {
+		d := d
 		if flink.DeploymentIsJobmanager(&d) {
 			jmDeployment = &deployments.Items[i]
 		} else if flink.DeploymentIsTaskmanager(&d) {
