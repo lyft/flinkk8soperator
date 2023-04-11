@@ -3,6 +3,7 @@ package flinkapplication
 import (
 	"context"
 	"errors"
+
 	"testing"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
+	config2 "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/mock"
 	k8mock "github.com/lyft/flinkk8soperator/pkg/controller/k8/mock"
+	"github.com/lyft/flytestdlib/config"
 	mockScope "github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/stretchr/testify/assert"
@@ -425,6 +428,9 @@ func TestSubmittingToRunning(t *testing.T) {
 	}
 	appHash := flink.HashForApplication(&app)
 
+	_ = config2.ConfigSection.SetConfig(&config2.Config{
+		FlinkJobVertexTimeout: config.Duration{Duration: 3 * time.Minute},
+	})
 	stateMachineForTest := getTestStateMachine()
 	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
 	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
@@ -599,6 +605,10 @@ func TestSubmittingVertexFailsToStart(t *testing.T) {
 	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
 		return true, nil
 	}
+	_ = config2.ConfigSection.SetConfig(&config2.Config{
+		FlinkJobVertexTimeout: config.Duration{Duration: 3 * time.Minute},
+	})
+
 	mockStartTime := time.Now().Add(-1 * time.Minute).UTC().UnixMilli()
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, appHash, hash)
@@ -762,6 +772,10 @@ func TestSubmittingVertexStartTimeout(t *testing.T) {
 	mockFlinkController.IsServiceReadyFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (bool, error) {
 		return true, nil
 	}
+	_ = config2.ConfigSection.SetConfig(&config2.Config{
+		FlinkJobVertexTimeout: config.Duration{Duration: 3 * time.Minute},
+	})
+
 	mockStartTime := time.Now().Add(-4 * time.Minute).UTC().UnixMilli()
 	mockFlinkController.GetJobForApplicationFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (*client.FlinkJobOverview, error) {
 		assert.Equal(t, appHash, hash)

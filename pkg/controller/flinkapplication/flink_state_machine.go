@@ -763,6 +763,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		jobStartTime := getJobStartTimeInUTC(job.StartTime)
 		now := time.Now().UTC()
 		cfg := config.GetConfig()
+		logger.Info(ctx, "Job vertex timeout config is ", cfg.FlinkJobVertexTimeout)
 		flinkJobVertexTimeout := cfg.FlinkJobVertexTimeout
 		if now.Before(jobStartTime.Add(flinkJobVertexTimeout.Duration)) {
 			hasFailure := false
