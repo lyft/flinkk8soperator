@@ -28,10 +28,9 @@ import (
 )
 
 const (
-	jobFinalizer                  = "job.finalizers.flink.k8s.io"
-	statusChanged                 = true
-	statusUnchanged               = false
-	jobVertexStateTimeoutInMinute = 3
+	jobFinalizer    = "job.finalizers.flink.k8s.io"
+	statusChanged   = true
+	statusUnchanged = false
 )
 
 // The core state machine that manages Flink clusters and jobs. See docs/state_machine.md for a description of the
@@ -784,7 +783,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	} else {
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobRunningFailed",
 			fmt.Sprintf(
-				"Not all vertice of the Flink job state is Running before timeout %d minutes", jobVertexStateTimeoutInMinute))
+				"Not all vertice of the Flink job state is Running before timeout %f minutes", cfg.FlinkJobVertexTimeout.Minutes()))
 		return s.deployFailed(app)
 	}
 
