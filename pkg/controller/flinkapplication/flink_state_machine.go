@@ -790,6 +790,7 @@ func monitorAllVerticesState(job *client.FlinkJobOverview) (bool, bool, int) {
 		if v.Status == client.Failed {
 			failedVertexIndex = index
 			hasFailure = true
+			allVerticesRunning = false
 			break
 		}
 		allVerticesRunning = allVerticesRunning && (v.StartTime > 0) && v.Status == client.Running
