@@ -53,5 +53,6 @@ func (cfg Config) GetPFlagSet(prefix string) *pflag.FlagSet {
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "baseBackoffDuration"), "100ms", "Determines the base backoff for exponential retries.")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "maxBackoffDuration"), "30s", "Determines the max backoff for exponential retries.")
 	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "maxErrDuration"), "5m", "Determines the max time to wait on errors.")
+	cmdFlags.String(fmt.Sprintf("%v%v", prefix, "flinkJobVertexTimeout"), "3m", "Determines the max time to wait on job vertex state turns into RUNNING.")
 	return cmdFlags
 }

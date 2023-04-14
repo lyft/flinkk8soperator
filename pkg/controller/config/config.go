@@ -24,6 +24,7 @@ type Config struct {
 	BaseBackoffDuration   config.Duration `json:"baseBackoffDuration" pflag:"\"100ms\",Determines the base backoff for exponential retries."`
 	MaxBackoffDuration    config.Duration `json:"maxBackoffDuration" pflag:"\"30s\",Determines the max backoff for exponential retries."`
 	MaxErrDuration        config.Duration `json:"maxErrDuration" pflag:"\"5m\",Determines the max time to wait on errors."`
+	FlinkJobVertexTimeout config.Duration `json:"flinkJobVertexTimeout" pflag:"\"3m\",Determines the max time to wait on job vertex state turns into RUNNING."`
 }
 
 func GetConfig() *Config {
