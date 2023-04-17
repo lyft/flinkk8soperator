@@ -40,7 +40,7 @@ run `umask 000` before running the tests.
 
 ```
 $ kubectl proxy &
-$ dep ensure
+$ go mod download
 ```
 
 ### Running in Direct mode
@@ -79,3 +79,48 @@ variables. Supported options include:
 You can also pass [gocheck](http://labix.org/gocheck) options to the
 test runner. Particularly useful is `-check.vv` which will output logs
 from the operator and Flink pods to help debugging test failures.
+
+### Minikube Setup
+
+Ideally we'd use k8s 1.16 to match the deployed k8s version, however, this
+is non-trivial due to cgroup configurations. Instead, we will use a version
+that is compatible with v1beta1 CRD's which corresponds to <1.22. CRD's v1
+is only available with client >=1.16, however, the client used here is 1.14
+and the upgrade is non-trivial. 
+TODO: https://jira.lyft.net/browse/STRMCMP-1659
+
+Ran on:
+- Go 1.12
+- Docker desktop 4.5.0
+- Minikube v1.29.0 (running 1.20.15)
+- i9 Ventura 13.2.1
+- GoLand 2021.3.3
+
+
+1. Install Dependencies
+   Run `go mod vendor`
+
+3. Start minikube
+   `minikube start --kubernetes-version=v1.20.15`
+
+4. Proxy minikube
+   `kubectl proxy --port 8001 &`
+
+5. Set up test app images and operator image
+   `integ/setup.sh`
+
+8. Set the following for the Go test:
+   Package path: `github.com/lyft/flinkk8soperator/integ`
+   Env: `INTEGRATION=true;OPERATOR_IMAGE=flinkk8soperator:local;RUN_DIRECT=true`
+   Program Args: `-timeout 40m -check.vv IntegTest`
+
+
+Helpers:
+- Kill kube proxy
+  `ps -ef | grep "kubectl proxy"`
+  `kill -9 <process_id>`
+- Kill stuck flink app
+  `kubectl patch FlinkApplication invalidcanceljob -p '{"metadata":{"finalizers":[]}}' --type=merge`
+- Set default namespace
+  `kubectl config set-context --current --namespace=flinkoperatortest`
+

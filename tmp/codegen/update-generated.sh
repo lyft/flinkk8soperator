@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-vendor/k8s.io/code-generator/generate-groups.sh \
+bash ./vendor/k8s.io/code-generator/generate-groups.sh \
 deepcopy,client \
 github.com/lyft/flinkk8soperator/pkg/client \
 github.com/lyft/flinkk8soperator/pkg/apis \

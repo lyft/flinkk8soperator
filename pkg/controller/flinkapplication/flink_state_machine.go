@@ -308,6 +308,7 @@ func (s *FlinkStateMachine) handleRescaling(ctx context.Context, app *v1beta1.Fl
 	var jmDeployment *appsv1.Deployment
 
 	for i, d := range deployments.Items {
+		d := d
 		if flink.DeploymentIsJobmanager(&d) {
 			jmDeployment = &deployments.Items[i]
 		} else if flink.DeploymentIsTaskmanager(&d) {
@@ -755,14 +756,59 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		return statusUnchanged, errors.Errorf("Could not find job %s", s.flinkController.GetLatestJobID(ctx, app))
 	}
 
-	// wait until all vertices have been scheduled and started
-	allVerticesStarted := true
-	for _, v := range job.Vertices {
-		allVerticesStarted = allVerticesStarted && (v.StartTime > 0)
+	jobStartTime := getJobStartTimeInUTC(job.StartTime)
+	now := time.Now().UTC()
+	cfg := config.GetConfig()
+	logger.Info(ctx, "Job vertex timeout config is ", cfg.FlinkJobVertexTimeout)
+	flinkJobVertexTimeout := cfg.FlinkJobVertexTimeout
+	if now.Before(jobStartTime.Add(flinkJobVertexTimeout.Duration)) {
+		allVerticesRunning, hasFailure, failedVertexIndex := monitorAllVerticesState(job)
+
+		// fail fast
+		if hasFailure {
+			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobRunningFailed",
+				fmt.Sprintf(
+					"Vertex %d with name [%s] state is Failed", failedVertexIndex, job.Vertices[failedVertexIndex].Name))
+			return s.deployFailed(app)
+		}
+		return updateJobAndReturn(ctx, job, s, allVerticesRunning, app, hash)
 	}
 
-	if job.State == client.Running && allVerticesStarted {
+	s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobRunningFailed",
+		fmt.Sprintf(
+			"Not all vertice of the Flink job state is Running before timeout %f minutes", cfg.FlinkJobVertexTimeout.Minutes()))
+	return s.deployFailed(app)
+
+}
+
+func monitorAllVerticesState(job *client.FlinkJobOverview) (bool, bool, int) {
+	allVerticesRunning := true
+	// wait until all vertices have been scheduled and running
+	hasFailure := false
+	failedVertexIndex := -1
+	for index, v := range job.Vertices {
+		if v.Status == client.Failed {
+			failedVertexIndex = index
+			hasFailure = true
+			allVerticesRunning = false
+			break
+		}
+		allVerticesRunning = allVerticesRunning && (v.StartTime > 0) && v.Status == client.Running
+	}
+	return allVerticesRunning, hasFailure, failedVertexIndex
+}
+
+func getJobStartTimeInUTC(startTime int64) time.Time {
+	jobStartTimeSec := startTime / 1000
+	jobStartTimeNSec := startTime % 1000
+	return time.Unix(jobStartTimeSec, jobStartTimeNSec).UTC()
+}
+
+func updateJobAndReturn(ctx context.Context, job *client.FlinkJobOverview, s *FlinkStateMachine, allVerticesRunning bool,
+	app *v1beta1.FlinkApplication, hash string) (bool, error) {
+	if job.State == client.Running && allVerticesRunning {
 		// Update job status
+		logger.Info(ctx, "Job and all vertices states are RUNNING.")
 		jobStatus := s.flinkController.GetLatestJobStatus(ctx, app)
 		jobStatus.JarName = app.Spec.JarName
 		jobStatus.Parallelism = app.Spec.Parallelism
@@ -781,7 +827,6 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRunning)
 		return statusChanged, nil
 	}
-
 	return statusUnchanged, nil
 }
 

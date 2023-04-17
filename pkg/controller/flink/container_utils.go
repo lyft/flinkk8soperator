@@ -139,14 +139,6 @@ func ImagePullPolicy(app *v1beta1.FlinkApplication) v1.PullPolicy {
 	return app.Spec.ImagePullPolicy
 }
 
-func fromHashToByteArray(input [32]byte) []byte {
-	output := make([]byte, 32)
-	for idx, val := range input {
-		output[idx] = val
-	}
-	return output
-}
-
 // Generate a deterministic hash in bytes for the pb object
 func ComputeDeploymentHash(deployment appsv1.Deployment) ([]byte, error) {
 	// json marshalling includes:
@@ -163,7 +155,7 @@ func ComputeDeploymentHash(deployment appsv1.Deployment) ([]byte, error) {
 		return nil, err
 	}
 
-	return fromHashToByteArray(hash), err
+	return hash[:], err
 }
 
 // Returns an 8 character hash sensitive to the application name, labels, annotations, and spec.
@@ -255,7 +247,7 @@ func RandomPodDeploymentSelector() string {
 	s := make([]byte, 8)
 
 	for i := range s {
-		s[i] = alphabet[rand.Int31n(int32(len(alphabet)))]
+		s[i] = alphabet[rand.Int31n(int32(len(alphabet)))] // nolint: gosec
 	}
 
 	return string(s)

@@ -7,11 +7,11 @@ to develop their applications locally.
 
 ## Run the operator
 
-### Install [Docker for Mac](https://docs.docker.com/docker-for-mac/install/)
+### Install [Minikube](https://minikube.sigs.k8s.io/docs/start/#what-youll-need)
 
-Once installed and running, enabled Kuberenetes in settings (from the
-docker icon in the menu bar, click Preferences -> Kubernetes -> Enable
-Kubernetes).
+You will want to start minikube on <=1.20, for example:
+`minikube start --kubernetes-version=v1.20.15`
+
 
 ### (Optional) Setup kubernetes dashboard
 
@@ -46,6 +46,12 @@ $ cd flinkk8soperator
 $ kubectl create -f deploy/crd.yaml
 ```
 
+### Install permissions
+``` bash
+$ kubectl create -f deploy/role.yaml
+$ kubectl create -f deploy/role-binding.yaml
+```
+
 ### Start the operator
 
 #### Option 1: run outside the kubernetes cluster
@@ -56,11 +62,9 @@ cluster. This is very convinient for development, as we can iterate
 quickly, use a debugger, etc.
 
 ```bash
-$ dep ensure
+$ go mod download
 $ KUBERNETES_CONFIG="$HOME/.kube/config" go run ./cmd/flinkk8soperator/main.go  --config=local_config.yaml
 ```
-
-(you may need to accept a firewall prompt and `brew install dep` if you don't have it installed)
 
 #### Option 2: run inside the kubernetes cluster
 

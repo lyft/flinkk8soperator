@@ -58,7 +58,7 @@ func WaitUpdateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *
 
 // tests the workflow of job cancellation without savepoint
 func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
-
+	log.Info("Starting test TestJobCancellationWithoutSavepoint")
 	testName := "cancelsuccess"
 	const finalizer = "simple.finalizers.test.com"
 
@@ -81,7 +81,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
-	c.Assert(len(pods.Items), Equals, 3)
+	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
 		c.Assert(pod.Spec.Containers[0].Image, Equals, config.Spec.Image)
 	}
@@ -97,7 +97,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
-	c.Assert(len(pods.Items), Equals, 3)
+	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
 		c.Assert(pod.Spec.Containers[0].Image, Equals, NewImage)
 	}
@@ -131,11 +131,13 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 		}
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestJobCancellationWithoutSavepoint")
 }
 
 // tests a job update with the existing job already in cancelled state.
 // here, the new submitted job starts without a savepoint.
 func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
+	log.Info("Starting test TestCancelledJobWithoutSavepoint")
 
 	testName := "invalidcancel"
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
@@ -150,6 +152,7 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 		Commentf("Failed to create flink application"))
 
 	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
+
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	currApp, _ := s.Util.GetFlinkApplication(config.Name)
@@ -163,7 +166,7 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	c.Assert(err, IsNil)
 
 	// wait a bit
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	job = s.Util.GetJobOverview(currApp)
 	c.Assert(job["status"], Equals, "CANCELED")
@@ -205,10 +208,12 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 		}
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestCancelledJobWithoutSavepoint")
 }
 
 // tests the recovery workflow of the job when savepoint is disabled.
 func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
+	log.Info("Starting test TestJobRecoveryWithoutSavepoint")
 
 	const finalizer = "simple.finalizers.test.com"
 	const testName = "cancelrecovery"
@@ -300,4 +305,5 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	log.Info("All pods torn down")
+	log.Info("Completed test TestJobRecoveryWithoutSavepoint")
 }
