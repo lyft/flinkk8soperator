@@ -1,4 +1,4 @@
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: flinkapplications.flink.k8s.io
@@ -12,7 +12,6 @@ spec:
     shortNames:
       - flinkapp
   scope: Namespaced
-  version: v1beta1
   versions:
     - name: v1beta1
       served: true
@@ -996,33 +995,33 @@ spec:
               - jarName
               - parallelism
               - entryClass
-  su  bresources:
-      status: {}
-  ad  ditionalPrinterColumns:
-      - name: Phase
-        type: string
-        description: The current state machine phase for this FlinkApplication
-        JSONPath: .status.phase
-      - name: Cluster Health
-        type: string
-        description: The health of the Flink cluster
-        JSONPath: .status.clusterStatus.health
-      - name: Job Health
-        type: string
-        description: The health of the Flink job
-        JSONPath: .status.jobStatus.health
-      - name: Healthy TMs
-        type: string
-        JSONPath: ".status.clusterStatus.healthyTaskManagers"
-        priority: 1
-      - name: Total TMs
-        type: string
-        JSONPath: ".status.clusterStatus.numberOfTaskManagers"
-        priority: 1
-      - name: Job Restarts
-        type: integer
-        description: Number of times the job has restarted
-        JSONPath: .status.jobStatus.jobRestartCount
-      - name: Age
-        type: date
-        JSONPath: .metadata.creationTimestamp
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Phase
+          type: string
+          description: The current state machine phase for this FlinkApplication
+          jsonPath: .status.phase
+        - name: Cluster Health
+          type: string
+          description: The health of the Flink cluster
+          jsonPath: .status.clusterStatus.health
+        - name: Job Health
+          type: string
+          description: The health of the Flink job
+          jsonPath: .status.jobStatus.health
+        - name: Healthy TMs
+          type: string
+          jsonPath: ".status.clusterStatus.healthyTaskManagers"
+          priority: 1
+        - name: Total TMs
+          type: string
+          jsonPath: ".status.clusterStatus.numberOfTaskManagers"
+          priority: 1
+        - name: Job Restarts
+          type: integer
+          description: Number of times the job has restarted
+          jsonPath: .status.jobStatus.jobRestartCount
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
