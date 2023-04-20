@@ -169,7 +169,7 @@ func (s *IntegSuite) TearDownTest(c *C) {
 	err = s.Util.ExecuteCommand("kubectl", "describe", "flinkapplications", "-n", "flinkoperatortest")
 	c.Assert(err, IsNil)
 
-	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
+	err = s.Util.FlinkApps().DeleteCollection(ctx, nil, v1.ListOptions{})
 	if err != nil {
 		level.Error(logger).Log("msg", "Failed to clean up flink applications: %v", err)
 	}

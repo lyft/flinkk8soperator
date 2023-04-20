@@ -11,15 +11,15 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func WaitForUpdate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), phase v1beta1.FlinkApplicationPhase, failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
+func WaitForUpdate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), phase v1beta1.FlinkApplicationPhase, failurePhase v1beta1.FlinkApplicationPhase, ctx context.Context) *v1beta1.FlinkApplication {
 
 	// update with new image.
-	app, err := s.Util.Update(name, updateFn)
+	app, err := s.Util.Update(ctx, name, updateFn)
 	c.Assert(err, IsNil)
 
 	for {
 		// keep trying until the new job is launched
-		newApp, err := s.Util.GetFlinkApplication(name)
+		newApp, err := s.Util.GetFlinkApplication(ctx, name)
 		c.Assert(err, IsNil)
 		if newApp.Status.VersionStatuses[s.Util.GetCurrentStatusIndex(app)].JobStatus.JobID != "" {
 			break
@@ -27,10 +27,10 @@ func WaitForUpdate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	c.Assert(s.Util.WaitForPhase(name, phase, failurePhase), IsNil)
-	c.Assert(s.Util.WaitForAllTasksRunning(name), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, name, phase, failurePhase), IsNil)
+	c.Assert(s.Util.WaitForAllTasksRunning(ctx, name), IsNil)
 
-	newApp, _ := s.Util.GetFlinkApplication(name)
+	newApp, _ := s.Util.GetFlinkApplication(ctx, name)
 	return newApp
 }
 
@@ -50,11 +50,11 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	config.ObjectMeta.Labels["integTest"] = testName
 	config.Finalizers = append(config.Finalizers, finalizer)
 
-	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
+	c.Assert(s.Util.CreateFlinkApplication(ctx, config), IsNil,
 		Commentf("Failed to create flink application"))
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
-	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForAllTasksRunning(ctx, config.Name), IsNil)
 
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
 		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
@@ -67,7 +67,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	// test updating the app with a new image
 	newApp := WaitForUpdate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
-	}, v1beta1.FlinkApplicationDualRunning, v1beta1.FlinkApplicationDeployFailed)
+	}, v1beta1.FlinkApplicationDualRunning, v1beta1.FlinkApplicationDeployFailed, ctx)
 
 	c.Assert(newApp.Spec.Image, Equals, NewImage)
 	c.Assert(newApp.Status.SavepointPath, NotNil)
@@ -77,7 +77,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(err, IsNil)
 	// We have 2 applications running
 	c.Assert(len(pods.Items), Equals, 4)
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationDualRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, config.Name, v1beta1.FlinkApplicationDualRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.GetJobID(newApp), NotNil)
 	c.Assert(newApp.Status.UpdatingVersion, Equals, v1beta1.BlueFlinkApplication)
 	c.Assert(newApp.Status.DeployVersion, Equals, v1beta1.GreenFlinkApplication)
@@ -89,7 +89,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	logger.Log("message", "Tearing down version %s", teardownVersion)
 	newApp = WaitForUpdate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.TearDownVersionHash = hashToTeardown
-	}, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed)
+	}, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed, ctx)
 
 	// wait for the old cluster to be cleaned up
 	for {
@@ -111,7 +111,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(newApp.Status.TeardownHash, NotNil)
 	c.Assert(newApp.Status.DeployVersion, Equals, v1beta1.BlueFlinkApplication)
 	c.Assert(newApp.Status.VersionStatuses[0].JobStatus.JobID, NotNil)
@@ -128,10 +128,10 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(len(pods.Items), Equals, 0)
 
 	// cleanup
-	c.Assert(s.Util.FlinkApps().Delete(newApp.Name, &v1.DeleteOptions{}), IsNil)
+	c.Assert(s.Util.FlinkApps().Delete(ctx, newApp.Name, &v1.DeleteOptions{}), IsNil)
 	var app *v1beta1.FlinkApplication
 	for {
-		app, err = s.Util.GetFlinkApplication(config.Name)
+		app, err = s.Util.GetFlinkApplication(ctx, config.Name)
 		c.Assert(err, IsNil)
 		if len(app.Finalizers) == 1 && app.Finalizers[0] == finalizer {
 			break
@@ -145,7 +145,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 
 	// delete our finalizer
 	app.Finalizers = []string{}
-	_, err = s.Util.FlinkApps().Update(app)
+	_, err = s.Util.FlinkApps().Update(ctx, app)
 	c.Assert(err, IsNil)
 
 	for {

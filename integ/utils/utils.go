@@ -92,7 +92,7 @@ func New(ctx context.Context, namespaceName string, kubeconfig string, image str
 func (f *TestUtil) Cleanup(ctx context.Context) {
 	logger := log.NewLogfmtLogger(os.Stdout)
 	if f.Namespace.Name != "default" {
-		flinkApps, err := f.FlinkApps().List(metav1.ListOptions{})
+		flinkApps, err := f.FlinkApps().List(ctx, metav1.ListOptions{})
 		if err != nil {
 			level.Error(logger).Log("message", "Failed to fetch flink apps during cleanup: %v", err)
 		} else {
@@ -101,7 +101,7 @@ func (f *TestUtil) Cleanup(ctx context.Context) {
 				app := app
 				if len(app.Finalizers) != 0 {
 					app.Finalizers = []string{}
-					_, _ = f.FlinkApps().Update(&app)
+					_, _ = f.FlinkApps().Update(ctx, &app)
 				}
 			}
 		}
@@ -441,19 +441,19 @@ func (f *TestUtil) FlinkApps() client.FlinkApplicationInterface {
 	return f.FlinkApplicationClient.FlinkV1beta1().FlinkApplications(f.Namespace.Name)
 }
 
-func (f *TestUtil) CreateFlinkApplication(application *flinkapp.FlinkApplication) error {
-	_, err := f.FlinkApps().Create(application)
+func (f *TestUtil) CreateFlinkApplication(ctx context.Context, application *flinkapp.FlinkApplication) error {
+	_, err := f.FlinkApps().Create(ctx, application)
 	return err
 }
 
-func (f *TestUtil) GetFlinkApplication(name string) (*flinkapp.FlinkApplication, error) {
-	return f.FlinkApps().Get(name, metav1.GetOptions{})
+func (f *TestUtil) GetFlinkApplication(ctx context.Context, name string) (*flinkapp.FlinkApplication, error) {
+	return f.FlinkApps().Get(ctx, name, metav1.GetOptions{})
 }
 
-func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhase, failurePhases ...flinkapp.FlinkApplicationPhase) error {
+func (f *TestUtil) WaitForPhase(ctx context.Context, name string, phase flinkapp.FlinkApplicationPhase, failurePhases ...flinkapp.FlinkApplicationPhase) error {
 	waitTime := 0
 	for {
-		app, err := f.FlinkApps().Get(name, metav1.GetOptions{})
+		app, err := f.FlinkApps().Get(ctx, name, metav1.GetOptions{})
 
 		if err != nil {
 			return err
@@ -557,8 +557,8 @@ func vertexRunning(vertex map[string]interface{}) bool {
 	return true
 }
 
-func (f *TestUtil) WaitForAllTasksRunning(name string) error {
-	flinkApp, err := f.GetFlinkApplication(name)
+func (f *TestUtil) WaitForAllTasksRunning(ctx context.Context, name string) error {
+	flinkApp, err := f.GetFlinkApplication(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -592,10 +592,10 @@ func (f *TestUtil) WaitForAllTasksRunning(name string) error {
 	return nil
 }
 
-func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplication)) (*flinkapp.FlinkApplication, error) {
+func (f *TestUtil) Update(ctx context.Context, name string, updateFn func(app *flinkapp.FlinkApplication)) (*flinkapp.FlinkApplication, error) {
 	logger := log.NewLogfmtLogger(os.Stdout)
 	for {
-		newApp, err := f.GetFlinkApplication(name)
+		newApp, err := f.GetFlinkApplication(ctx, name)
 		if err != nil {
 			return nil, err
 		}
@@ -603,7 +603,7 @@ func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplicat
 		// Update the app
 		updateFn(newApp)
 
-		updated, err := f.FlinkApps().Update(newApp)
+		updated, err := f.FlinkApps().Update(ctx, newApp)
 
 		if err == nil {
 			return updated, nil

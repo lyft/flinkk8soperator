@@ -20,29 +20,29 @@ func failingJobTest(s *IntegSuite, c *C, ctx context.Context, testName string, c
 
 	config.ObjectMeta.Labels["integTest"] = testName
 
-	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
+	c.Assert(s.Util.CreateFlinkApplication(ctx, config), IsNil,
 		Commentf("Failed to create flink application"))
 
 	// Cause it to fail
 	causeFailure()
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 
 	// wait a bit for it to start failing
 	time.Sleep(5 * time.Second)
 
 	// Try to update it
-	app, err := s.Util.GetFlinkApplication(config.Name)
+	app, err := s.Util.GetFlinkApplication(ctx, config.Name)
 	c.Assert(err, IsNil)
 	app.Spec.Image = NewImage
-	_, err = s.Util.FlinkApps().Update(app)
+	_, err = s.Util.FlinkApps().Update(ctx, app)
 	c.Assert(err, IsNil)
 
 	// because the checkpoint will fail, the app should move to deploy failed
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, config.Name, v1beta1.FlinkApplicationDeployFailed), IsNil)
 
 	// And the job should not have been updated
-	newApp, err := s.Util.GetFlinkApplication(config.Name)
+	newApp, err := s.Util.GetFlinkApplication(ctx, config.Name)
 	c.Assert(err, IsNil)
 	c.Assert(newApp.Status.JobStatus.JobID, Equals, app.Status.JobStatus.JobID)
 
@@ -51,7 +51,7 @@ func failingJobTest(s *IntegSuite, c *C, ctx context.Context, testName string, c
 	c.Assert(err, IsNil)
 
 	// delete the application and ensure everything is cleaned up successfully
-	c.Assert(s.Util.FlinkApps().Delete(app.Name, &v1.DeleteOptions{}), IsNil)
+	c.Assert(s.Util.FlinkApps().Delete(ctx, app.Name, &v1.DeleteOptions{}), IsNil)
 
 	for {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
