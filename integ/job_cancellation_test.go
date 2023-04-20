@@ -1,16 +1,17 @@
 package integ
 
 import (
+	"context"
 	"fmt"
-	"time"
-
+	"github.com/go-kit/log"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
-	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
+	"time"
 )
 
-func WaitUpdateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
+func WaitUpdateAndValidate(c *C, s *IntegSuite, ctx context.Context, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
 
 	// update with new appln image.
 	app, err := s.Util.Update(name, updateFn)
@@ -37,7 +38,7 @@ func WaitUpdateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *
 
 	// wait for the old cluster to be cleaned up
 	for {
-		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).List(v1.ListOptions{})
+		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).List(ctx, v1.ListOptions{})
 		c.Assert(err, IsNil)
 
 		oldPodFound := false
@@ -58,7 +59,9 @@ func WaitUpdateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *
 
 // tests the workflow of job cancellation without savepoint
 func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
-	log.Info("Starting test TestJobCancellationWithoutSavepoint")
+	logger := log.NewLogfmtLogger(os.Stdout)
+	logger.Log("message", "Starting test TestJobCancellationWithoutSavepoint")
+	ctx := context.Background()
 	testName := "cancelsuccess"
 	const finalizer = "simple.finalizers.test.com"
 
@@ -79,7 +82,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
@@ -87,7 +90,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	}
 
 	// test updating the app with a new image
-	newApp := WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
+	newApp := WaitUpdateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
 	}, v1beta1.FlinkApplicationDeployFailed)
 
@@ -95,7 +98,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	c.Assert(newApp.Status.SavepointPath, Equals, "")
 
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
@@ -124,21 +127,22 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 
 	for {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+			List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
 		if len(pods.Items) == 0 {
 			break
 		}
 	}
-	log.Info("All pods torn down")
-	log.Info("Completed test TestJobCancellationWithoutSavepoint")
+	logger.Log("message", "All pods torn down")
+	logger.Log("message", "Completed test TestJobCancellationWithoutSavepoint")
 }
 
 // tests a job update with the existing job already in cancelled state.
 // here, the new submitted job starts without a savepoint.
 func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
-	log.Info("Starting test TestCancelledJobWithoutSavepoint")
-
+	logger := log.NewLogfmtLogger(os.Stdout)
+	logger.Log("message", "Starting test TestCancelledJobWithoutSavepoint")
+	ctx := context.Background()
 	testName := "invalidcancel"
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
@@ -201,20 +205,21 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	c.Assert(s.Util.FlinkApps().Delete(config.Name, &v1.DeleteOptions{}), IsNil)
 	for {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+			List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
 		if len(pods.Items) == 0 {
 			break
 		}
 	}
-	log.Info("All pods torn down")
-	log.Info("Completed test TestCancelledJobWithoutSavepoint")
+	logger.Log("message", "All pods torn down")
+	logger.Log("message", "Completed test TestCancelledJobWithoutSavepoint")
 }
 
 // tests the recovery workflow of the job when savepoint is disabled.
 func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
-	log.Info("Starting test TestJobRecoveryWithoutSavepoint")
-
+	logger := log.NewLogfmtLogger(os.Stdout)
+	logger.Log("message", "Starting test TestJobRecoveryWithoutSavepoint")
+	ctx := context.Background()
 	const finalizer = "simple.finalizers.test.com"
 	const testName = "cancelrecovery"
 
@@ -262,7 +267,7 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 	c.Assert(restored, IsNil)
 
 	// roll forward with the right config.
-	_ = WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
+	_ = WaitUpdateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.JarName = config.Spec.JarName
 		app.Spec.RestartNonce = "rollback2"
 		app.Spec.Image = NewImage
@@ -270,7 +275,7 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 
 	// assert the pods have the new image
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	for _, pod := range pods.Items {
 		c.Assert(pod.Spec.Containers[0].Image, Equals, NewImage)
@@ -297,13 +302,13 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 	// wait until all pods are deleted
 	for {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+			List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
 		if len(pods.Items) == 0 {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	log.Info("All pods torn down")
-	log.Info("Completed test TestJobRecoveryWithoutSavepoint")
+	logger.Log("message", "All pods torn down")
+	logger.Log("message", "Completed test TestJobRecoveryWithoutSavepoint")
 }

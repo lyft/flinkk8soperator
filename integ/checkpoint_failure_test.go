@@ -1,16 +1,17 @@
 package integ
 
 import (
+	"context"
 	"fmt"
-	"time"
-
+	"github.com/go-kit/log"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
-	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"os"
+	"time"
 )
 
-func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
+func failingJobTest(s *IntegSuite, c *C, ctx context.Context, testName string, causeFailure func(), logger log.Logger) {
 	// create a Flink app
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
@@ -54,34 +55,36 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 
 	for {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+			List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
 		if len(pods.Items) == 0 {
 			break
 		}
 	}
-	log.Info("All pods torn down")
+	logger.Log("message", "All pods torn down")
 }
 
 // Tests that we correctly handle updating a job with task failures
 func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
-	log.Info("Starting test TestJobWithTaskFailures")
-
-	failingJobTest(s, c, "taskfailure", func() {
+	logger := log.NewLogfmtLogger(os.Stdout)
+	logger.Log("message", "Starting test TestJobWithTaskFailures")
+	ctx := context.Background()
+	failingJobTest(s, c, ctx, "taskfailure", func() {
 		err := s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
 		c.Assert(err, IsNil)
-	})
-	log.Info("Completed test TestJobWithTaskFailures")
+	}, logger)
+	logger.Log("message", "Completed test TestJobWithTaskFailures")
 }
 
 // Tests that we correctly handle updating a job with a checkpoint timeout
 func (s *IntegSuite) TestCheckpointTimeout(c *C) {
-	log.Info("Starting test TestCheckpointTimeout")
-
-	failingJobTest(s, c, "checkpointtimeout", func() {
+	logger := log.NewLogfmtLogger(os.Stdout)
+	logger.Log("message", "Starting test TestCheckpointTimeout")
+	ctx := context.Background()
+	failingJobTest(s, c, ctx, "checkpointtimeout", func() {
 		// cause checkpoints to take 120 seconds
 		err := s.Util.ExecuteCommand("minikube", "ssh", "echo 120000 >> /tmp/checkpoints/checkpoint_delay && sudo chmod 0644 /tmp/checkpoints/checkpoint_delay")
 		c.Assert(err, IsNil)
-	})
-	log.Info("Completed test TestCheckpointTimeout")
+	}, logger)
+	logger.Log("message", "Completed test TestCheckpointTimeout")
 }

@@ -1,10 +1,12 @@
 package integ
 
 import (
+	"context"
+	"github.com/go-kit/log"
+	"os"
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
-	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -33,8 +35,9 @@ func WaitForUpdate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.
 }
 
 func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
-	log.Info("Starting test TestUpdateWithBlueGreenDeploymentMode")
-
+	logger := log.NewLogfmtLogger(os.Stdout)
+	logger.Log("message", "Starting test TestUpdateWithBlueGreenDeploymentMode")
+	ctx := context.Background()
 	testName := "bluegreenupdate"
 	const finalizer = "bluegreen.finalizers.test.com"
 
@@ -54,7 +57,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
@@ -70,7 +73,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(newApp.Status.SavepointPath, NotNil)
 
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	// We have 2 applications running
 	c.Assert(len(pods.Items), Equals, 4)
@@ -83,14 +86,14 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	teardownVersion := newApp.Status.DeployVersion
 	hashToTeardown := newApp.Status.DeployHash
 	oldHash := newApp.Status.DeployHash
-	log.Infof("Tearing down version %s", teardownVersion)
+	logger.Log("message", "Tearing down version %s", teardownVersion)
 	newApp = WaitForUpdate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.TearDownVersionHash = hashToTeardown
 	}, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed)
 
 	// wait for the old cluster to be cleaned up
 	for {
-		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).List(v1.ListOptions{})
+		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).List(ctx, v1.ListOptions{})
 		c.Assert(err, IsNil)
 
 		oldPodFound := false
@@ -115,9 +118,9 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(newApp.Status.VersionStatuses[1].JobStatus, Equals, v1beta1.FlinkJobStatus{})
 
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "flink-app-hash=" + oldHash})
+		List(ctx, v1.ListOptions{LabelSelector: "flink-app-hash=" + oldHash})
 	for _, pod := range pods.Items {
-		log.Infof("Pod name %s", pod.Name)
+		logger.Log("message", "Pod name %s", pod.Name)
 		c.Assert(pod.Labels["flink-application-version"], Not(Equals), teardownVersion)
 	}
 
@@ -147,12 +150,12 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 
 	for {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+			List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
 		if len(pods.Items) == 0 {
 			break
 		}
 	}
-	log.Info("All pods torn down")
-	log.Info("Completed test TestUpdateWithBlueGreenDeploymentMode")
+	logger.Log("message", "All pods torn down")
+	logger.Log("message", "Completed test TestUpdateWithBlueGreenDeploymentMode")
 }

@@ -3,7 +3,6 @@ package flinkapplication
 import (
 	"context"
 	"errors"
-
 	"testing"
 	"time"
 
@@ -23,7 +22,6 @@ import (
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
 )
 
 const testSavepointLocation = "location"
@@ -35,7 +33,6 @@ func getTestStateMachine() FlinkStateMachine {
 	return FlinkStateMachine{
 		flinkController: &mock.FlinkController{},
 		k8Cluster:       &k8mock.K8Cluster{},
-		clock:           &clock.FakeClock{},
 		metrics:         newStateMachineMetrics(testScope),
 		retryHandler:    &mock.RetryHandler{},
 	}
@@ -1202,7 +1199,6 @@ func TestRollingBack(t *testing.T) {
 
 func TestIsApplicationStuck(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 	retryableErr := client.GetRetryableError(errors.New("blah"), "GetClusterOverview", "FAILED", 3)
 	failFastError := client.GetNonRetryableError(errors.New("blah"), "SubmitJob", "400BadRequest")
 
@@ -1604,7 +1600,7 @@ func TestRollbackWithRetryableError(t *testing.T) {
 		return time.Minute * 5
 	}
 
-	mockRetryHandler.IsTimeToRetryFunc = func(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
+	mockRetryHandler.IsTimeToRetryFunc = func(lastUpdatedTime time.Time, retryCount int32) bool {
 		return true
 	}
 
@@ -1854,10 +1850,9 @@ func TestForceRollback(t *testing.T) {
 	}
 
 	stateMachineForTest := getTestStateMachine()
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
-	mockRetryHandler.WaitOnErrorFunc = func(clock clock.Clock, lastUpdatedTime time.Time) (duration time.Duration, b bool) {
+	mockRetryHandler.WaitOnErrorFunc = func(lastUpdatedTime time.Time) (duration time.Duration, b bool) {
 		return time.Millisecond, true
 	}
 
@@ -1957,7 +1952,6 @@ func TestLastSeenErrTimeIsNil(t *testing.T) {
 	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
 		return true
 	}
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 
@@ -2000,7 +1994,7 @@ func TestCheckSavepointStatusFailing(t *testing.T) {
 	mockRetryHandler.IsErrorRetryableFunc = func(err error) bool {
 		return true
 	}
-	mockRetryHandler.IsTimeToRetryFunc = func(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
+	mockRetryHandler.IsTimeToRetryFunc = func(lastUpdatedTime time.Time, retryCount int32) bool {
 		return true
 	}
 	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {

@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"io"
 	"os"
 	"os/exec"
@@ -16,7 +19,6 @@ import (
 	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
 	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
-	"github.com/prometheus/common/log"
 	resty "gopkg.in/resty.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -39,7 +41,7 @@ type TestUtil struct {
 	CheckpointDir          string
 }
 
-func New(namespaceName string, kubeconfig string, image string, checkpointDir string) (*TestUtil, error) {
+func New(ctx context.Context, namespaceName string, kubeconfig string, image string, checkpointDir string) (*TestUtil, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
 		return nil, err
@@ -52,16 +54,16 @@ func New(namespaceName string, kubeconfig string, image string, checkpointDir st
 
 	var namespace *v1.Namespace
 	if namespaceName == "default" {
-		namespace, err = client.CoreV1().Namespaces().Get("default", metav1.GetOptions{})
+		namespace, err = client.CoreV1().Namespaces().Get(ctx, "default", metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		namespace, err = client.CoreV1().Namespaces().Create(&v1.Namespace{
+		namespace, err = client.CoreV1().Namespaces().Create(ctx, &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespaceName,
 			},
-		})
+		}, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -87,11 +89,12 @@ func New(namespaceName string, kubeconfig string, image string, checkpointDir st
 	}, nil
 }
 
-func (f *TestUtil) Cleanup() {
+func (f *TestUtil) Cleanup(ctx context.Context) {
+	logger := log.NewLogfmtLogger(os.Stdout)
 	if f.Namespace.Name != "default" {
 		flinkApps, err := f.FlinkApps().List(metav1.ListOptions{})
 		if err != nil {
-			log.Errorf("Failed to fetch flink apps during cleanup: %v", err)
+			level.Error(logger).Log("message", "Failed to fetch flink apps during cleanup: %v", err)
 		} else {
 			// make sure none of the apps have left-over finalizers
 			for _, app := range flinkApps.Items {
@@ -102,9 +105,9 @@ func (f *TestUtil) Cleanup() {
 				}
 			}
 		}
-		err = f.KubeClient.CoreV1().Namespaces().Delete(f.Namespace.Name, &metav1.DeleteOptions{})
+		err = f.KubeClient.CoreV1().Namespaces().Delete(ctx, f.Namespace.Name, metav1.DeleteOptions{})
 		if err != nil {
-			log.Errorf("Failed to clean up after test: %v", err)
+			level.Error(logger).Log("message", "Failed to clean up after test: %v", err)
 		}
 	}
 }
@@ -132,7 +135,7 @@ func getFile(relativePath string) (*os.File, error) {
 	return os.Open(path)
 }
 
-func (f *TestUtil) CreateCRD() error {
+func (f *TestUtil) CreateCRD(ctx context.Context) error {
 	file, err := getFile("../deploy/crd.yaml")
 	if err != nil {
 		return err
@@ -146,7 +149,7 @@ func (f *TestUtil) CreateCRD() error {
 
 	crd.Namespace = f.Namespace.Name
 
-	_, err = f.APIExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
+	_, err = f.APIExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(ctx, &crd, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -154,7 +157,7 @@ func (f *TestUtil) CreateCRD() error {
 	return nil
 }
 
-func (f *TestUtil) CreateClusterRole() error {
+func (f *TestUtil) CreateClusterRole(ctx context.Context) error {
 	file, err := getFile("../deploy/role.yaml")
 	if err != nil {
 		return err
@@ -166,7 +169,7 @@ func (f *TestUtil) CreateClusterRole() error {
 		return err
 	}
 
-	_, err = f.KubeClient.RbacV1().ClusterRoles().Create(&clusterRole)
+	_, err = f.KubeClient.RbacV1().ClusterRoles().Create(ctx, &clusterRole, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -174,7 +177,7 @@ func (f *TestUtil) CreateClusterRole() error {
 	return nil
 }
 
-func (f *TestUtil) CreateServiceAccount() error {
+func (f *TestUtil) CreateServiceAccount(ctx context.Context) error {
 	file, err := getFile("../deploy/role.yaml")
 	if err != nil {
 		return err
@@ -188,7 +191,7 @@ func (f *TestUtil) CreateServiceAccount() error {
 
 	serviceAccount.Namespace = f.Namespace.Name
 
-	_, err = f.KubeClient.CoreV1().ServiceAccounts(f.Namespace.Name).Create(&serviceAccount)
+	_, err = f.KubeClient.CoreV1().ServiceAccounts(f.Namespace.Name).Create(ctx, &serviceAccount, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -196,7 +199,7 @@ func (f *TestUtil) CreateServiceAccount() error {
 	return nil
 }
 
-func (f *TestUtil) CreateClusterRoleBinding() error {
+func (f *TestUtil) CreateClusterRoleBinding(ctx context.Context) error {
 	file, err := getFile("../deploy/role-binding.yaml")
 	if err != nil {
 		return err
@@ -215,7 +218,7 @@ func (f *TestUtil) CreateClusterRoleBinding() error {
 	}}
 	clusterRoleBinding.Namespace = f.Namespace.Name
 
-	_, err = f.KubeClient.RbacV1().ClusterRoleBindings().Create(&clusterRoleBinding)
+	_, err = f.KubeClient.RbacV1().ClusterRoleBindings().Create(ctx, &clusterRoleBinding, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -223,7 +226,7 @@ func (f *TestUtil) CreateClusterRoleBinding() error {
 	return nil
 }
 
-func (f *TestUtil) CreateOperator() error {
+func (f *TestUtil) CreateOperator(ctx context.Context) error {
 	configValue := make(map[string]string)
 	configValue["development"] = "operator:\n  containerNameFormat: \"%s-unknown\"\n  resyncPeriod: 5s\n" +
 		"  baseBackoffDuration: 50ms\n  maxBackoffDuration: 2s\n  maxErrDuration: 240s\n" +
@@ -237,7 +240,7 @@ func (f *TestUtil) CreateOperator() error {
 		Data: configValue,
 	}
 
-	if _, err := f.KubeClient.CoreV1().ConfigMaps(f.Namespace.Name).Create(&configMap); err != nil {
+	if _, err := f.KubeClient.CoreV1().ConfigMaps(f.Namespace.Name).Create(ctx, &configMap, metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
@@ -309,15 +312,15 @@ func (f *TestUtil) CreateOperator() error {
 		},
 	}
 
-	if _, err := f.KubeClient.AppsV1().Deployments(f.Namespace.Name).Create(&deployment); err != nil {
+	if _, err := f.KubeClient.AppsV1().Deployments(f.Namespace.Name).Create(ctx, &deployment, metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (f *TestUtil) GetJobManagerPod() (string, error) {
-	pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
+func (f *TestUtil) GetJobManagerPod(ctx context.Context) (string, error) {
+	pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -331,9 +334,9 @@ func (f *TestUtil) GetJobManagerPod() (string, error) {
 	return "", errors.New("no jobmanager pod found")
 }
 
-func (f *TestUtil) GetTaskManagerPods() ([]string, error) {
+func (f *TestUtil) GetTaskManagerPods(ctx context.Context) ([]string, error) {
 	tms := make([]string, 0)
-	pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
+	pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(ctx, metav1.ListOptions{})
 
 	if err != nil {
 		return tms, err
@@ -348,7 +351,7 @@ func (f *TestUtil) GetTaskManagerPods() ([]string, error) {
 	return tms, nil
 }
 
-func (f *TestUtil) GetLogs(podName string, lines *int64) error {
+func (f *TestUtil) GetLogs(ctx context.Context, podName string, lines *int64) error {
 	req := f.KubeClient.CoreV1().Pods(f.Namespace.Name).
 		GetLogs(podName,
 			&v1.PodLogOptions{
@@ -356,7 +359,7 @@ func (f *TestUtil) GetLogs(podName string, lines *int64) error {
 				Follow:    false,
 			})
 
-	readCloser, err := req.Stream()
+	readCloser, err := req.Stream(ctx)
 	if err != nil {
 		return err
 	}
@@ -371,10 +374,11 @@ func (f *TestUtil) GetLogs(podName string, lines *int64) error {
 	return nil
 }
 
-func (f *TestUtil) TailOperatorLogs() error {
+func (f *TestUtil) TailOperatorLogs(ctx context.Context) error {
+	logger := log.NewLogfmtLogger(os.Stdout)
 	var podName string
 	for {
-		pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{
+		pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(ctx, metav1.ListOptions{
 			LabelSelector: "app=flinkk8soperator",
 		})
 
@@ -384,14 +388,14 @@ func (f *TestUtil) TailOperatorLogs() error {
 
 		if len(pods.Items) == 0 || len(pods.Items[0].Status.ContainerStatuses) == 0 || !pods.Items[0].Status.ContainerStatuses[0].Ready {
 			time.Sleep(500 * time.Millisecond)
-			log.Info("Waiting for operator container to be ready...")
+			logger.Log("message", "Waiting for operator container to be ready...")
 		} else {
 			podName = pods.Items[0].Name
 			break
 		}
 	}
 
-	log.Infof("Found operator pod %s, starting to tail logs...", podName)
+	logger.Log("message", "Found operator pod %s, starting to tail logs...", podName)
 
 	req := f.KubeClient.CoreV1().RESTClient().Get().
 		Namespace(f.Namespace.Name).
@@ -400,7 +404,7 @@ func (f *TestUtil) TailOperatorLogs() error {
 		SubResource("log").
 		Param("follow", "true")
 
-	readerCloser, err := req.Stream()
+	readerCloser, err := req.Stream(ctx)
 	if err != nil {
 		return err
 	}
@@ -409,7 +413,7 @@ func (f *TestUtil) TailOperatorLogs() error {
 		defer readerCloser.Close()
 		_, err = io.Copy(os.Stderr, readerCloser)
 		if err != nil {
-			log.Errorf("Lost connection to operator logs %v", err)
+			level.Error(logger).Log("message", "Lost connection to operator logs %v", err)
 		}
 	}()
 
@@ -589,6 +593,7 @@ func (f *TestUtil) WaitForAllTasksRunning(name string) error {
 }
 
 func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplication)) (*flinkapp.FlinkApplication, error) {
+	logger := log.NewLogfmtLogger(os.Stdout)
 	for {
 		newApp, err := f.GetFlinkApplication(name)
 		if err != nil {
@@ -608,7 +613,7 @@ func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplicat
 			return nil, err
 		}
 
-		log.Warn("Got conflict while updating... retrying")
+		level.Warn(logger).Log("message", "Got conflict while updating... retrying")
 		time.Sleep(500 * time.Millisecond)
 	}
 }

@@ -1,19 +1,22 @@
 package integ
 
 import (
+	"context"
 	"fmt"
+	"github.com/go-kit/log"
+	"os"
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
-	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TODO: https://github.com/lyft/flinkk8soperator/issues/278
 func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
-
-	log.Info("Starting test TestInPlaceScaleUp")
+	ctx := context.Background()
+	logger := log.NewLogfmtLogger(os.Stdout)
+	logger.Log("message", "Starting test TestInPlaceScaleUp")
 	c.Skip("Skipping due to memory constraints in CI")
 	const finalizer = "scaleup.finalizers.test.com"
 	const testName = "test_in_place_scale_up"
@@ -36,7 +39,7 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
@@ -44,12 +47,12 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	}
 
 	deployments, err := s.Util.KubeClient.AppsV1().Deployments(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "flink-app=inplace,flink-deployment-type=taskmanager"})
+		List(ctx, v1.ListOptions{LabelSelector: "flink-app=inplace,flink-deployment-type=taskmanager"})
 	c.Assert(err, IsNil)
 	c.Assert(len(deployments.Items), Equals, 1)
 	deployment := deployments.Items[0]
 
-	log.Info("Application started successfully")
+	logger.Log("message", "Application started successfully")
 
 	// test updating the app with a new scale
 	_, err = s.Util.Update("inplace", func(app *v1beta1.FlinkApplication) {
@@ -62,7 +65,7 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	c.Assert(s.Util.WaitForPhase("inplace", v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning("inplace"), IsNil)
 
-	log.Info("Rescaled job started successfully")
+	logger.Log("message", "Rescaled job started successfully")
 	newApp, err := s.Util.GetFlinkApplication(config.Name)
 	c.Assert(err, IsNil)
 
@@ -79,25 +82,25 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 
 	// check that we have the correct number of total pods
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 3)
 
 	// check that we are still using the same deploymnet
 	deployments2, err := s.Util.KubeClient.AppsV1().Deployments(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "flink-app=inplace,flink-deployment-type=taskmanager"})
+		List(ctx, v1.ListOptions{LabelSelector: "flink-app=inplace,flink-deployment-type=taskmanager"})
 	c.Assert(err, IsNil)
 	c.Assert(len(deployments2.Items), Equals, 1)
 	deployment2 := deployments.Items[0]
 	c.Assert(deployment2.Name, Equals, deployment.Name)
 
 	// ensure that we can now proceed to a normal deployment
-	newApp = updateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
+	newApp = updateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
-	}, v1beta1.FlinkApplicationDeployFailed)
+	}, v1beta1.FlinkApplicationDeployFailed, logger)
 	c.Assert(newApp.Spec.Image, Equals, NewImage)
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 3)
 	for _, pod := range pods.Items {
@@ -144,13 +147,13 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	// wait until all pods are gone
 	for {
 		pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+			List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
 		if len(pods.Items) == 0 {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	log.Info("All pods torn down")
-	log.Info("Completed test TestInPlaceScaleUp")
+	logger.Log("message", "All pods torn down")
+	logger.Log("message", "Completed test TestInPlaceScaleUp")
 }

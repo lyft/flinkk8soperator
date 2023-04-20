@@ -10,7 +10,6 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/util/clock"
 )
 
 // appError codes
@@ -56,9 +55,9 @@ func min(a, b int) int {
 type RetryHandlerInterface interface {
 	IsErrorRetryable(err error) bool
 	IsRetryRemaining(err error, retryCount int32) bool
-	WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool)
+	WaitOnError(lastUpdatedTime time.Time) (time.Duration, bool)
 	GetRetryDelay(retryCount int32) time.Duration
-	IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool
+	IsTimeToRetry(lastUpdatedTime time.Time, retryCount int32) bool
 }
 
 // A Retryer that has methods to determine if an error is retryable and also does exponential backoff
@@ -92,8 +91,8 @@ func (r RetryHandler) IsRetryRemaining(err error, retryCount int32) bool {
 	return false
 }
 
-func (r RetryHandler) WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool) {
-	elapsedTime := clock.Since(lastUpdatedTime)
+func (r RetryHandler) WaitOnError(lastUpdatedTime time.Time) (time.Duration, bool) {
+	elapsedTime := time.Since(lastUpdatedTime)
 	return elapsedTime, elapsedTime <= r.maxErrDuration
 
 }
@@ -106,8 +105,8 @@ func (r RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
 	delay := 1 << uint(retryCount) * (rand.Intn(timeInMillis) + timeInMillis) // nolint: gosec
 	return time.Duration(min(delay, maxBackoffMillis)) * time.Millisecond
 }
-func (r RetryHandler) IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
-	elapsedTime := clock.Since(lastUpdatedTime)
+func (r RetryHandler) IsTimeToRetry(lastUpdatedTime time.Time, retryCount int32) bool {
+	elapsedTime := time.Since(lastUpdatedTime)
 	return elapsedTime >= r.GetRetryDelay(retryCount)
 }
 
