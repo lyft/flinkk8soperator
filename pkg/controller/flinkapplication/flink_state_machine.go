@@ -24,7 +24,6 @@ import (
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
 )
 
 const (
@@ -42,7 +41,6 @@ type FlinkHandlerInterface interface {
 type FlinkStateMachine struct {
 	flinkController flink.ControllerInterface
 	k8Cluster       k8.ClusterInterface
-	clock           clock.Clock
 	metrics         *stateMachineMetrics
 	retryHandler    client.RetryHandlerInterface
 }
@@ -113,7 +111,7 @@ func (s *FlinkStateMachine) shouldRollback(ctx context.Context, application *v1b
 
 	// As a default, use a time based wait to determine whether to rollback or not.
 	if application.Status.LastUpdatedAt != nil {
-		if _, ok := s.retryHandler.WaitOnError(s.clock, application.Status.LastUpdatedAt.Time); !ok {
+		if _, ok := s.retryHandler.WaitOnError(application.Status.LastUpdatedAt.Time); !ok {
 			application.Status.LastSeenError = nil
 			return true, fmt.Sprintf("failed to make progress after %v", config.GetConfig().MaxErrDuration)
 		}
@@ -135,7 +133,7 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.Fli
 
 	// Update k8s object
 	if updateStatus {
-		now := v1.NewTime(s.clock.Now())
+		now := v1.NewTime(time.Now())
 		application.Status.LastUpdatedAt = &now
 		updateAppErr := s.k8Cluster.UpdateStatus(ctx, application)
 		if updateAppErr != nil {
@@ -221,13 +219,13 @@ func (s *FlinkStateMachine) IsTimeToHandlePhase(application *v1beta1.FlinkApplic
 	}
 	// If for some reason, the error update time is nil, set it so that retries can proceed
 	if lastSeenError.LastErrorUpdateTime == nil {
-		now := v1.NewTime(s.clock.Now())
+		now := v1.NewTime(time.Now())
 		application.Status.LastSeenError.LastErrorUpdateTime = &now
 		return true
 	}
 	retryCount := application.Status.RetryCount
 	if s.retryHandler.IsRetryRemaining(lastSeenError, retryCount) {
-		if s.retryHandler.IsTimeToRetry(s.clock, lastSeenError.LastErrorUpdateTime.Time, retryCount) {
+		if s.retryHandler.IsTimeToRetry(lastSeenError.LastErrorUpdateTime.Time, retryCount) {
 			application.Status.RetryCount++
 			return true
 		}
@@ -1116,7 +1114,7 @@ func (s *FlinkStateMachine) compareAndUpdateError(application *v1beta1.FlinkAppl
 			application.Status.LastSeenError = err.(*v1beta1.FlinkApplicationError)
 		}
 
-		now := v1.NewTime(s.clock.Now())
+		now := v1.NewTime(time.Now())
 		application.Status.LastSeenError.LastErrorUpdateTime = &now
 	}
 
@@ -1345,7 +1343,6 @@ func NewFlinkStateMachine(k8sCluster k8.ClusterInterface, eventRecorder record.E
 	return &FlinkStateMachine{
 		k8Cluster:       k8sCluster,
 		flinkController: flink.NewController(k8sCluster, eventRecorder, config),
-		clock:           clock.RealClock{},
 		metrics:         metrics,
 		retryHandler:    createRetryHandler(),
 	}

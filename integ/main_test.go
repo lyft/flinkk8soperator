@@ -1,7 +1,10 @@
 package integ
 
 import (
+	"context"
 	"fmt"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,7 +14,6 @@ import (
 	integFramework "github.com/lyft/flinkk8soperator/integ/utils"
 	controllerConfig "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	flyteConfig "github.com/lyft/flytestdlib/config"
-	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +31,8 @@ func Test(t *testing.T) {
 }
 
 func (s *IntegSuite) SetUpSuite(c *C) {
+	logger := log.NewLogfmtLogger(os.Stdout)
+	ctx := context.Background()
 	// var namespace = flag.String("namespace", "flinkoperatortest", "namespace to use for testing")
 	var namespace = os.Getenv("NAMESPACE")
 	if namespace == "" {
@@ -66,12 +70,12 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 	}
 
 	var err error
-	s.Util, err = integFramework.New(namespace, kubeconfig, image, checkpointDir)
+	s.Util, err = integFramework.New(ctx, namespace, kubeconfig, image, checkpointDir)
 	if err != nil {
 		c.Fatalf("Failed to set up test util: %v", err)
 	}
 
-	if err = s.Util.CreateCRD(); err != nil && !k8sErrors.IsAlreadyExists(err) {
+	if err = s.Util.CreateCRD(ctx); err != nil && !k8sErrors.IsAlreadyExists(err) {
 		c.Fatalf("Failed to create CRD: %v", err)
 	}
 
@@ -85,7 +89,10 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 			ProxyPort:      flyteConfig.Port{Port: 8001},
 		}
 
-		log.Info("Running operator directly")
+		logErr := logger.Log("message", "Running operator directly")
+		if logErr != nil {
+			return
+		}
 
 		go func() {
 			if err = cmd.Run(&config); err != nil {
@@ -93,32 +100,37 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 			}
 		}()
 	} else {
-		if err = s.Util.CreateClusterRole(); err != nil && !k8sErrors.IsAlreadyExists(err) {
+		if err = s.Util.CreateClusterRole(ctx); err != nil && !k8sErrors.IsAlreadyExists(err) {
 			c.Fatalf("Failed to create role: %v", err)
 		}
 
-		if err = s.Util.CreateServiceAccount(); err != nil && !k8sErrors.IsAlreadyExists(err) {
+		if err = s.Util.CreateServiceAccount(ctx); err != nil && !k8sErrors.IsAlreadyExists(err) {
 			c.Fatalf("Failed to create service account: %v", err)
 		}
 
-		if err = s.Util.CreateClusterRoleBinding(); err != nil && !k8sErrors.IsAlreadyExists(err) {
+		if err = s.Util.CreateClusterRoleBinding(ctx); err != nil && !k8sErrors.IsAlreadyExists(err) {
 			c.Fatalf("Failed to create cluster role binding: %v", err)
 		}
 
-		if err = s.Util.CreateOperator(); err != nil {
+		if err = s.Util.CreateOperator(ctx); err != nil {
 			c.Fatalf("Failed to create operator: %v", err)
 		}
 
-		if err = s.Util.TailOperatorLogs(); err != nil {
+		if err = s.Util.TailOperatorLogs(ctx); err != nil {
 			c.Fatalf("Failed to tail operator logs: %v", err)
 		}
 	}
 }
 
 func (s *IntegSuite) TearDownSuite(c *C) {
+	logger := log.NewLogfmtLogger(os.Stdout)
+	ctx := context.Background()
 	if s != nil && s.Util != nil {
-		log.Info("Cleaning up")
-		s.Util.Cleanup()
+		logErr := logger.Log("message", "Cleaning up")
+		if logErr != nil {
+			return
+		}
+		s.Util.Cleanup(ctx)
 	}
 }
 
@@ -130,19 +142,21 @@ func (s *IntegSuite) SetUpTest(c *C) {
 }
 
 func (s *IntegSuite) TearDownTest(c *C) {
-	tms, err := s.Util.GetTaskManagerPods()
+	logger := log.NewLogfmtLogger(os.Stdout)
+	ctx := context.Background()
+	tms, err := s.Util.GetTaskManagerPods(ctx)
 	if err == nil {
 		for i, tm := range tms {
 			fmt.Printf("\n\n######### TaskManager %d logs for debugging "+
 				"#########\n---------------------------\n", i)
-			_ = s.Util.GetLogs(tm, nil)
+			_ = s.Util.GetLogs(ctx, tm, nil)
 		}
 	}
 
-	jm, err := s.Util.GetJobManagerPod()
+	jm, err := s.Util.GetJobManagerPod(ctx)
 	if err == nil {
 		fmt.Printf("\n\n######### JobManager logs for debugging #########\n---------------------------\n")
-		_ = s.Util.GetLogs(jm, nil)
+		_ = s.Util.GetLogs(ctx, jm, nil)
 	}
 
 	fmt.Printf("\n\n######### Nodes for debugging #########\n---------------------------\n")
@@ -161,9 +175,9 @@ func (s *IntegSuite) TearDownTest(c *C) {
 	err = s.Util.ExecuteCommand("kubectl", "describe", "flinkapplications", "-n", "flinkoperatortest")
 	c.Assert(err, IsNil)
 
-	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
+	err = s.Util.FlinkApps().DeleteCollection(ctx, nil, v1.ListOptions{})
 	if err != nil {
-		log.Fatalf("Failed to clean up flink applications: %v", err)
+		level.Error(logger).Log("msg", "Failed to clean up flink applications: %v", err)
 	}
 
 	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo rm -rf /tmp/checkpoints"); err != nil {

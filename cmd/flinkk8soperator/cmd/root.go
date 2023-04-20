@@ -180,5 +180,5 @@ func operatorEntryPoint(ctx context.Context, metricsScope promutils.Scope, contr
 	// Start the Cmd
 	logger.Infof(ctx, "Starting the Cmd.")
 	ctx, _ = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	return mgr.Start(ctx.Done())
+	return mgr.Start(ctx)
 }

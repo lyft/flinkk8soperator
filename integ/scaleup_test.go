@@ -1,19 +1,25 @@
 package integ
 
 import (
+	"context"
 	"fmt"
+	"github.com/go-kit/log"
+	"os"
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
-	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TODO: https://github.com/lyft/flinkk8soperator/issues/278
 func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
-
-	log.Info("Starting test TestInPlaceScaleUp")
+	ctx := context.Background()
+	logger := log.NewLogfmtLogger(os.Stdout)
+	logErr := logger.Log("message", "Starting test TestInPlaceScaleUp")
+	if logErr != nil {
+		return
+	}
 	c.Skip("Skipping due to memory constraints in CI")
 	const finalizer = "scaleup.finalizers.test.com"
 	const testName = "test_in_place_scale_up"
@@ -29,14 +35,14 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	// add a finalizer so that the flinkapplication won't be deleted until we've had a chance to look at it
 	config.Finalizers = append(config.Finalizers, finalizer)
 
-	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
+	c.Assert(s.Util.CreateFlinkApplication(ctx, config), IsNil,
 		Commentf("Failed to create flink application"))
 
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
-	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForAllTasksRunning(ctx, config.Name), IsNil)
 
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
@@ -44,26 +50,32 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	}
 
 	deployments, err := s.Util.KubeClient.AppsV1().Deployments(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "flink-app=inplace,flink-deployment-type=taskmanager"})
+		List(ctx, v1.ListOptions{LabelSelector: "flink-app=inplace,flink-deployment-type=taskmanager"})
 	c.Assert(err, IsNil)
 	c.Assert(len(deployments.Items), Equals, 1)
 	deployment := deployments.Items[0]
 
-	log.Info("Application started successfully")
+	logErr = logger.Log("message", "Application started successfully")
+	if logErr != nil {
+		return
+	}
 
 	// test updating the app with a new scale
-	_, err = s.Util.Update("inplace", func(app *v1beta1.FlinkApplication) {
+	_, err = s.Util.Update(ctx, "inplace", func(app *v1beta1.FlinkApplication) {
 		app.Spec.Parallelism = 4
 	})
 	c.Assert(err, IsNil)
 
-	c.Assert(s.Util.WaitForPhase("inplace", v1beta1.FlinkApplicationRescaling, v1beta1.FlinkApplicationDeployFailed), IsNil)
-	c.Assert(s.Util.WaitForPhase("inplace", v1beta1.FlinkApplicationSavepointing, v1beta1.FlinkApplicationDeployFailed), IsNil)
-	c.Assert(s.Util.WaitForPhase("inplace", v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
-	c.Assert(s.Util.WaitForAllTasksRunning("inplace"), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, "inplace", v1beta1.FlinkApplicationRescaling, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, "inplace", v1beta1.FlinkApplicationSavepointing, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForPhase(ctx, "inplace", v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
+	c.Assert(s.Util.WaitForAllTasksRunning(ctx, "inplace"), IsNil)
 
-	log.Info("Rescaled job started successfully")
-	newApp, err := s.Util.GetFlinkApplication(config.Name)
+	logErr = logger.Log("message", "Rescaled job started successfully")
+	if logErr != nil {
+		return
+	}
+	newApp, err := s.Util.GetFlinkApplication(ctx, config.Name)
 	c.Assert(err, IsNil)
 
 	// check that we savepointed and restored correctly
@@ -79,25 +91,25 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 
 	// check that we have the correct number of total pods
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 3)
 
 	// check that we are still using the same deploymnet
 	deployments2, err := s.Util.KubeClient.AppsV1().Deployments(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "flink-app=inplace,flink-deployment-type=taskmanager"})
+		List(ctx, v1.ListOptions{LabelSelector: "flink-app=inplace,flink-deployment-type=taskmanager"})
 	c.Assert(err, IsNil)
 	c.Assert(len(deployments2.Items), Equals, 1)
 	deployment2 := deployments.Items[0]
 	c.Assert(deployment2.Name, Equals, deployment.Name)
 
 	// ensure that we can now proceed to a normal deployment
-	newApp = updateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
+	newApp = updateAndValidate(ctx, c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
-	}, v1beta1.FlinkApplicationDeployFailed)
+	}, v1beta1.FlinkApplicationDeployFailed, logger)
 	c.Assert(newApp.Spec.Image, Equals, NewImage)
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 3)
 	for _, pod := range pods.Items {
@@ -105,12 +117,12 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	}
 
 	// delete the application and ensure everything is cleaned up successfully
-	c.Assert(s.Util.FlinkApps().Delete(config.Name, &v1.DeleteOptions{}), IsNil)
+	c.Assert(s.Util.FlinkApps().Delete(ctx, config.Name, &v1.DeleteOptions{}), IsNil)
 
 	// validate that a savepoint was taken and the job was cancelled
 	var app *v1beta1.FlinkApplication
 	for {
-		app, err = s.Util.GetFlinkApplication(config.Name)
+		app, err = s.Util.GetFlinkApplication(ctx, config.Name)
 		c.Assert(err, IsNil)
 
 		if len(app.Finalizers) == 1 && app.Finalizers[0] == finalizer {
@@ -138,19 +150,25 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 
 	// delete our finalizer
 	app.Finalizers = []string{}
-	_, err = s.Util.FlinkApps().Update(app)
+	_, err = s.Util.FlinkApps().Update(ctx, app)
 	c.Assert(err, IsNil)
 
 	// wait until all pods are gone
 	for {
 		pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+			List(ctx, v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
 		if len(pods.Items) == 0 {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	log.Info("All pods torn down")
-	log.Info("Completed test TestInPlaceScaleUp")
+	logErr = logger.Log("message", "All pods torn down")
+	if logErr != nil {
+		return
+	}
+	logErr = logger.Log("message", "Completed test TestInPlaceScaleUp")
+	if logErr != nil {
+		return
+	}
 }

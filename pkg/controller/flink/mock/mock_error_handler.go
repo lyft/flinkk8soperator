@@ -2,16 +2,14 @@ package mock
 
 import (
 	"time"
-
-	"k8s.io/apimachinery/pkg/util/clock"
 )
 
 type IsErrorRetryableFunc func(err error) bool
 type IsRetryRemainingFunc func(err error, retryCount int32) bool
 type IsErrorFailFastFunc func(err error) bool
-type WaitOnErrorFunc func(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool)
+type WaitOnErrorFunc func(lastUpdatedTime time.Time) (time.Duration, bool)
 type GetRetryDelayFunc func(retryCount int32) time.Duration
-type IsTimeToRetryFunc func(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool
+type IsTimeToRetryFunc func(lastUpdatedTime time.Time, retryCount int32) bool
 
 type RetryHandler struct {
 	IsErrorRetryableFunc IsErrorRetryableFunc
@@ -46,9 +44,9 @@ func (e RetryHandler) IsRetryRemaining(err error, retryCount int32) bool {
 	return false
 }
 
-func (e RetryHandler) WaitOnError(clock clock.Clock, lastUpdatedTime time.Time) (time.Duration, bool) {
+func (e RetryHandler) WaitOnError(lastUpdatedTime time.Time) (time.Duration, bool) {
 	if e.WaitOnErrorFunc != nil {
-		return e.WaitOnErrorFunc(clock, lastUpdatedTime)
+		return e.WaitOnErrorFunc(lastUpdatedTime)
 	}
 
 	return time.Duration(time.Now().UnixNano()), true
@@ -62,9 +60,9 @@ func (e RetryHandler) GetRetryDelay(retryCount int32) time.Duration {
 	return time.Duration(time.Now().UnixNano())
 }
 
-func (e RetryHandler) IsTimeToRetry(clock clock.Clock, lastUpdatedTime time.Time, retryCount int32) bool {
+func (e RetryHandler) IsTimeToRetry(lastUpdatedTime time.Time, retryCount int32) bool {
 	if e.IsTimeToRetryFunc != nil {
-		return e.IsTimeToRetryFunc(clock, lastUpdatedTime, retryCount)
+		return e.IsTimeToRetryFunc(lastUpdatedTime, retryCount)
 	}
 	return false
 }
