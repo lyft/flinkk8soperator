@@ -22,14 +22,14 @@ type FlinkApplicationsGetter interface {
 
 // FlinkApplicationInterface has methods to work with FlinkApplication resources.
 type FlinkApplicationInterface interface {
-	Create(*v1beta1.FlinkApplication) (*v1beta1.FlinkApplication, error)
-	Update(*v1beta1.FlinkApplication) (*v1beta1.FlinkApplication, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1beta1.FlinkApplication, error)
-	List(opts v1.ListOptions) (*v1beta1.FlinkApplicationList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.FlinkApplication, err error)
+	Create(context.Context, *v1beta1.FlinkApplication) (*v1beta1.FlinkApplication, error)
+	Update(context.Context, *v1beta1.FlinkApplication) (*v1beta1.FlinkApplication, error)
+	Delete(ctx context.Context, name string, options *v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, options *v1.DeleteOptions, listOptions v1.ListOptions) error
+	Get(ctx context.Context, name string, options v1.GetOptions) (*v1beta1.FlinkApplication, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.FlinkApplicationList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.FlinkApplication, err error)
 	FlinkApplicationExpansion
 }
 
