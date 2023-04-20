@@ -2,8 +2,6 @@ package k8
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
@@ -35,11 +33,11 @@ type ClusterInterface interface {
 	GetService(ctx context.Context, namespace string, name string, version string) (*coreV1.Service, error)
 	GetServicesWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.ServiceList, error)
 
-	CreateK8Object(ctx context.Context, object runtime.Object) error
-	UpdateK8Object(ctx context.Context, object runtime.Object) error
-	DeleteK8Object(ctx context.Context, object runtime.Object) error
+	CreateK8Object(ctx context.Context, object client.Object) error
+	UpdateK8Object(ctx context.Context, object client.Object) error
+	DeleteK8Object(ctx context.Context, object client.Object) error
 
-	UpdateStatus(ctx context.Context, object runtime.Object) error
+	UpdateStatus(ctx context.Context, object client.Object) error
 }
 
 func NewK8Cluster(mgr manager.Manager, cfg config.RuntimeConfig) ClusterInterface {
@@ -174,9 +172,8 @@ func (k *Cluster) GetServicesWithLabel(ctx context.Context, namespace string, la
 	return serviceList, nil
 }
 
-func (k *Cluster) CreateK8Object(ctx context.Context, object runtime.Object) error {
-	objCreate := object.DeepCopyObject()
-	err := k.client.Create(ctx, objCreate)
+func (k *Cluster) CreateK8Object(ctx context.Context, object client.Object) error {
+	err := k.client.Create(ctx, object)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			logger.Errorf(ctx, "K8s object creation failed %v", err)
@@ -189,9 +186,8 @@ func (k *Cluster) CreateK8Object(ctx context.Context, object runtime.Object) err
 	return nil
 }
 
-func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) error {
-	objUpdate := object.DeepCopyObject()
-	err := k.client.Update(ctx, objUpdate)
+func (k *Cluster) UpdateK8Object(ctx context.Context, object client.Object) error {
+	err := k.client.Update(ctx, object)
 	if err != nil {
 		if errors.IsConflict(err) {
 			logger.Warnf(ctx, "Conflict while updating object")
@@ -206,9 +202,8 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) err
 	return nil
 }
 
-func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error {
-	objectCopy := object.DeepCopyObject()
-	err := k.client.Status().Update(ctx, objectCopy)
+func (k *Cluster) UpdateStatus(ctx context.Context, object client.Object) error {
+	err := k.client.Status().Update(ctx, object)
 	if err != nil {
 		if errors.IsInvalid(err) {
 			// This is a Kubernetes bug that has been fixed in k8s 1.15
@@ -245,9 +240,8 @@ func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error
 	return nil
 }
 
-func (k *Cluster) DeleteK8Object(ctx context.Context, object runtime.Object) error {
-	objDelete := object.DeepCopyObject()
-	err := k.client.Delete(ctx, objDelete)
+func (k *Cluster) DeleteK8Object(ctx context.Context, object client.Object) error {
+	err := k.client.Delete(ctx, object)
 	if err != nil {
 		logger.Errorf(ctx, "K8s object delete failed %v", err)
 		k.metrics.deleteFailure.Inc(ctx)

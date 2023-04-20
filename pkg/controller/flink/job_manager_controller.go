@@ -299,7 +299,7 @@ func FetchJobManagerContainerObj(application *v1beta1.FlinkApplication) *coreV1.
 		EnvFrom:         jmConfig.EnvConfig.EnvFrom,
 		VolumeMounts:    application.Spec.VolumeMounts,
 		ReadinessProbe: &coreV1.Probe{
-			ProbeHandler: coreV1.ProbeHandler{
+			Handler: coreV1.Handler{
 				HTTPGet: &coreV1.HTTPGetAction{
 					Path: JobManagerReadinessPath,
 					Port: intstr.FromInt(int(getUIPort(application))),
