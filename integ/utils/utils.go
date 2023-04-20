@@ -388,14 +388,20 @@ func (f *TestUtil) TailOperatorLogs(ctx context.Context) error {
 
 		if len(pods.Items) == 0 || len(pods.Items[0].Status.ContainerStatuses) == 0 || !pods.Items[0].Status.ContainerStatuses[0].Ready {
 			time.Sleep(500 * time.Millisecond)
-			logger.Log("message", "Waiting for operator container to be ready...")
+			logErr := logger.Log("message", "Waiting for operator container to be ready...")
+			if logErr != nil {
+				return logErr
+			}
 		} else {
 			podName = pods.Items[0].Name
 			break
 		}
 	}
 
-	logger.Log("message", "Found operator pod %s, starting to tail logs...", podName)
+	logErr := logger.Log("message", "Found operator pod %s, starting to tail logs...", podName)
+	if logErr != nil {
+		return logErr
+	}
 
 	req := f.KubeClient.CoreV1().RESTClient().Get().
 		Namespace(f.Namespace.Name).

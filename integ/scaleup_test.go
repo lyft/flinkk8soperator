@@ -16,7 +16,10 @@ import (
 func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	ctx := context.Background()
 	logger := log.NewLogfmtLogger(os.Stdout)
-	logger.Log("message", "Starting test TestInPlaceScaleUp")
+	logErr := logger.Log("message", "Starting test TestInPlaceScaleUp")
+	if logErr != nil {
+		return
+	}
 	c.Skip("Skipping due to memory constraints in CI")
 	const finalizer = "scaleup.finalizers.test.com"
 	const testName = "test_in_place_scale_up"
@@ -52,7 +55,10 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	c.Assert(len(deployments.Items), Equals, 1)
 	deployment := deployments.Items[0]
 
-	logger.Log("message", "Application started successfully")
+	logErr = logger.Log("message", "Application started successfully")
+	if logErr != nil {
+		return
+	}
 
 	// test updating the app with a new scale
 	_, err = s.Util.Update(ctx, "inplace", func(app *v1beta1.FlinkApplication) {
@@ -65,7 +71,10 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	c.Assert(s.Util.WaitForPhase(ctx, "inplace", v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(ctx, "inplace"), IsNil)
 
-	logger.Log("message", "Rescaled job started successfully")
+	logErr = logger.Log("message", "Rescaled job started successfully")
+	if logErr != nil {
+		return
+	}
 	newApp, err := s.Util.GetFlinkApplication(ctx, config.Name)
 	c.Assert(err, IsNil)
 
@@ -95,7 +104,7 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 	c.Assert(deployment2.Name, Equals, deployment.Name)
 
 	// ensure that we can now proceed to a normal deployment
-	newApp = updateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
+	newApp = updateAndValidate(ctx, c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
 	}, v1beta1.FlinkApplicationDeployFailed, logger)
 	c.Assert(newApp.Spec.Image, Equals, NewImage)
@@ -154,6 +163,12 @@ func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	logger.Log("message", "All pods torn down")
-	logger.Log("message", "Completed test TestInPlaceScaleUp")
+	logErr = logger.Log("message", "All pods torn down")
+	if logErr != nil {
+		return
+	}
+	logErr = logger.Log("message", "Completed test TestInPlaceScaleUp")
+	if logErr != nil {
+		return
+	}
 }

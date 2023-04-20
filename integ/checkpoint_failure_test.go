@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func failingJobTest(s *IntegSuite, c *C, ctx context.Context, testName string, causeFailure func(), logger log.Logger) {
+func failingJobTest(ctx context.Context, s *IntegSuite, c *C, testName string, causeFailure func(), logger log.Logger) {
 	// create a Flink app
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
@@ -61,30 +61,45 @@ func failingJobTest(s *IntegSuite, c *C, ctx context.Context, testName string, c
 			break
 		}
 	}
-	logger.Log("message", "All pods torn down")
+	logErr := logger.Log("message", "All pods torn down")
+	if logErr != nil {
+		return
+	}
 }
 
 // Tests that we correctly handle updating a job with task failures
 func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 	logger := log.NewLogfmtLogger(os.Stdout)
-	logger.Log("message", "Starting test TestJobWithTaskFailures")
+	err := logger.Log("message", "Starting test TestJobWithTaskFailures")
+	if err != nil {
+		return
+	}
 	ctx := context.Background()
-	failingJobTest(s, c, ctx, "taskfailure", func() {
+	failingJobTest(ctx, s, c, "taskfailure", func() {
 		err := s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
 		c.Assert(err, IsNil)
 	}, logger)
-	logger.Log("message", "Completed test TestJobWithTaskFailures")
+	err = logger.Log("message", "Completed test TestJobWithTaskFailures")
+	if err != nil {
+		return
+	}
 }
 
 // Tests that we correctly handle updating a job with a checkpoint timeout
 func (s *IntegSuite) TestCheckpointTimeout(c *C) {
 	logger := log.NewLogfmtLogger(os.Stdout)
-	logger.Log("message", "Starting test TestCheckpointTimeout")
+	err := logger.Log("message", "Starting test TestCheckpointTimeout")
+	if err != nil {
+		return
+	}
 	ctx := context.Background()
-	failingJobTest(s, c, ctx, "checkpointtimeout", func() {
+	failingJobTest(ctx, s, c, "checkpointtimeout", func() {
 		// cause checkpoints to take 120 seconds
 		err := s.Util.ExecuteCommand("minikube", "ssh", "echo 120000 >> /tmp/checkpoints/checkpoint_delay && sudo chmod 0644 /tmp/checkpoints/checkpoint_delay")
 		c.Assert(err, IsNil)
 	}, logger)
-	logger.Log("message", "Completed test TestCheckpointTimeout")
+	err = logger.Log("message", "Completed test TestCheckpointTimeout")
+	if err != nil {
+		return
+	}
 }

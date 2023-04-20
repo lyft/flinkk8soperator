@@ -89,7 +89,10 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 			ProxyPort:      flyteConfig.Port{Port: 8001},
 		}
 
-		logger.Log("message", "Running operator directly")
+		logErr := logger.Log("message", "Running operator directly")
+		if logErr != nil {
+			return
+		}
 
 		go func() {
 			if err = cmd.Run(&config); err != nil {
@@ -123,7 +126,10 @@ func (s *IntegSuite) TearDownSuite(c *C) {
 	logger := log.NewLogfmtLogger(os.Stdout)
 	ctx := context.Background()
 	if s != nil && s.Util != nil {
-		logger.Log("message", "Cleaning up")
+		logErr := logger.Log("message", "Cleaning up")
+		if logErr != nil {
+			return
+		}
 		s.Util.Cleanup(ctx)
 	}
 }

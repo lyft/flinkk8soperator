@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func WaitUpdateAndValidate(c *C, s *IntegSuite, ctx context.Context, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
+func WaitUpdateAndValidate(ctx context.Context, c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
 
 	// update with new appln image.
 	app, err := s.Util.Update(ctx, name, updateFn)
@@ -60,7 +60,10 @@ func WaitUpdateAndValidate(c *C, s *IntegSuite, ctx context.Context, name string
 // tests the workflow of job cancellation without savepoint
 func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	logger := log.NewLogfmtLogger(os.Stdout)
-	logger.Log("message", "Starting test TestJobCancellationWithoutSavepoint")
+	err := logger.Log("message", "Starting test TestJobCancellationWithoutSavepoint")
+	if err != nil {
+		return
+	}
 	ctx := context.Background()
 	testName := "cancelsuccess"
 	const finalizer = "simple.finalizers.test.com"
@@ -90,7 +93,7 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 	}
 
 	// test updating the app with a new image
-	newApp := WaitUpdateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
+	newApp := WaitUpdateAndValidate(ctx, c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
 	}, v1beta1.FlinkApplicationDeployFailed)
 
@@ -133,15 +136,24 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 			break
 		}
 	}
-	logger.Log("message", "All pods torn down")
-	logger.Log("message", "Completed test TestJobCancellationWithoutSavepoint")
+	logErr := logger.Log("message", "All pods torn down")
+	if logErr != nil {
+		return
+	}
+	logErr = logger.Log("message", "Completed test TestJobCancellationWithoutSavepoint")
+	if logErr != nil {
+		return
+	}
 }
 
 // tests a job update with the existing job already in cancelled state.
 // here, the new submitted job starts without a savepoint.
 func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 	logger := log.NewLogfmtLogger(os.Stdout)
-	logger.Log("message", "Starting test TestCancelledJobWithoutSavepoint")
+	err := logger.Log("message", "Starting test TestCancelledJobWithoutSavepoint")
+	if err != nil {
+		return
+	}
 	ctx := context.Background()
 	testName := "invalidcancel"
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
@@ -211,14 +223,23 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 			break
 		}
 	}
-	logger.Log("message", "All pods torn down")
-	logger.Log("message", "Completed test TestCancelledJobWithoutSavepoint")
+	logErr := logger.Log("message", "All pods torn down")
+	if logErr != nil {
+		return
+	}
+	logErr = logger.Log("message", "Completed test TestCancelledJobWithoutSavepoint")
+	if logErr != nil {
+		return
+	}
 }
 
 // tests the recovery workflow of the job when savepoint is disabled.
 func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 	logger := log.NewLogfmtLogger(os.Stdout)
-	logger.Log("message", "Starting test TestJobRecoveryWithoutSavepoint")
+	logErr := logger.Log("message", "Starting test TestJobRecoveryWithoutSavepoint")
+	if logErr != nil {
+		return
+	}
 	ctx := context.Background()
 	const finalizer = "simple.finalizers.test.com"
 	const testName = "cancelrecovery"
@@ -267,7 +288,7 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 	c.Assert(restored, IsNil)
 
 	// roll forward with the right config.
-	_ = WaitUpdateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
+	_ = WaitUpdateAndValidate(ctx, c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.JarName = config.Spec.JarName
 		app.Spec.RestartNonce = "rollback2"
 		app.Spec.Image = NewImage
@@ -309,6 +330,12 @@ func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	logger.Log("message", "All pods torn down")
-	logger.Log("message", "Completed test TestJobRecoveryWithoutSavepoint")
+	logErr = logger.Log("message", "All pods torn down")
+	if logErr != nil {
+		return
+	}
+	logErr = logger.Log("message", "Completed test TestJobRecoveryWithoutSavepoint")
+	if logErr != nil {
+		return
+	}
 }

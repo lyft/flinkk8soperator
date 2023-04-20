@@ -18,7 +18,7 @@ import (
 
 const NewImage = "lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2"
 
-func updateAndValidate(c *C, s *IntegSuite, ctx context.Context, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase, logger log.Logger) *v1beta1.FlinkApplication {
+func updateAndValidate(ctx context.Context, c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), failurePhase v1beta1.FlinkApplicationPhase, logger log.Logger) *v1beta1.FlinkApplication {
 	app, err := s.Util.Update(ctx, name, updateFn)
 	c.Assert(err, IsNil)
 
@@ -31,7 +31,10 @@ func updateAndValidate(c *C, s *IntegSuite, ctx context.Context, name string, up
 	c.Assert(err, IsNil)
 	c.Assert(newApp.Status.JobStatus.JobID, Not(Equals), app.Status.JobStatus.JobID)
 
-	logger.Log("message", "New job started successfully")
+	logErr := logger.Log("message", "New job started successfully")
+	if logErr != nil {
+		return nil
+	}
 
 	// check that we savepointed and restored correctly
 	endpoint := fmt.Sprintf("jobs/%s/checkpoints", newApp.Status.JobStatus.JobID)
@@ -71,7 +74,10 @@ func updateAndValidate(c *C, s *IntegSuite, ctx context.Context, name string, up
 // Tests job submission, upgrade, rollback, and deletion
 func (s *IntegSuite) TestSimple(c *C) {
 	logger := log.NewLogfmtLogger(os.Stdout)
-	logger.Log("message", "Starting test TestSimple")
+	logErr := logger.Log("message", "Starting test TestSimple")
+	if logErr != nil {
+		return
+	}
 	ctx := context.Background()
 	const finalizer = "simple.finalizers.test.com"
 
@@ -97,10 +103,13 @@ func (s *IntegSuite) TestSimple(c *C) {
 		c.Assert(pod.Spec.Containers[0].Image, Equals, config.Spec.Image)
 	}
 
-	logger.Log("message", "Application started successfully")
+	logErr = logger.Log("message", "Application started successfully")
+	if logErr != nil {
+		return
+	}
 
 	// test updating the app with a new image
-	newApp := updateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
+	newApp := updateAndValidate(ctx, c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.Image = NewImage
 	}, v1beta1.FlinkApplicationDeployFailed, logger)
 	// check that the pods have the new image
@@ -114,7 +123,7 @@ func (s *IntegSuite) TestSimple(c *C) {
 	}
 
 	// test updating the app with a config change
-	newApp = updateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
+	newApp = updateAndValidate(ctx, c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 		app.Spec.FlinkConfig["akka.client.timeout"] = "23 s"
 	}, v1beta1.FlinkApplicationDeployFailed, logger)
 	// validate the config has been applied
@@ -135,7 +144,10 @@ func (s *IntegSuite) TestSimple(c *C) {
 	// Test updating the app with a bad jar name -- this should cause a failed deploy and roll back
 
 	{
-		logger.Log("message", "Testing rollback")
+		logErr := logger.Log("message", "Testing rollback")
+		if logErr != nil {
+			return
+		}
 		newApp, err := s.Util.Update(ctx, config.Name, func(app *v1beta1.FlinkApplication) {
 			app.Spec.JarName = "nonexistent.jar"
 			// this shouldn't be needed after STRMCMP-473 is fixed
@@ -148,7 +160,10 @@ func (s *IntegSuite) TestSimple(c *C) {
 		// we should end up in the DeployFailed phase
 		c.Assert(s.Util.WaitForPhase(ctx, newApp.Name, v1beta1.FlinkApplicationDeployFailed, ""), IsNil)
 
-		logger.Log("message", "Job is in deploy failed, waiting for tasks to start")
+		logErr = logger.Log("message", "Job is in deploy failed, waiting for tasks to start")
+		if logErr != nil {
+			return
+		}
 
 		// but the job should have been resubmitted
 		c.Assert(s.Util.WaitForAllTasksRunning(ctx, newApp.Name), IsNil)
@@ -170,10 +185,13 @@ func (s *IntegSuite) TestSimple(c *C) {
 
 		c.Assert(restored.(map[string]interface{})["is_savepoint"], Equals, true)
 
-		logger.Log("message", "Attempting to roll forward")
+		logErr = logger.Log("message", "Attempting to roll forward")
+		if logErr != nil {
+			return
+		}
 
 		// and we should be able to roll forward by resubmitting with a fixed config
-		updateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
+		updateAndValidate(ctx, c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 			app.Spec.JarName = config.Spec.JarName
 			app.Spec.RestartNonce = "rollback2"
 		}, "", logger)
@@ -182,7 +200,10 @@ func (s *IntegSuite) TestSimple(c *C) {
 	// Test force rollback of an active deploy
 
 	{
-		logger.Log("message", "Testing force rollback")
+		logErr := logger.Log("message", "Testing force rollback")
+		if logErr != nil {
+			return
+		}
 		newApp, err := s.Util.Update(ctx, config.Name, func(app *v1beta1.FlinkApplication) {
 			app.Spec.Image = "lyft/badimage:latest"
 		})
@@ -191,7 +212,10 @@ func (s *IntegSuite) TestSimple(c *C) {
 		c.Assert(s.Util.WaitForPhase(ctx, newApp.Name, v1beta1.FlinkApplicationClusterStarting, ""), IsNil)
 
 		// User realizes error and  cancels the deploy
-		logger.Log("message", "Cancelling deploy...")
+		logErr = logger.Log("message", "Cancelling deploy...")
+		if logErr != nil {
+			return
+		}
 		newApp, err = s.Util.GetFlinkApplication(ctx, config.Name)
 		c.Assert(err, IsNil)
 
@@ -202,15 +226,21 @@ func (s *IntegSuite) TestSimple(c *C) {
 		// we should end up in the DeployFailed phase
 		c.Assert(s.Util.WaitForPhase(ctx, newApp.Name, v1beta1.FlinkApplicationDeployFailed, ""), IsNil)
 		c.Assert(newApp.Spec.ForceRollback, Equals, true)
-		logger.Log("message", "User cancelled deploy. Job is in deploy failed, waiting for tasks to start")
+		logErr = logger.Log("message", "User cancelled deploy. Job is in deploy failed, waiting for tasks to start")
+		if logErr != nil {
+			return
+		}
 
 		// but the job should still be running
 		c.Assert(newApp.Status.JobStatus.State, Equals, v1beta1.Running)
-		logger.Log("message", "Attempting to roll forward with fix")
+		logErr = logger.Log("message", "Attempting to roll forward with fix")
+		if logErr != nil {
+			return
+		}
 
 		// Fixing update
 		// and we should be able to roll forward by resubmitting with a fixed config
-		updateAndValidate(c, s, ctx, config.Name, func(app *v1beta1.FlinkApplication) {
+		updateAndValidate(ctx, c, s, config.Name, func(app *v1beta1.FlinkApplication) {
 			app.Spec.Image = NewImage
 			app.Spec.RestartNonce = "rollback3"
 			app.Spec.ForceRollback = false
@@ -264,13 +294,22 @@ func (s *IntegSuite) TestSimple(c *C) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	logger.Log("message", "All pods torn down")
-	logger.Log("message", "Completed test TestSimple")
+	logErr = logger.Log("message", "All pods torn down")
+	if logErr != nil {
+		return
+	}
+	logErr = logger.Log("message", "Completed test TestSimple")
+	if logErr != nil {
+		return
+	}
 }
 
 func (s *IntegSuite) TestRecovery(c *C) {
 	logger := log.NewLogfmtLogger(os.Stdout)
-	logger.Log("message", "Starting test TestRecovery")
+	logErr := logger.Log("message", "Starting test TestRecovery")
+	if logErr != nil {
+		return
+	}
 	ctx := context.Background()
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
@@ -290,13 +329,19 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	c.Assert(s.Util.CreateFlinkApplication(ctx, config), IsNil,
 		Commentf("Failed to create flink application"))
 
-	logger.Log("message", "Application Created")
+	logErr = logger.Log("message", "Application Created")
+	if logErr != nil {
+		return
+	}
 
 	// wait for it to be running
 	c.Assert(s.Util.WaitForPhase(ctx, config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 	c.Assert(s.Util.WaitForAllTasksRunning(ctx, config.Name), IsNil)
 
-	logger.Log("message", "Application running")
+	logErr = logger.Log("message", "Application running")
+	if logErr != nil {
+		return
+	}
 
 	// wait for checkpoints
 	app, err := s.Util.GetFlinkApplication(ctx, config.Name)
@@ -324,7 +369,10 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	err = s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
 	c.Assert(err, IsNil)
 
-	logger.Log("message", "Triggered failure")
+	logErr = logger.Log("message", "Triggered failure")
+	if logErr != nil {
+		return
+	}
 
 	// wait a bit
 	time.Sleep(1 * time.Second)
@@ -335,7 +383,10 @@ func (s *IntegSuite) TestRecovery(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	logger.Log("message", "Updated app")
+	logErr = logger.Log("message", "Updated app")
+	if logErr != nil {
+		return
+	}
 
 	for {
 		// wait until the new job is launched
@@ -364,6 +415,12 @@ func (s *IntegSuite) TestRecovery(c *C) {
 			break
 		}
 	}
-	logger.Log("message", "All pods torn down")
-	logger.Log("message", "Completed test TestRecovery")
+	logErr = logger.Log("message", "All pods torn down")
+	if logErr != nil {
+		return
+	}
+	logErr = logger.Log("message", "Completed test TestRecovery")
+	if logErr != nil {
+		return
+	}
 }
