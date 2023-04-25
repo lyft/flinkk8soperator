@@ -2,12 +2,12 @@ package integ
 
 import (
 	"fmt"
-	v12 "k8s.io/api/core/v1"
 	"time"
 
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
+	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -116,7 +116,7 @@ func (s *IntegSuite) TestSavepointCheckpointFailureFallback(c *C) {
 
 	// Try to update it with app that does not fail on checkpoint
 	newApp := WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
-		skipFailureEnvVar := v12.EnvVar{Name: "SKIP_INDUCED_FAILURE", Value: "true"}
+		skipFailureEnvVar := coreV1.EnvVar{Name: "SKIP_INDUCED_FAILURE", Value: "true"}
 		app.Spec.Image = NewImage
 		app.Spec.JobManagerConfig.EnvConfig.Env = append(app.Spec.JobManagerConfig.EnvConfig.Env, skipFailureEnvVar)
 		app.Spec.TaskManagerConfig.EnvConfig.Env = append(app.Spec.TaskManagerConfig.EnvConfig.Env, skipFailureEnvVar)
