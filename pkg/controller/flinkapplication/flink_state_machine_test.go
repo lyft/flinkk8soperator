@@ -406,6 +406,40 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestRestoreWithFallbackWithoutState(t *testing.T) {
+	updateInvoked := false
+
+	app := v1beta1.FlinkApplication{
+		Spec: v1beta1.FlinkApplicationSpec{
+			FallbackWithoutState: true,
+		},
+		Status: v1beta1.FlinkApplicationStatus{
+			Phase:              v1beta1.FlinkApplicationRecovering,
+			DeployHash:         "blah",
+			SavepointTriggerID: "trigger",
+		},
+	}
+
+	stateMachineForTest := getTestStateMachine()
+	mockFlinkController := stateMachineForTest.flinkController.(*mock.FlinkController)
+
+	mockFlinkController.FindExternalizedCheckpointFunc = func(ctx context.Context, application *v1beta1.FlinkApplication, hash string) (string, error) {
+		return "", nil
+	}
+
+	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+		application := object.(*v1beta1.FlinkApplication)
+		assert.Equal(t, "", application.Status.SavepointPath)
+		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
+		updateInvoked = true
+		return nil
+	}
+	err := stateMachineForTest.Handle(context.Background(), &app)
+	assert.True(t, updateInvoked)
+	assert.Nil(t, err)
+}
+
 func TestSubmittingToRunning(t *testing.T) {
 	jobID := "j1"
 

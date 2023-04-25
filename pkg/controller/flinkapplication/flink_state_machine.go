@@ -603,11 +603,10 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 			s.flinkController.UpdateLatestJobID(ctx, app, "")
 			s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJob)
 			return statusChanged, nil
-		} else {
-			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
-				"Could not recover. Manual intervention is needed to recover.")
-			return s.deployFailed(app)
 		}
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
+			"Could not recover. Manual intervention is needed to recover.")
+		return s.deployFailed(app)
 	}
 
 	s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "RestoringExternalizedCheckpoint",
