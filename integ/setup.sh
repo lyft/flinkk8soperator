@@ -6,10 +6,10 @@
 cd integ/operator-test-app
 export TEST_APP_IMAGE=operator-test-app:$(git rev-parse HEAD)
 docker build -t $TEST_APP_IMAGE .
-docker tag $TEST_APP_IMAGE flink-test-app:local.1
-docker tag $TEST_APP_IMAGE flink-test-app:local.2
-minikube image load flink-test-app:local.1
-minikube image load flink-test-app:local.2
+docker tag $TEST_APP_IMAGE operator-test-app:local.1
+docker tag $TEST_APP_IMAGE operator-test-app:local.2
+minikube image load operator-test-app:local.1
+minikube image load operator-test-app:local.2
 
 cd ../../
 

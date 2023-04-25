@@ -131,23 +131,23 @@ func (s *IntegSuite) SetUpTest(c *C) {
 }
 
 func (s *IntegSuite) TearDownTest(c *C) {
-	//tms, err := s.Util.GetTaskManagerPods()
-	//if err == nil {
-	//	for i, tm := range tms {
-	//		fmt.Printf("\n\n######### TaskManager %d logs for debugging "+
-	//			"#########\n---------------------------\n", i)
-	//		_ = s.Util.GetLogs(tm, nil)
-	//	}
-	//}
-	//
-	//jm, err := s.Util.GetJobManagerPod()
-	//if err == nil {
-	//	fmt.Printf("\n\n######### JobManager logs for debugging #########\n---------------------------\n")
-	//	_ = s.Util.GetLogs(jm, nil)
-	//}
+	tms, err := s.Util.GetTaskManagerPods()
+	if err == nil {
+		for i, tm := range tms {
+			fmt.Printf("\n\n######### TaskManager %d logs for debugging "+
+				"#########\n---------------------------\n", i)
+			_ = s.Util.GetLogs(tm, nil)
+		}
+	}
+
+	jm, err := s.Util.GetJobManagerPod()
+	if err == nil {
+		fmt.Printf("\n\n######### JobManager logs for debugging #########\n---------------------------\n")
+		_ = s.Util.GetLogs(jm, nil)
+	}
 
 	fmt.Printf("\n\n######### Nodes for debugging #########\n---------------------------\n")
-	err := s.Util.ExecuteCommand("kubectl", "describe", "nodes")
+	err = s.Util.ExecuteCommand("kubectl", "describe", "nodes")
 	c.Assert(err, IsNil)
 
 	fmt.Printf("\n\n######### Pods for debugging #########\n---------------------------\n")
