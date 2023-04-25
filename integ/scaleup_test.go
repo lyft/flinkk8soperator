@@ -12,7 +12,6 @@ import (
 
 // TODO: https://github.com/lyft/flinkk8soperator/issues/278
 func (s *IntegSuite) TestInPlaceScaleUp(c *C) {
-	c.Skip("local")
 
 	log.Info("Starting test TestInPlaceScaleUp")
 	c.Skip("Skipping due to memory constraints in CI")

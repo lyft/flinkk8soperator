@@ -174,6 +174,5 @@ Below is the list of fields in the custom resource and their description:
     Once set, the application version corresponding to the hash is torn down. On successful teardown, the FlinkApplication transitions to a `Running` phase.
 
   * **fallbackWithoutState** `type:bool`
-    Can be set to true to attempt to force a successful upgrade by starting the new job without state when either
-    the job fails to savepoint during upgrade or fails to submit during upgrade. In the case where this step fails,
-    the old job will still be deployed in the RollingBackJob phase.
+    Can be set to true to attempt to continue to submit a job without a savepoint in the case where
+    a savepoint cannot be taken and there are no external checkpoints to recover from.

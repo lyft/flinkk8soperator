@@ -193,8 +193,6 @@ func (s *FlinkStateMachine) handle(ctx context.Context, application *v1beta1.Fli
 			updateApplication, appErr = s.handleApplicationDeleting(ctx, application)
 		case v1beta1.FlinkApplicationDualRunning:
 			updateApplication, appErr = s.handleDualRunning(ctx, application)
-		case v1beta1.FlinkApplicationSubmittingJobWithoutState:
-			updateApplication, appErr = s.handleSubmittingJobWithoutState(ctx, application)
 		}
 
 		if !v1beta1.IsRunningPhase(appPhase) {
@@ -601,7 +599,7 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 	if err != nil || path == "" {
 		if app.Spec.FallbackWithoutState {
 			s.flinkController.UpdateLatestJobID(ctx, app, "")
-			s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJobWithoutState)
+			s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJob)
 			return statusChanged, nil
 		} else {
 			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
@@ -705,11 +703,11 @@ func (s *FlinkStateMachine) updateGenericService(ctx context.Context, app *v1bet
 
 func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
 	if rollback, reason := s.shouldRollback(ctx, app); rollback {
-		// Something's gone wrong; move to submitting job without state
+		// Something's gone wrong; roll back
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
 			fmt.Sprintf("Failed to submit job: %s", reason))
 		s.flinkController.UpdateLatestJobID(ctx, app, "")
-		s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJobWithoutState)
+		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
 		return statusChanged, nil
 	}
 
@@ -837,88 +835,6 @@ func updateJobAndReturn(ctx context.Context, job *client.FlinkJobOverview, s *Fl
 		return statusChanged, nil
 	}
 	return statusUnchanged, nil
-}
-
-func (s *FlinkStateMachine) handleSubmittingJobWithoutState(ctx context.Context, app *v1beta1.FlinkApplication) (bool, error) {
-	hash := flink.HashForApplication(app)
-	// Skip this step in state machine if not enabled
-	if !app.Spec.FallbackWithoutState {
-		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
-		s.flinkController.UpdateLatestJobID(ctx, app, "")
-		return statusChanged, nil
-	} else if !app.Spec.AllowNonRestoredState {
-		// Skip this step in state machine if we cannot start without state
-		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionWithoutStateSkipped",
-			fmt.Sprintf("Must enable AllowNonRestoredState in conjunction with FallbackWithoutState"))
-		s.flinkController.UpdateLatestJobID(ctx, app, "")
-		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
-		return statusChanged, nil
-	} else if rollback, reason := s.shouldRollback(ctx, app); rollback {
-		// Something's gone wrong; roll back
-		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobSubmissionFailed",
-			fmt.Sprintf("Failed to submit job without state: %s", reason))
-		s.flinkController.UpdateLatestJobID(ctx, app, "")
-		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
-		return statusChanged, nil
-	} else if s.flinkController.GetLatestJobID(ctx, app) == "" {
-		// Submit application
-		err := s.updateGenericService(ctx, app, hash)
-		if err != nil {
-			return statusUnchanged, err
-		}
-		// Update status of the cluster
-		_, clusterErr := s.flinkController.CompareAndUpdateClusterStatus(ctx, app, hash)
-		if clusterErr != nil {
-			logger.Errorf(ctx, "Updating cluster status failed with error: %v", clusterErr)
-		}
-		savepointPath := ""
-		appJobID, err := s.submitJobIfNeeded(ctx, app, hash,
-			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs,
-			app.Spec.AllowNonRestoredState, savepointPath)
-		if err != nil {
-			return statusUnchanged, err
-		}
-
-		if appJobID != "" {
-			s.flinkController.UpdateLatestJobID(ctx, app, appJobID)
-			return statusChanged, nil
-		}
-
-		// we weren't ready to submit yet
-		return statusUnchanged, nil
-	} else {
-		// Monitor the submitted flink application
-		job, err := s.flinkController.GetJobForApplication(ctx, app, hash)
-		if err != nil {
-			return statusUnchanged, err
-		}
-		if job == nil {
-			return statusUnchanged, errors.Errorf("Could not find job %s", s.flinkController.GetLatestJobID(ctx, app))
-		}
-
-		jobStartTime := getJobStartTimeInUTC(job.StartTime)
-		now := time.Now().UTC()
-		cfg := config.GetConfig()
-		logger.Info(ctx, "Job vertex timeout config is ", cfg.FlinkJobVertexTimeout)
-		flinkJobVertexTimeout := cfg.FlinkJobVertexTimeout
-		if now.Before(jobStartTime.Add(flinkJobVertexTimeout.Duration)) {
-			allVerticesRunning, hasFailure, failedVertexIndex := monitorAllVerticesState(job)
-
-			// fail fast
-			if hasFailure {
-				s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobRunningFailed",
-					fmt.Sprintf(
-						"Vertex %d with name [%s] state is Failed", failedVertexIndex, job.Vertices[failedVertexIndex].Name))
-				return s.deployFailed(app)
-			}
-			return updateJobAndReturn(ctx, job, s, allVerticesRunning, app, hash)
-		}
-
-		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobRunningFailed",
-			fmt.Sprintf(
-				"Not all vertice of the Flink job state is Running before timeout %f minutes", cfg.FlinkJobVertexTimeout.Minutes()))
-		return s.deployFailed(app)
-	}
 }
 
 // Something has gone wrong during the update, post job-cancellation (and cluster tear-down in single mode). We need

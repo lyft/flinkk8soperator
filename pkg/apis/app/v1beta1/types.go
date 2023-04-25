@@ -245,20 +245,19 @@ func (p FlinkApplicationPhase) VerboseString() string {
 
 // As you add more ApplicationPhase please add it to FlinkApplicationPhases list
 const (
-	FlinkApplicationNew                       FlinkApplicationPhase = ""
-	FlinkApplicationUpdating                  FlinkApplicationPhase = "Updating"
-	FlinkApplicationRescaling                 FlinkApplicationPhase = "Rescaling"
-	FlinkApplicationClusterStarting           FlinkApplicationPhase = "ClusterStarting"
-	FlinkApplicationSubmittingJob             FlinkApplicationPhase = "SubmittingJob"
-	FlinkApplicationRunning                   FlinkApplicationPhase = "Running"
-	FlinkApplicationSavepointing              FlinkApplicationPhase = "Savepointing"
-	FlinkApplicationCancelling                FlinkApplicationPhase = "Cancelling"
-	FlinkApplicationDeleting                  FlinkApplicationPhase = "Deleting"
-	FlinkApplicationRecovering                FlinkApplicationPhase = "Recovering"
-	FlinkApplicationRollingBackJob            FlinkApplicationPhase = "RollingBackJob"
-	FlinkApplicationDeployFailed              FlinkApplicationPhase = "DeployFailed"
-	FlinkApplicationDualRunning               FlinkApplicationPhase = "DualRunning"
-	FlinkApplicationSubmittingJobWithoutState FlinkApplicationPhase = "SubmittingJobWithoutState"
+	FlinkApplicationNew             FlinkApplicationPhase = ""
+	FlinkApplicationUpdating        FlinkApplicationPhase = "Updating"
+	FlinkApplicationRescaling       FlinkApplicationPhase = "Rescaling"
+	FlinkApplicationClusterStarting FlinkApplicationPhase = "ClusterStarting"
+	FlinkApplicationSubmittingJob   FlinkApplicationPhase = "SubmittingJob"
+	FlinkApplicationRunning         FlinkApplicationPhase = "Running"
+	FlinkApplicationSavepointing    FlinkApplicationPhase = "Savepointing"
+	FlinkApplicationCancelling      FlinkApplicationPhase = "Cancelling"
+	FlinkApplicationDeleting        FlinkApplicationPhase = "Deleting"
+	FlinkApplicationRecovering      FlinkApplicationPhase = "Recovering"
+	FlinkApplicationRollingBackJob  FlinkApplicationPhase = "RollingBackJob"
+	FlinkApplicationDeployFailed    FlinkApplicationPhase = "DeployFailed"
+	FlinkApplicationDualRunning     FlinkApplicationPhase = "DualRunning"
 )
 
 var FlinkApplicationPhases = []FlinkApplicationPhase{
@@ -275,7 +274,6 @@ var FlinkApplicationPhases = []FlinkApplicationPhase{
 	FlinkApplicationDeployFailed,
 	FlinkApplicationRollingBackJob,
 	FlinkApplicationDualRunning,
-	FlinkApplicationSubmittingJobWithoutState,
 }
 
 func IsRunningPhase(phase FlinkApplicationPhase) bool {
