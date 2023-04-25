@@ -589,21 +589,23 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 	path, err := s.flinkController.FindExternalizedCheckpoint(ctx, app, app.Status.DeployHash)
 	if err != nil {
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
-			"Failed to get externalized checkpoint config, could not recover.")
+			"Failed to get externalized checkpoint config.")
 	} else if path == "" {
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
-			"No externalized checkpoint found, could not recover. Make sure that "+
+			"No externalized checkpoint found. Make sure that "+
 				"externalized checkpoints are enabled in your job's checkpoint configuration.")
 	}
 	// try to continue without state if configured else fail
 	if err != nil || path == "" {
 		if app.Spec.FallbackWithoutState {
+			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RestoringWithoutExternalizedCheckpoint",
+				"FallbackWithoutState enabled. Proceeding without a checkpoint or savepoint.")
 			s.flinkController.UpdateLatestJobID(ctx, app, "")
 			s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJob)
 			return statusChanged, nil
 		} else {
 			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
-				"Manual intervention is needed to recover.")
+				"Could not recover. Manual intervention is needed to recover.")
 			return s.deployFailed(app)
 		}
 	}
