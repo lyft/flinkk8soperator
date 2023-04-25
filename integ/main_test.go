@@ -77,12 +77,13 @@ func (s *IntegSuite) SetUpSuite(c *C) {
 
 	if runDirect {
 		config := controllerConfig.Config{
-			LimitNamespace: namespace,
-			UseProxy:       true,
-			ResyncPeriod:   flyteConfig.Duration{Duration: 3 * time.Second},
-			MaxErrDuration: flyteConfig.Duration{Duration: 60 * time.Second},
-			MetricsPrefix:  "flinkk8soperator",
-			ProxyPort:      flyteConfig.Port{Port: 8001},
+			LimitNamespace:        namespace,
+			UseProxy:              true,
+			ResyncPeriod:          flyteConfig.Duration{Duration: 3 * time.Second},
+			MaxErrDuration:        flyteConfig.Duration{Duration: 6000 * time.Second},
+			FlinkJobVertexTimeout: flyteConfig.Duration{Duration: 3 * time.Minute},
+			MetricsPrefix:         "flinkk8soperator",
+			ProxyPort:             flyteConfig.Port{Port: 8001},
 		}
 
 		log.Info("Running operator directly")
@@ -130,23 +131,23 @@ func (s *IntegSuite) SetUpTest(c *C) {
 }
 
 func (s *IntegSuite) TearDownTest(c *C) {
-	tms, err := s.Util.GetTaskManagerPods()
-	if err == nil {
-		for i, tm := range tms {
-			fmt.Printf("\n\n######### TaskManager %d logs for debugging "+
-				"#########\n---------------------------\n", i)
-			_ = s.Util.GetLogs(tm, nil)
-		}
-	}
-
-	jm, err := s.Util.GetJobManagerPod()
-	if err == nil {
-		fmt.Printf("\n\n######### JobManager logs for debugging #########\n---------------------------\n")
-		_ = s.Util.GetLogs(jm, nil)
-	}
+	//tms, err := s.Util.GetTaskManagerPods()
+	//if err == nil {
+	//	for i, tm := range tms {
+	//		fmt.Printf("\n\n######### TaskManager %d logs for debugging "+
+	//			"#########\n---------------------------\n", i)
+	//		_ = s.Util.GetLogs(tm, nil)
+	//	}
+	//}
+	//
+	//jm, err := s.Util.GetJobManagerPod()
+	//if err == nil {
+	//	fmt.Printf("\n\n######### JobManager logs for debugging #########\n---------------------------\n")
+	//	_ = s.Util.GetLogs(jm, nil)
+	//}
 
 	fmt.Printf("\n\n######### Nodes for debugging #########\n---------------------------\n")
-	err = s.Util.ExecuteCommand("kubectl", "describe", "nodes")
+	err := s.Util.ExecuteCommand("kubectl", "describe", "nodes")
 	c.Assert(err, IsNil)
 
 	fmt.Printf("\n\n######### Pods for debugging #########\n---------------------------\n")

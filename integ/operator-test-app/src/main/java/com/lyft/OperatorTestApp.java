@@ -9,10 +9,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.java.tuple.Tuple1;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.checkpoint.ListCheckpointed;
+import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -89,7 +91,7 @@ public class OperatorTestApp {
 
     @Override
     public Long map(Long x) throws Exception {
-      if (new File("/checkpoints/fail").exists()) {
+      if (new File("/checkpoints/fail").exists() && !Settings.skipInducedFailure()) {
         throw new RuntimeException("FAILED!!!");
       }
 
@@ -106,23 +108,23 @@ public class OperatorTestApp {
     if (args.length > 0) {
       uid = args[0];
     }
+    log.info(String.format("UID: %s", uid));
 
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
     configureEnvironment(env);
 
-    SingleOutputStreamOperator<Long> dataStream = env
-        .addSource(new StreamingImpulseSource(1000))
-        .map(new MaybeFail())
-        .map(x -> Tuple2.of(0, x))
-        .returns(TypeInformation.of(new TypeHint<Tuple2<Integer, Long>>(){}))
-        .keyBy(0)
-        .timeWindow(Time.seconds(10))
-        .max(1)
-        .uid(uid)
-        .map(x -> x.f1);
-
-    dataStream.print();
+    env
+      .addSource(new StreamingImpulseSource(1000))
+      .map(new MaybeFail())
+      .map(x -> Tuple2.of(0, x))
+      .returns(TypeInformation.of(new TypeHint<Tuple2<Integer, Long>>(){}))
+      .keyBy(0)
+      .timeWindow(Time.seconds(10))
+      .max(1)
+      .uid(uid)
+      .map(x -> x.f1)
+      .print();
 
     env.execute("Window Count");
   }

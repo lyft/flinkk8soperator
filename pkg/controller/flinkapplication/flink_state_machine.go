@@ -591,15 +591,23 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 	path, err := s.flinkController.FindExternalizedCheckpoint(ctx, app, app.Status.DeployHash)
 	if err != nil {
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
-			"Failed to get externalized checkpoint config, could not recover. "+
-				"Manual intervention is needed.")
-		return s.deployFailed(app)
+			"Failed to get externalized checkpoint config, could not recover.")
 	} else if path == "" {
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
 			"No externalized checkpoint found, could not recover. Make sure that "+
-				"externalized checkpoints are enabled in your job's checkpoint configuration. Manual intervention "+
-				"is needed to recover.")
-		return s.deployFailed(app)
+				"externalized checkpoints are enabled in your job's checkpoint configuration.")
+	}
+	// try to continue without state if configured else fail
+	if err != nil || path == "" {
+		if app.Spec.FallbackWithoutState {
+			s.flinkController.UpdateLatestJobID(ctx, app, "")
+			s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJobWithoutState)
+			return statusChanged, nil
+		} else {
+			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
+				"Manual intervention is needed to recover.")
+			return s.deployFailed(app)
+		}
 	}
 
 	s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "RestoringExternalizedCheckpoint",
@@ -854,6 +862,15 @@ func (s *FlinkStateMachine) handleSubmittingJobWithoutState(ctx context.Context,
 		return statusChanged, nil
 	} else if s.flinkController.GetLatestJobID(ctx, app) == "" {
 		// Submit application
+		err := s.updateGenericService(ctx, app, hash)
+		if err != nil {
+			return statusUnchanged, err
+		}
+		// Update status of the cluster
+		_, clusterErr := s.flinkController.CompareAndUpdateClusterStatus(ctx, app, hash)
+		if clusterErr != nil {
+			logger.Errorf(ctx, "Updating cluster status failed with error: %v", clusterErr)
+		}
 		savepointPath := ""
 		appJobID, err := s.submitJobIfNeeded(ctx, app, hash,
 			app.Spec.JarName, app.Spec.Parallelism, app.Spec.EntryClass, app.Spec.ProgramArgs,
