@@ -23,10 +23,10 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))
 
+	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
+
 	// Cause it to fail
 	causeFailure()
-
-	c.Assert(s.Util.WaitForPhase(config.Name, v1beta1.FlinkApplicationRunning, v1beta1.FlinkApplicationDeployFailed), IsNil)
 
 	// wait a bit for it to start failing
 	time.Sleep(5 * time.Second)
