@@ -66,8 +66,9 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 
 // Tests that we correctly handle updating a job with task failures
 func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
-	log.Info("Starting test TestJobWithTaskFailures")
+	c.Skip("local")
 
+	log.Info("Starting test TestJobWithTaskFailures")
 	failingJobTest(s, c, "taskfailure", func() {
 		err := s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
 		c.Assert(err, IsNil)
@@ -77,7 +78,6 @@ func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 
 // Tests that we correctly handle updating a job with a checkpoint timeout
 func (s *IntegSuite) TestCheckpointTimeout(c *C) {
-	c.Skip("local")
 	log.Info("Starting test TestCheckpointTimeout")
 
 	failingJobTest(s, c, "checkpointtimeout", func() {
