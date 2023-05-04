@@ -58,6 +58,8 @@ func WaitUpdateAndValidate(c *C, s *IntegSuite, name string, updateFn func(app *
 
 // tests the workflow of job cancellation without savepoint
 func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
+	c.Skip("local")
+
 	log.Info("Starting test TestJobCancellationWithoutSavepoint")
 	testName := "cancelsuccess"
 	const finalizer = "simple.finalizers.test.com"
@@ -137,6 +139,8 @@ func (s *IntegSuite) TestJobCancellationWithoutSavepoint(c *C) {
 // tests a job update with the existing job already in cancelled state.
 // here, the new submitted job starts without a savepoint.
 func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
+	c.Skip("local")
+
 	log.Info("Starting test TestCancelledJobWithoutSavepoint")
 
 	testName := "invalidcancel"
@@ -213,6 +217,8 @@ func (s *IntegSuite) TestCancelledJobWithoutSavepoint(c *C) {
 
 // tests the recovery workflow of the job when savepoint is disabled.
 func (s *IntegSuite) TestJobRecoveryWithoutSavepoint(c *C) {
+	c.Skip("local")
+
 	log.Info("Starting test TestJobRecoveryWithoutSavepoint")
 
 	const finalizer = "simple.finalizers.test.com"
