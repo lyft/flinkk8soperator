@@ -586,24 +586,28 @@ func (s *FlinkStateMachine) handleApplicationRecovering(ctx context.Context, app
 	//       (but if the JM is unavailable, our options there might be limited)
 
 	// try to find an externalized checkpoint
+	failDeploy := false
 	path, err := s.flinkController.FindExternalizedCheckpoint(ctx, app, app.Status.DeployHash)
 	if err != nil {
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
 			"Failed to get externalized checkpoint config.")
+		failDeploy = true
 	} else if path == "" {
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
 			"No externalized checkpoint found. Make sure that "+
 				"externalized checkpoints are enabled in your job's checkpoint configuration.")
+		failDeploy = true
 	}
 	// try to continue without state if configured else fail
-	if err != nil || path == "" {
-		if app.Spec.FallbackWithoutState {
-			s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RestoringWithoutExternalizedCheckpoint",
-				"FallbackWithoutState enabled. Proceeding without a checkpoint or savepoint.")
-			s.flinkController.UpdateLatestJobID(ctx, app, "")
-			s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJob)
-			return statusChanged, nil
-		}
+	if failDeploy && app.Spec.FallbackWithoutState {
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RestoringWithoutExternalizedCheckpoint",
+			"FallbackWithoutState enabled. Proceeding without a checkpoint or savepoint.")
+		s.flinkController.UpdateLatestJobID(ctx, app, "")
+		s.updateApplicationPhase(app, v1beta1.FlinkApplicationSubmittingJob)
+		return statusChanged, nil
+	}
+
+	if failDeploy {
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "RecoveryFailed",
 			"Could not recover. Manual intervention is needed to recover.")
 		return s.deployFailed(app)

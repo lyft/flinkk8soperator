@@ -11,7 +11,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func failingJobTest(s *IntegSuite, c *C, testName string, causeFastFailureOnStart bool, causeFailure func()) {
+func failingJobTest(s *IntegSuite, c *C, testName string, causeFailure func()) {
 	// create a Flink app
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
@@ -68,7 +68,7 @@ func failingJobTest(s *IntegSuite, c *C, testName string, causeFastFailureOnStar
 func (s *IntegSuite) TestCheckpointTimeout(c *C) {
 	log.Info("Starting test TestCheckpointTimeout")
 
-	failingJobTest(s, c, "checkpointtimeout", true, func() {
+	failingJobTest(s, c, "checkpointtimeout", func() {
 		// cause checkpoints to take 120 seconds
 		err := s.Util.ExecuteCommand("minikube", "ssh", "echo 120000 >> /tmp/checkpoints/checkpoint_delay && sudo chmod 0644 /tmp/checkpoints/checkpoint_delay")
 		c.Assert(err, IsNil)
@@ -166,5 +166,5 @@ func (s *IntegSuite) TestSavepointCheckpointFailureFallback(c *C) {
 		err := s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
 		c.Assert(err, IsNil)
 	})
-	log.Info("Completed test TestJobCancellationWithoutSavepoint")
+	log.Info("Completed test TestSavepointCheckpointFailureFallback")
 }
