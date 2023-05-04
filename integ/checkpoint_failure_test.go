@@ -109,6 +109,8 @@ func failingTaskTest(s *IntegSuite, c *C, testName string, fallbackWithoutState 
 		skipFailureEnvVar := coreV1.EnvVar{Name: "SKIP_INDUCED_FAILURE", Value: "true"}
 		app.Spec.JobManagerConfig.EnvConfig.Env = append(app.Spec.JobManagerConfig.EnvConfig.Env, skipFailureEnvVar)
 		app.Spec.TaskManagerConfig.EnvConfig.Env = append(app.Spec.TaskManagerConfig.EnvConfig.Env, skipFailureEnvVar)
+		var maxCheckpointRestoreAgeSeconds int32 = 1
+		app.Spec.MaxCheckpointRestoreAgeSeconds = &maxCheckpointRestoreAgeSeconds
 		_, err = s.Util.FlinkApps().Update(app)
 		c.Assert(err, IsNil)
 
