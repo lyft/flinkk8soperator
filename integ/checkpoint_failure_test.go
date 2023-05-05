@@ -131,7 +131,7 @@ func failingTaskTest(s *IntegSuite, c *C, testName string, fallbackWithoutState 
 	} else {
 		// Try to update it with app that does not fail on checkpoint
 		newApp := WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
-			app = appUpdate(app)
+			appUpdate(app)
 		}, v1beta1.FlinkApplicationDeployFailed)
 
 		// Check job updated and started without savepointPath
