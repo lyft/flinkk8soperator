@@ -3,21 +3,15 @@
 # Test App Setup
 
 # TODO: upgrade flink test app from 1.8
-#cd integ/operator-test-app
-#export TEST_APP_IMAGE=operator-test-app:$(git rev-parse HEAD)
-#docker build -t $TEST_APP_IMAGE .
-#docker tag $TEST_APP_IMAGE flink-test-app:local.1
-#docker tag $TEST_APP_IMAGE flink-test-app:local.2
-#minikube image load flink-test-app:local.1
-#minikube image load flink-test-app:local.2
-#
-#cd ../../
+cd integ/operator-test-app
+export TEST_APP_IMAGE=operator-test-app:$(git rev-parse HEAD)
+docker build -t $TEST_APP_IMAGE .
+docker tag $TEST_APP_IMAGE operator-test-app:local.1
+docker tag $TEST_APP_IMAGE operator-test-app:local.2
+minikube image load operator-test-app:local.1
+minikube image load operator-test-app:local.2
 
-docker pull lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
-docker pull lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2
-minikube image load lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1
-minikube image load lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2
-
+cd ../../
 
 # Operator Setup
 

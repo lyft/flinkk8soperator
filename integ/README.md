@@ -21,14 +21,7 @@ By default the tests create, use, and clean up the namespace
 `flinkoperatortest`.
 
 These tests use a sample Flink job [operator-test-app](/integ/operator-test-app/). The
-tests currently use two images built from here:
-
-* `lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.1`
-* `lyft/operator-test-app:b1b3cb8e8f98bd41f44f9c89f8462ce255e0d13f.2`
-
-Those images are available on our private Dockerhub registry, and you
-will either need to pull them locally or give Kubernetes access to the
-registry.
+tests currently use two images built before the integration test is run.
 
 ### Setup
 
@@ -123,4 +116,3 @@ Helpers:
   `kubectl patch FlinkApplication invalidcanceljob -p '{"metadata":{"finalizers":[]}}' --type=merge`
 - Set default namespace
   `kubectl config set-context --current --namespace=flinkoperatortest`
-

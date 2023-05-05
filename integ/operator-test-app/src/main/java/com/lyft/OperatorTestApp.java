@@ -89,7 +89,7 @@ public class OperatorTestApp {
 
     @Override
     public Long map(Long x) throws Exception {
-      if (new File("/checkpoints/fail").exists()) {
+      if (new File("/checkpoints/fail").exists() && !Settings.skipInducedFailure()) {
         throw new RuntimeException("FAILED!!!");
       }
 
