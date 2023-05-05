@@ -164,10 +164,6 @@ func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 	failingTaskTest(s, c, "taskfailure", false, true, func() {
 		err := s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
 		c.Assert(err, IsNil)
-
-		// cause checkpoints to take 120 seconds to avoid external checkpoint fallback
-		err = s.Util.ExecuteCommand("minikube", "ssh", "echo 120000 >> /tmp/checkpoints/checkpoint_delay && sudo chmod 0644 /tmp/checkpoints/checkpoint_delay")
-		c.Assert(err, IsNil)
 	})
 	log.Info("Completed test TestJobWithTaskFailures")
 }
