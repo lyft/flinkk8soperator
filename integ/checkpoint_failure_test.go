@@ -78,6 +78,16 @@ func (s *IntegSuite) TestCheckpointTimeout(c *C) {
 	log.Info("Completed test TestCheckpointTimeout")
 }
 
+func appUpdate(app *v1beta1.FlinkApplication) *v1beta1.FlinkApplication {
+	app.Spec.Image = NewImage
+	skipFailureEnvVar := coreV1.EnvVar{Name: "SKIP_INDUCED_FAILURE", Value: "true"}
+	app.Spec.JobManagerConfig.EnvConfig.Env = append(app.Spec.JobManagerConfig.EnvConfig.Env, skipFailureEnvVar)
+	app.Spec.TaskManagerConfig.EnvConfig.Env = append(app.Spec.TaskManagerConfig.EnvConfig.Env, skipFailureEnvVar)
+	var maxCheckpointRestoreAgeSeconds int32 = 1
+	app.Spec.MaxCheckpointRestoreAgeSeconds = &maxCheckpointRestoreAgeSeconds
+	return app
+}
+
 func failingTaskTest(s *IntegSuite, c *C, testName string, fallbackWithoutState bool, deployShouldFail bool, causeFailure func()) {
 	config, err := s.Util.ReadFlinkApplication("test_app.yaml")
 	c.Assert(err, IsNil, Commentf("Failed to read test app yaml"))
@@ -85,6 +95,10 @@ func failingTaskTest(s *IntegSuite, c *C, testName string, fallbackWithoutState 
 	config.Spec.DeleteMode = v1beta1.DeleteModeForceCancel
 	config.Spec.FallbackWithoutState = fallbackWithoutState
 	config.ObjectMeta.Labels["integTest"] = testName
+
+	// Avoid external checkpoints to be used in recovery stage during update
+	err = s.Util.ExecuteCommand("minikube", "ssh", "echo 120000 >> /tmp/checkpoints/checkpoint_delay && sudo chmod 0644 /tmp/checkpoints/checkpoint_delay")
+	c.Assert(err, IsNil)
 
 	c.Assert(s.Util.CreateFlinkApplication(config), IsNil,
 		Commentf("Failed to create flink application"))
@@ -105,12 +119,7 @@ func failingTaskTest(s *IntegSuite, c *C, testName string, fallbackWithoutState 
 		// Try to update it
 		app, err := s.Util.GetFlinkApplication(config.Name)
 		c.Assert(err, IsNil)
-		app.Spec.Image = NewImage
-		skipFailureEnvVar := coreV1.EnvVar{Name: "SKIP_INDUCED_FAILURE", Value: "true"}
-		app.Spec.JobManagerConfig.EnvConfig.Env = append(app.Spec.JobManagerConfig.EnvConfig.Env, skipFailureEnvVar)
-		app.Spec.TaskManagerConfig.EnvConfig.Env = append(app.Spec.TaskManagerConfig.EnvConfig.Env, skipFailureEnvVar)
-		var maxCheckpointRestoreAgeSeconds int32 = 1
-		app.Spec.MaxCheckpointRestoreAgeSeconds = &maxCheckpointRestoreAgeSeconds
+		app = appUpdate(app)
 		_, err = s.Util.FlinkApps().Update(app)
 		c.Assert(err, IsNil)
 
@@ -124,12 +133,7 @@ func failingTaskTest(s *IntegSuite, c *C, testName string, fallbackWithoutState 
 	} else {
 		// Try to update it with app that does not fail on checkpoint
 		newApp := WaitUpdateAndValidate(c, s, config.Name, func(app *v1beta1.FlinkApplication) {
-			skipFailureEnvVar := coreV1.EnvVar{Name: "SKIP_INDUCED_FAILURE", Value: "true"}
-			app.Spec.Image = NewImage
-			app.Spec.JobManagerConfig.EnvConfig.Env = append(app.Spec.JobManagerConfig.EnvConfig.Env, skipFailureEnvVar)
-			app.Spec.TaskManagerConfig.EnvConfig.Env = append(app.Spec.TaskManagerConfig.EnvConfig.Env, skipFailureEnvVar)
-			var maxCheckpointRestoreAgeSeconds int32 = 1
-			app.Spec.MaxCheckpointRestoreAgeSeconds = &maxCheckpointRestoreAgeSeconds
+			app = appUpdate(app)
 		}, v1beta1.FlinkApplicationDeployFailed)
 
 		// Check job updated and started without savepointPath
@@ -172,15 +176,10 @@ func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 }
 
 func (s *IntegSuite) TestSavepointCheckpointFailureFallback(c *C) {
-	c.Skip("local")
 
 	log.Info("Starting test TestSavepointCheckpointFailureFallback")
 	failingTaskTest(s, c, "recoveryfallback", true, false, func() {
 		err := s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
-		c.Assert(err, IsNil)
-
-		// cause checkpoints to take 120 seconds to avoid external checkpoint fallback
-		err = s.Util.ExecuteCommand("minikube", "ssh", "echo 120000 >> /tmp/checkpoints/checkpoint_delay && sudo chmod 0644 /tmp/checkpoints/checkpoint_delay")
 		c.Assert(err, IsNil)
 	})
 	log.Info("Completed test TestSavepointCheckpointFailureFallback")
