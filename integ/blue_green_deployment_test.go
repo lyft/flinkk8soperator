@@ -10,8 +10,6 @@ import (
 )
 
 func WaitForUpdate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.FlinkApplication), phase v1beta1.FlinkApplicationPhase, failurePhase v1beta1.FlinkApplicationPhase) *v1beta1.FlinkApplication {
-	c.Skip("local")
-
 	// update with new image.
 	app, err := s.Util.Update(name, updateFn)
 	c.Assert(err, IsNil)
@@ -34,8 +32,6 @@ func WaitForUpdate(c *C, s *IntegSuite, name string, updateFn func(app *v1beta1.
 }
 
 func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
-	c.Skip("local")
-
 	log.Info("Starting test TestUpdateWithBlueGreenDeploymentMode")
 
 	testName := "bluegreenupdate"
