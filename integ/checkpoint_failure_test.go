@@ -126,6 +126,8 @@ func failingTaskTest(s *IntegSuite, c *C, testName string, fallbackWithoutState 
 			app.Spec.Image = NewImage
 			app.Spec.JobManagerConfig.EnvConfig.Env = append(app.Spec.JobManagerConfig.EnvConfig.Env, skipFailureEnvVar)
 			app.Spec.TaskManagerConfig.EnvConfig.Env = append(app.Spec.TaskManagerConfig.EnvConfig.Env, skipFailureEnvVar)
+			var maxCheckpointRestoreAgeSeconds int32 = 1
+			app.Spec.MaxCheckpointRestoreAgeSeconds = &maxCheckpointRestoreAgeSeconds
 		}, v1beta1.FlinkApplicationDeployFailed)
 
 		// Check job updated and started without savepointPath
@@ -158,6 +160,10 @@ func (s *IntegSuite) TestJobWithTaskFailures(c *C) {
 	failingTaskTest(s, c, "taskfailure", false, true, func() {
 		err := s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
 		c.Assert(err, IsNil)
+
+		// cause checkpoints to take 120 seconds to avoid external checkpoint fallback
+		err = s.Util.ExecuteCommand("minikube", "ssh", "echo 120000 >> /tmp/checkpoints/checkpoint_delay && sudo chmod 0644 /tmp/checkpoints/checkpoint_delay")
+		c.Assert(err, IsNil)
 	})
 	log.Info("Completed test TestJobWithTaskFailures")
 }
@@ -166,6 +172,10 @@ func (s *IntegSuite) TestSavepointCheckpointFailureFallback(c *C) {
 	log.Info("Starting test TestSavepointCheckpointFailureFallback")
 	failingTaskTest(s, c, "recoveryfallback", true, false, func() {
 		err := s.Util.ExecuteCommand("minikube", "ssh", "touch /tmp/checkpoints/fail && chmod 0644 /tmp/checkpoints/fail")
+		c.Assert(err, IsNil)
+
+		// cause checkpoints to take 120 seconds to avoid external checkpoint fallback
+		err = s.Util.ExecuteCommand("minikube", "ssh", "echo 120000 >> /tmp/checkpoints/checkpoint_delay && sudo chmod 0644 /tmp/checkpoints/checkpoint_delay")
 		c.Assert(err, IsNil)
 	})
 	log.Info("Completed test TestSavepointCheckpointFailureFallback")
