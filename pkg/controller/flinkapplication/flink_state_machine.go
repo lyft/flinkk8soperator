@@ -2,7 +2,6 @@ package flinkapplication
 
 import (
 	"context"
-	config2 "github.com/lyft/flytestdlib/config"
 	"math"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink/client"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
+	config2 "github.com/lyft/flytestdlib/config"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
