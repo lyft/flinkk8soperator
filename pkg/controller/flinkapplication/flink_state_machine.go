@@ -771,7 +771,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	cfg := config.GetConfig()
 	flinkJobVertexTimeout := cfg.FlinkJobVertexTimeout
 	logger.Info(ctx, "Monitoring job vertices with timeout ", flinkJobVertexTimeout)
-	jobStarted, err := monitorJobStart(job, flinkJobVertexTimeout)
+	jobStarted, err := monitorJobSubmission(job, flinkJobVertexTimeout)
 	if err != nil {
 		logger.Info(ctx, "Job monitoring failed with error: %v", err)
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobMonitoringFailed", err.Error())
@@ -783,7 +783,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	return statusUnchanged, err
 }
 
-func monitorJobStart(job *client.FlinkJobOverview, timeout config2.Duration) (bool, error) {
+func monitorJobSubmission(job *client.FlinkJobOverview, timeout config2.Duration) (bool, error) {
 	jobStartTime := getJobStartTimeInUTC(job.StartTime)
 	now := time.Now().UTC()
 	shouldContinueMonitoring := now.Before(jobStartTime.Add(timeout.Duration))
