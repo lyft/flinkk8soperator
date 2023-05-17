@@ -756,12 +756,15 @@ func TestSubmittingVertexFailsToStart(t *testing.T) {
 
 	statusUpdateCount := 0
 	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
-		if statusUpdateCount == 0 {
+		if statusUpdateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
-		} else if statusUpdateCount == 1 {
+		} else if statusUpdateCount == 2 {
 			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
+			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
+		} else if statusUpdateCount == 3 {
+			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
 		}
 		statusUpdateCount++
 		return nil
@@ -770,11 +773,13 @@ func TestSubmittingVertexFailsToStart(t *testing.T) {
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Error(t, err, "vertex 1 with name [Vertex 2] state is Failed")
+	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 
 	assert.Equal(t, 1, startCount)
 	assert.Equal(t, 3, updateCount)
-	assert.Equal(t, 2, statusUpdateCount)
+	assert.Equal(t, 3, statusUpdateCount)
 }
 
 func TestSubmittingVertexStartTimeout(t *testing.T) {
@@ -917,12 +922,15 @@ func TestSubmittingVertexStartTimeout(t *testing.T) {
 
 	statusUpdateCount := 0
 	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
-		if statusUpdateCount == 0 {
+		if statusUpdateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
-		} else if statusUpdateCount == 1 {
+		} else if statusUpdateCount == 2 {
 			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
+			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
+		} else if statusUpdateCount == 3 {
+			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
 		}
 		statusUpdateCount++
 		return nil
@@ -931,11 +939,13 @@ func TestSubmittingVertexStartTimeout(t *testing.T) {
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 	err = stateMachineForTest.Handle(context.Background(), &app)
+	assert.Error(t, err, "Expected nil, but got: not all vertices of the Flink job state is Running before timeout 3.000000 minutes")
+	err = stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 
 	assert.Equal(t, 1, startCount)
 	assert.Equal(t, 3, updateCount)
-	assert.Equal(t, 2, statusUpdateCount)
+	assert.Equal(t, 3, statusUpdateCount)
 }
 
 func TestHandleNilDeployments(t *testing.T) {
