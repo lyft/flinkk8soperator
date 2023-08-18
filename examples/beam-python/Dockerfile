@@ -1,4 +1,4 @@
-FROM flink:1.8.3-scala_2.12 AS flink
+FROM flink:1.16.2-scala_2.12-java11 AS flink
 FROM apachebeam/python3.6_sdk:2.17.0
 
 # Install dependencies
@@ -6,8 +6,8 @@ RUN set -ex \
   && apt-get update \
   && apt-get -y install \
        gettext-base \
-       openjdk-8-jre-headless \
-       openjdk-8-jdk-headless \
+       openjdk-11-jre-headless \
+       openjdk-11-jdk-headless \
   && rm -rf /var/lib/apt/lists/*
 
 # add Flink from the official Flink image
@@ -20,8 +20,8 @@ RUN \
   mkdir -p /opt/flink/flink-web-upload \
   && ( \
     cd /opt/flink/flink-web-upload \
-    && curl -f -O https://repository.apache.org/content/groups/public/org/apache/beam/beam-runners-flink-1.8-job-server/2.17.0/beam-runners-flink-1.8-job-server-2.17.0.jar \
-    && ln -s beam-runners-flink-1.8-job-server*.jar beam-runner.jar \
+    && curl -f -O https://repository.apache.org/content/groups/public/org/apache/beam/beam-runners-flink-1.16-job-server/2.49.0/beam-runners-flink-1.16-job-server-2.49.0.jar \
+    && ln -s beam-runners-flink-1.16-job-server*.jar beam-runner.jar \
     ) \
   && echo 'jobmanager.web.upload.dir: /opt/flink' >> $FLINK_HOME/conf/flink-conf.yaml
 

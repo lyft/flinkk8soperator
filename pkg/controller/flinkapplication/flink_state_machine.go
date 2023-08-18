@@ -14,6 +14,7 @@ import (
 
 	"fmt"
 
+	"github.com/lyft/flinkk8soperator/integ/log"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/flink"
@@ -140,6 +141,7 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.Fli
 		application.Status.LastUpdatedAt = &now
 		updateAppErr := s.k8Cluster.UpdateStatus(ctx, application)
 		if updateAppErr != nil {
+			log.Errorf("Failed to update Flink app status: name=%s status=%s err=%v", application.Name, application.Status.Phase, updateAppErr)
 			s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
 			return updateAppErr
 		}

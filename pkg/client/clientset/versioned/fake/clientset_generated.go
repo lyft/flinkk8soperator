@@ -58,7 +58,10 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-var _ clientset.Interface = &Clientset{}
+var (
+	_ clientset.Interface = &Clientset{}
+	_ testing.FakeClient  = &Clientset{}
+)
 
 // FlinkV1beta1 retrieves the FlinkV1beta1Client
 func (c *Clientset) FlinkV1beta1() flinkv1beta1.FlinkV1beta1Interface {

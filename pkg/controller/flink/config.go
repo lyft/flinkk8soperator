@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-version"
+	"github.com/lyft/flinkk8soperator/integ/log"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 )
 
@@ -79,7 +80,14 @@ func getRequestedTaskManagerMemory(application *v1beta1.FlinkApplication) int64 
 	if tmResources == nil {
 		tmResources = &TaskManagerDefaultResources
 	}
-	tmMemory, _ := tmResources.Requests.Memory().AsInt64()
+	tmMemory, ok := tmResources.Requests.Memory().AsInt64()
+	if !ok {
+		tmMemory, ok = tmResources.Requests.Memory().ToDec().AsInt64()
+		if !ok {
+			log.Errorf("Task Manager memory couldn't be parsed, sorry: name=%s", application.Name)
+			return 0
+		}
+	}
 	return tmMemory
 }
 
@@ -88,7 +96,14 @@ func getRequestedJobManagerMemory(application *v1beta1.FlinkApplication) int64 {
 	if jmResources == nil {
 		jmResources = &JobManagerDefaultResources
 	}
-	jmMemory, _ := jmResources.Requests.Memory().AsInt64()
+	jmMemory, ok := jmResources.Requests.Memory().AsInt64()
+	if !ok {
+		jmMemory, ok = jmResources.Requests.Memory().ToDec().AsInt64()
+		if !ok {
+			log.Errorf("Job Manager memory couldn't be parsed, sorry: name=%s", application.Name)
+			return 0
+		}
+	}
 	return jmMemory
 }
 
@@ -102,13 +117,15 @@ func computeMemory(memoryInBytes float64, fraction float64) string {
 func getTaskManagerHeapMemory(app *v1beta1.FlinkApplication) string {
 	tmMemory := float64(getRequestedTaskManagerMemory(app))
 	fraction := getValidFraction(app.Spec.TaskManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
-	return computeMemory(tmMemory, fraction)
+	tmMemoryStr := computeMemory(tmMemory, fraction)
+	return tmMemoryStr
 }
 
 func getJobManagerHeapMemory(app *v1beta1.FlinkApplication) string {
 	jmMemory := float64(getRequestedJobManagerMemory(app))
 	fraction := getValidFraction(app.Spec.JobManagerConfig.OffHeapMemoryFraction, OffHeapMemoryDefaultFraction)
-	return computeMemory(jmMemory, fraction)
+	jmMemoryStr := computeMemory(jmMemory, fraction)
+	return jmMemoryStr
 }
 
 // process memory configs are used for Flink >= 1.11
@@ -116,13 +133,15 @@ func getJobManagerHeapMemory(app *v1beta1.FlinkApplication) string {
 func getTaskManagerProcessMemory(app *v1beta1.FlinkApplication) string {
 	tmMemory := float64(getRequestedTaskManagerMemory(app))
 	fraction := getValidFraction(app.Spec.TaskManagerConfig.SystemMemoryFraction, SystemMemoryDefaultFraction)
-	return computeMemory(tmMemory, fraction)
+	tmMemoryStr := computeMemory(tmMemory, fraction)
+	return tmMemoryStr
 }
 
 func getJobManagerProcessMemory(app *v1beta1.FlinkApplication) string {
 	jmMemory := float64(getRequestedJobManagerMemory(app))
 	fraction := getValidFraction(app.Spec.JobManagerConfig.SystemMemoryFraction, SystemMemoryDefaultFraction)
-	return computeMemory(jmMemory, fraction)
+	jmMemoryStr := computeMemory(jmMemory, fraction)
+	return jmMemoryStr
 }
 
 func getFlinkVersion(app *v1beta1.FlinkApplication) string {

@@ -27,7 +27,7 @@ spec:
       requests:
         memory: "200Mi"
         cpu: "0.1"
-  flinkVersion: "1.8"
+  flinkVersion: "1.16"
   jarName: "beam-runner.jar"
   parallelism: 1
   entryClass: "org.apache.beam.runners.flink.FlinkPortableClientEntryPoint"

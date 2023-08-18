@@ -18,7 +18,6 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,7 +54,7 @@ func newReconcilerMetrics(scope promutils.Scope) *reconcilerMetrics {
 	}
 }
 
-func (r *ReconcileFlinkApplication) getResource(ctx context.Context, key types.NamespacedName, obj runtime.Object) error {
+func (r *ReconcileFlinkApplication) getResource(ctx context.Context, key types.NamespacedName, obj client.Object) error {
 	err := r.cache.Get(ctx, key, obj)
 	if err != nil && k8.IsK8sObjectDoesNotExist(err) {
 		r.metrics.cacheMiss.Inc(ctx)
@@ -82,8 +81,7 @@ func (r *ReconcileFlinkApplication) getReconcileResultForError(err error) reconc
 	}
 }
 
-func (r *ReconcileFlinkApplication) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	ctx := context.Background()
+func (r *ReconcileFlinkApplication) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	ctx = contextutils.WithNamespace(ctx, request.Namespace)
 	ctx = contextutils.WithAppName(ctx, request.Name)
 	typeMeta := metaV1.TypeMeta{
@@ -171,16 +169,16 @@ func isOwnedByFlinkApplication(ownerReferences []metaV1.OwnerReference) bool {
 func getPredicateFuncs() predicate.Funcs {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return isOwnedByFlinkApplication(e.Meta.GetOwnerReferences())
+			return isOwnedByFlinkApplication(e.Object.GetOwnerReferences())
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return isOwnedByFlinkApplication(e.MetaNew.GetOwnerReferences())
+			return isOwnedByFlinkApplication(e.ObjectNew.GetOwnerReferences())
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return isOwnedByFlinkApplication(e.Meta.GetOwnerReferences())
+			return isOwnedByFlinkApplication(e.Object.GetOwnerReferences())
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
-			return isOwnedByFlinkApplication(e.Meta.GetOwnerReferences())
+			return isOwnedByFlinkApplication(e.Object.GetOwnerReferences())
 		},
 	}
 }

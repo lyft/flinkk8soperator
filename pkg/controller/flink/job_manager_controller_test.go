@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1beta12 "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
@@ -22,7 +23,6 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -82,7 +82,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 	}
 	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		ctr++
 		switch ctr {
 		case 1:
@@ -169,7 +169,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 	}
 	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		ctr++
 		switch ctr {
 		case 1:
@@ -252,7 +252,7 @@ func TestJobManagerSecurityContextAssignment(t *testing.T) {
 
 	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		ctr++
 		switch ctr {
 		case 1:
@@ -278,7 +278,7 @@ func TestJobManagerCreateErr(t *testing.T) {
 	testController := getJMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		return errors.New("create error")
 	}
 	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
@@ -310,7 +310,7 @@ func TestJobManagerCreateAlreadyExists(t *testing.T) {
 	}
 
 	ctr := 0
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		ctr++
 		return k8sErrors.NewAlreadyExists(schema.GroupResource{}, "")
 	}
@@ -347,7 +347,7 @@ func TestJobManagerCreateNoIngress(t *testing.T) {
 	}
 
 	ctr := 0
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		ctr++
 		return k8sErrors.NewAlreadyExists(schema.GroupResource{}, "")
 	}
@@ -383,7 +383,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 	}
 	ctr := 0
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		ctr++
 		switch ctr {
 		case 1:
