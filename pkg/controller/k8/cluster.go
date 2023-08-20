@@ -5,6 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
@@ -207,6 +208,12 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object client.Object) erro
 
 func (k *Cluster) UpdateStatus(ctx context.Context, object client.Object) error {
 	objectCopy := object.DeepCopyObject().(client.Object)
+	if err := k.client.Get(ctx, types.NamespacedName{Name: object.GetName(), Namespace: object.GetNamespace()}, objectCopy); err != nil {
+		logger.Errorf(ctx, "K8s object get failed %v", err)
+		return err
+	}
+	app := objectCopy.(*v1beta1.FlinkApplication)
+	app.Status = object.(*v1beta1.FlinkApplication).Status
 	err := k.client.Status().Update(ctx, objectCopy)
 	if err != nil {
 		if errors.IsInvalid(err) {
