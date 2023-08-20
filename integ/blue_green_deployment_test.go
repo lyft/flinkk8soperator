@@ -1,10 +1,11 @@
 package integ
 
 import (
+	"context"
 	"time"
 
+	"github.com/lyft/flinkk8soperator/integ/log"
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
-	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -53,7 +54,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(s.Util.WaitForAllTasksRunning(config.Name), IsNil)
 
 	pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(context.Background(), v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	c.Assert(len(pods.Items), Equals, 2)
 	for _, pod := range pods.Items {
@@ -69,7 +70,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(newApp.Status.SavepointPath, NotNil)
 
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+		List(context.Background(), v1.ListOptions{LabelSelector: "integTest=" + testName})
 	c.Assert(err, IsNil)
 	// We have 2 applications running
 	c.Assert(len(pods.Items), Equals, 4)
@@ -89,7 +90,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 
 	// wait for the old cluster to be cleaned up
 	for {
-		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).List(v1.ListOptions{})
+		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).List(context.Background(), v1.ListOptions{})
 		c.Assert(err, IsNil)
 
 		oldPodFound := false
@@ -114,7 +115,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(newApp.Status.VersionStatuses[1].JobStatus, Equals, v1beta1.FlinkJobStatus{})
 
 	pods, err = s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-		List(v1.ListOptions{LabelSelector: "flink-app-hash=" + oldHash})
+		List(context.Background(), v1.ListOptions{LabelSelector: "flink-app-hash=" + oldHash})
 	for _, pod := range pods.Items {
 		log.Infof("Pod name %s", pod.Name)
 		c.Assert(pod.Labels["flink-application-version"], Not(Equals), teardownVersion)
@@ -124,7 +125,7 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 	c.Assert(len(pods.Items), Equals, 0)
 
 	// cleanup
-	c.Assert(s.Util.FlinkApps().Delete(newApp.Name, &v1.DeleteOptions{}), IsNil)
+	c.Assert(s.Util.FlinkApps().Delete(context.Background(), newApp.Name, v1.DeleteOptions{}), IsNil)
 	var app *v1beta1.FlinkApplication
 	for {
 		app, err = s.Util.GetFlinkApplication(config.Name)
@@ -141,12 +142,12 @@ func (s *IntegSuite) TestUpdateWithBlueGreenDeploymentMode(c *C) {
 
 	// delete our finalizer
 	app.Finalizers = []string{}
-	_, err = s.Util.FlinkApps().Update(app)
+	_, err = s.Util.FlinkApps().Update(context.Background(), app, v1.UpdateOptions{})
 	c.Assert(err, IsNil)
 
 	for {
 		pods, err := s.Util.KubeClient.CoreV1().Pods(s.Util.Namespace.Name).
-			List(v1.ListOptions{LabelSelector: "integTest=" + testName})
+			List(context.Background(), v1.ListOptions{LabelSelector: "integTest=" + testName})
 		c.Assert(err, IsNil)
 		if len(pods.Items) == 0 {
 			break

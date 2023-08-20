@@ -140,6 +140,8 @@ func (s *FlinkStateMachine) Handle(ctx context.Context, application *v1beta1.Fli
 		application.Status.LastUpdatedAt = &now
 		updateAppErr := s.k8Cluster.UpdateStatus(ctx, application)
 		if updateAppErr != nil {
+			s.flinkController.LogEvent(ctx, application, corev1.EventTypeWarning, "HandleFailed",
+				fmt.Sprintf("Failed to update Flink app status: name=%s status=%s err=%v", application.Name, application.Status.Phase, updateAppErr))
 			s.metrics.errorCounterPhaseMap[currentPhase].Inc(ctx)
 			return updateAppErr
 		}
@@ -768,6 +770,13 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	if job == nil {
 		return statusUnchanged, errors.Errorf("Could not find job %s", s.flinkController.GetLatestJobID(ctx, app))
 	}
+
+	if job.State == client.Finished {
+		// the job has finished, we're done
+		s.flinkController.LogEvent(ctx, app, corev1.EventTypeNormal, "JobFinished", "Job finished")
+		return statusUnchanged, nil
+	}
+
 	cfg := config.GetConfig()
 	flinkJobVertexTimeout := cfg.FlinkJobVertexTimeout
 	logger.Info(ctx, "Monitoring job vertices with timeout ", flinkJobVertexTimeout)
@@ -792,6 +801,9 @@ func monitorJobSubmission(job *client.FlinkJobOverview, timeout config2.Duration
 	}
 
 	for index, v := range job.Vertices {
+		if v.Status == client.Finished {
+			continue
+		}
 		if v.Status == client.Failed {
 			return false, errors.Errorf("vertex %d with name [%s] state is Failed", index, job.Vertices[index].Name)
 		}

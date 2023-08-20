@@ -5,6 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flytestdlib/logger"
 	"github.com/lyft/flytestdlib/promutils"
@@ -12,7 +13,6 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,11 +35,11 @@ type ClusterInterface interface {
 	GetService(ctx context.Context, namespace string, name string, version string) (*coreV1.Service, error)
 	GetServicesWithLabel(ctx context.Context, namespace string, labelMap map[string]string) (*coreV1.ServiceList, error)
 
-	CreateK8Object(ctx context.Context, object runtime.Object) error
-	UpdateK8Object(ctx context.Context, object runtime.Object) error
-	DeleteK8Object(ctx context.Context, object runtime.Object) error
+	CreateK8Object(ctx context.Context, object client.Object) error
+	UpdateK8Object(ctx context.Context, object client.Object) error
+	DeleteK8Object(ctx context.Context, object client.Object) error
 
-	UpdateStatus(ctx context.Context, object runtime.Object) error
+	UpdateStatus(ctx context.Context, object client.Object) error
 }
 
 func NewK8Cluster(mgr manager.Manager, cfg config.RuntimeConfig) ClusterInterface {
@@ -174,8 +174,8 @@ func (k *Cluster) GetServicesWithLabel(ctx context.Context, namespace string, la
 	return serviceList, nil
 }
 
-func (k *Cluster) CreateK8Object(ctx context.Context, object runtime.Object) error {
-	objCreate := object.DeepCopyObject()
+func (k *Cluster) CreateK8Object(ctx context.Context, object client.Object) error {
+	objCreate := object.DeepCopyObject().(client.Object)
 	err := k.client.Create(ctx, objCreate)
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
@@ -189,8 +189,8 @@ func (k *Cluster) CreateK8Object(ctx context.Context, object runtime.Object) err
 	return nil
 }
 
-func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) error {
-	objUpdate := object.DeepCopyObject()
+func (k *Cluster) UpdateK8Object(ctx context.Context, object client.Object) error {
+	objUpdate := object.DeepCopyObject().(client.Object)
 	err := k.client.Update(ctx, objUpdate)
 	if err != nil {
 		if errors.IsConflict(err) {
@@ -206,8 +206,14 @@ func (k *Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) err
 	return nil
 }
 
-func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error {
-	objectCopy := object.DeepCopyObject()
+func (k *Cluster) UpdateStatus(ctx context.Context, object client.Object) error {
+	objectCopy := object.DeepCopyObject().(client.Object)
+	if err := k.client.Get(ctx, types.NamespacedName{Name: object.GetName(), Namespace: object.GetNamespace()}, objectCopy); err != nil {
+		logger.Errorf(ctx, "K8s object get failed %v", err)
+		return err
+	}
+	app := objectCopy.(*v1beta1.FlinkApplication)
+	app.Status = object.(*v1beta1.FlinkApplication).Status
 	err := k.client.Status().Update(ctx, objectCopy)
 	if err != nil {
 		if errors.IsInvalid(err) {
@@ -245,8 +251,8 @@ func (k *Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error
 	return nil
 }
 
-func (k *Cluster) DeleteK8Object(ctx context.Context, object runtime.Object) error {
-	objDelete := object.DeepCopyObject()
+func (k *Cluster) DeleteK8Object(ctx context.Context, object client.Object) error {
+	objDelete := object.DeepCopyObject().(client.Object)
 	err := k.client.Delete(ctx, objDelete)
 	if err != nil {
 		logger.Errorf(ctx, "K8s object delete failed %v", err)

@@ -5,16 +5,16 @@ import (
 
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type GetDeploymentsWithLabelFunc func(ctx context.Context, namespace string, labelMap map[string]string) (*v1.DeploymentList, error)
-type CreateK8ObjectFunc func(ctx context.Context, object runtime.Object) error
+type CreateK8ObjectFunc func(ctx context.Context, object client.Object) error
 type GetServiceFunc func(ctx context.Context, namespace string, name string, version string) (*corev1.Service, error)
 type GetServiceWithLabelFunc func(ctx context.Context, namespace string, labelMap map[string]string) (*corev1.ServiceList, error)
-type UpdateK8ObjectFunc func(ctx context.Context, object runtime.Object) error
-type UpdateStatusFunc func(ctx context.Context, object runtime.Object) error
-type DeleteK8ObjectFunc func(ctx context.Context, object runtime.Object) error
+type UpdateK8ObjectFunc func(ctx context.Context, object client.Object) error
+type UpdateStatusFunc func(ctx context.Context, object client.Object) error
+type DeleteK8ObjectFunc func(ctx context.Context, object client.Object) error
 
 type K8Cluster struct {
 	GetDeploymentsWithLabelFunc GetDeploymentsWithLabelFunc
@@ -47,28 +47,28 @@ func (m *K8Cluster) GetService(ctx context.Context, namespace string, name strin
 	return nil, nil
 }
 
-func (m *K8Cluster) CreateK8Object(ctx context.Context, object runtime.Object) error {
+func (m *K8Cluster) CreateK8Object(ctx context.Context, object client.Object) error {
 	if m.CreateK8ObjectFunc != nil {
 		return m.CreateK8ObjectFunc(ctx, object)
 	}
 	return nil
 }
 
-func (m *K8Cluster) UpdateK8Object(ctx context.Context, object runtime.Object) error {
+func (m *K8Cluster) UpdateK8Object(ctx context.Context, object client.Object) error {
 	if m.UpdateK8ObjectFunc != nil {
 		return m.UpdateK8ObjectFunc(ctx, object)
 	}
 	return nil
 }
 
-func (m *K8Cluster) UpdateStatus(ctx context.Context, object runtime.Object) error {
+func (m *K8Cluster) UpdateStatus(ctx context.Context, object client.Object) error {
 	if m.UpdateStatusFunc != nil {
 		return m.UpdateStatusFunc(ctx, object)
 	}
 	return nil
 }
 
-func (m *K8Cluster) DeleteK8Object(ctx context.Context, object runtime.Object) error {
+func (m *K8Cluster) DeleteK8Object(ctx context.Context, object client.Object) error {
 	if m.DeleteK8ObjectFunc != nil {
 		return m.DeleteK8ObjectFunc(ctx, object)
 	}

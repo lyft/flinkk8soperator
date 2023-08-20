@@ -24,8 +24,7 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const testImage = "123.xyz.com/xx:11ae1218924428faabd9b64423fa0c332efba6b2"
@@ -359,7 +358,7 @@ func TestDeleteOldResources(t *testing.T) {
 	}
 
 	ctr := 0
-	mockK8Cluster.DeleteK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.DeleteK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		ctr++
 		switch ctr {
 		case 1:
@@ -1092,7 +1091,7 @@ func TestDeleteResourcesForAppWithHash(t *testing.T) {
 	}
 
 	ctr := 0
-	mockK8Cluster.DeleteK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.DeleteK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		ctr++
 		switch ctr {
 		case 1:
