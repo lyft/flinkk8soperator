@@ -276,6 +276,7 @@ spec:
                       properties:
                         additionalProperties:
                           type: string
+                      x-kubernetes-preserve-unknown-fields: true
                     tolerations:
                       type: array
                       items:
@@ -694,6 +695,7 @@ spec:
                       properties:
                         additionalProperties:
                           type: string
+                      x-kubernetes-preserve-unknown-fields: true
                     tolerations:
                       type: array
                       items:
