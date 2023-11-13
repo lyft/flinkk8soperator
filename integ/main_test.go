@@ -2,6 +2,7 @@ package integ
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ type IntegSuite struct {
 var _ = Suite(&IntegSuite{})
 
 func Test(t *testing.T) {
+	flag.Parse()
 	TestingT(t)
 }
 
@@ -126,6 +128,9 @@ func (s *IntegSuite) TearDownSuite(c *C) {
 
 func (s *IntegSuite) SetUpTest(c *C) {
 	// create checkpoint directory
+	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo rm -rf /tmp/checkpoints"); err != nil {
+		c.Fatalf("Failed to clean up checkpoint directory: %v", err)
+	}
 	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo mkdir /tmp/checkpoints && sudo chmod -R 0777 /tmp/checkpoints"); err != nil {
 		c.Fatalf("Failed to create checkpoint directory: %v", err)
 	}
@@ -163,7 +168,7 @@ func (s *IntegSuite) TearDownTest(c *C) {
 	err = s.Util.ExecuteCommand("kubectl", "describe", "flinkapplications", "-n", "flinkoperatortest")
 	c.Assert(err, IsNil)
 
-	var deleteOpts *v1.DeleteOptions
+	deleteOpts := &v1.DeleteOptions{}
 	err = s.Util.FlinkApps().DeleteCollection(context.Background(), *deleteOpts, v1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Failed to clean up flink applications: %v", err)

@@ -22,7 +22,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsClientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,15 +58,22 @@ func New(namespaceName string, kubeconfig string, image string, checkpointDir st
 			return nil, err
 		}
 	} else {
-		namespace, err = client.CoreV1().Namespaces().Create(context.Background(),
-			&v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespaceName,
-				},
-			},
-			metav1.CreateOptions{})
+		namespace, err = client.CoreV1().Namespaces().Get(context.Background(), namespaceName, metav1.GetOptions{})
 		if err != nil {
-			return nil, err
+			if errors2.IsNotFound(err) {
+				namespace, err = client.CoreV1().Namespaces().Create(context.Background(),
+					&v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: namespaceName,
+						},
+					},
+					metav1.CreateOptions{})
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
 		}
 	}
 
@@ -141,7 +148,7 @@ func (f *TestUtil) CreateCRD() error {
 		return err
 	}
 
-	crd := v1beta1.CustomResourceDefinition{}
+	crd := v1extensions.CustomResourceDefinition{}
 	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&crd)
 	if err != nil {
 		return err
@@ -149,7 +156,7 @@ func (f *TestUtil) CreateCRD() error {
 
 	crd.Namespace = f.Namespace.Name
 
-	_, err = f.APIExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.Background(), &crd, metav1.CreateOptions{})
+	_, err = f.APIExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), &crd, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
