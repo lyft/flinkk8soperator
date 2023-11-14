@@ -5,6 +5,7 @@ import (
 
 	k8mock "github.com/lyft/flinkk8soperator/pkg/controller/k8/mock"
 	mockScope "github.com/lyft/flytestdlib/promutils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"context"
 
@@ -16,7 +17,6 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -85,7 +85,7 @@ func TestTaskManagerCreateSuccess(t *testing.T) {
 		"flink-deployment-type": "taskmanager",
 	}
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		deployment := object.(*v1.Deployment)
 		assert.Equal(t, getTaskManagerName(&app, hash), deployment.Name)
 		assert.Equal(t, app.Namespace, deployment.Namespace)
@@ -136,7 +136,7 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 		"flink-deployment-type": "taskmanager",
 	}
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		deployment := object.(*v1.Deployment)
 		assert.Equal(t, getTaskManagerName(&app, hash), deployment.Name)
 		assert.Equal(t, app.Namespace, deployment.Namespace)
@@ -191,7 +191,7 @@ func TestTaskManagerSecurityContextAssignment(t *testing.T) {
 	hash := "c06b960b"
 
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		deployment := object.(*v1.Deployment)
 		assert.Equal(t, getTaskManagerName(&app, hash), deployment.Name)
 
@@ -214,7 +214,7 @@ func TestTaskManagerCreateErr(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		return errors.New("create error")
 	}
 	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
@@ -226,7 +226,7 @@ func TestTaskManagerCreateAlreadyExists(t *testing.T) {
 	testController := getTMControllerForTest()
 	app := getFlinkTestApp()
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		return k8sErrors.NewAlreadyExists(schema.GroupResource{}, "")
 	}
 	newlyCreated, err := testController.CreateIfNotExist(context.Background(), &app)
@@ -259,7 +259,7 @@ func TestTaskManagerCreateSuccessWithVersion(t *testing.T) {
 		"flink-application-version": testVersion,
 	}
 	mockK8Cluster := testController.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.CreateK8ObjectFunc = func(ctx context.Context, object client.Object) error {
 		deployment := object.(*v1.Deployment)
 		assert.Equal(t, getTaskManagerName(&app, hash), deployment.Name)
 		assert.Equal(t, app.Namespace, deployment.Namespace)

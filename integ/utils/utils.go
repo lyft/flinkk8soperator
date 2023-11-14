@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,15 +14,15 @@ import (
 
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/lyft/flinkk8soperator/integ/log"
 	flinkapp "github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 	clientset "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned"
 	client "github.com/lyft/flinkk8soperator/pkg/client/clientset/versioned/typed/app/v1beta1"
-	"github.com/prometheus/common/log"
 	resty "gopkg.in/resty.v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	v1extensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsClientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,18 +53,27 @@ func New(namespaceName string, kubeconfig string, image string, checkpointDir st
 
 	var namespace *v1.Namespace
 	if namespaceName == "default" {
-		namespace, err = client.CoreV1().Namespaces().Get("default", metav1.GetOptions{})
+		namespace, err = client.CoreV1().Namespaces().Get(context.Background(), "default", metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		namespace, err = client.CoreV1().Namespaces().Create(&v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespaceName,
-			},
-		})
+		namespace, err = client.CoreV1().Namespaces().Get(context.Background(), namespaceName, metav1.GetOptions{})
 		if err != nil {
-			return nil, err
+			if errors2.IsNotFound(err) {
+				namespace, err = client.CoreV1().Namespaces().Create(context.Background(),
+					&v1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: namespaceName,
+						},
+					},
+					metav1.CreateOptions{})
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
 		}
 	}
 
@@ -89,7 +99,7 @@ func New(namespaceName string, kubeconfig string, image string, checkpointDir st
 
 func (f *TestUtil) Cleanup() {
 	if f.Namespace.Name != "default" {
-		flinkApps, err := f.FlinkApps().List(metav1.ListOptions{})
+		flinkApps, err := f.FlinkApps().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			log.Errorf("Failed to fetch flink apps during cleanup: %v", err)
 		} else {
@@ -98,11 +108,11 @@ func (f *TestUtil) Cleanup() {
 				app := app
 				if len(app.Finalizers) != 0 {
 					app.Finalizers = []string{}
-					_, _ = f.FlinkApps().Update(&app)
+					_, _ = f.FlinkApps().Update(context.Background(), &app, metav1.UpdateOptions{})
 				}
 			}
 		}
-		err = f.KubeClient.CoreV1().Namespaces().Delete(f.Namespace.Name, &metav1.DeleteOptions{})
+		err = f.KubeClient.CoreV1().Namespaces().Delete(context.Background(), f.Namespace.Name, metav1.DeleteOptions{})
 		if err != nil {
 			log.Errorf("Failed to clean up after test: %v", err)
 		}
@@ -138,7 +148,7 @@ func (f *TestUtil) CreateCRD() error {
 		return err
 	}
 
-	crd := v1beta1.CustomResourceDefinition{}
+	crd := v1extensions.CustomResourceDefinition{}
 	err = yaml.NewYAMLOrJSONDecoder(file, 1024).Decode(&crd)
 	if err != nil {
 		return err
@@ -146,7 +156,7 @@ func (f *TestUtil) CreateCRD() error {
 
 	crd.Namespace = f.Namespace.Name
 
-	_, err = f.APIExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crd)
+	_, err = f.APIExtensionsClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.Background(), &crd, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -166,7 +176,7 @@ func (f *TestUtil) CreateClusterRole() error {
 		return err
 	}
 
-	_, err = f.KubeClient.RbacV1().ClusterRoles().Create(&clusterRole)
+	_, err = f.KubeClient.RbacV1().ClusterRoles().Create(context.Background(), &clusterRole, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -188,7 +198,7 @@ func (f *TestUtil) CreateServiceAccount() error {
 
 	serviceAccount.Namespace = f.Namespace.Name
 
-	_, err = f.KubeClient.CoreV1().ServiceAccounts(f.Namespace.Name).Create(&serviceAccount)
+	_, err = f.KubeClient.CoreV1().ServiceAccounts(f.Namespace.Name).Create(context.Background(), &serviceAccount, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -215,7 +225,7 @@ func (f *TestUtil) CreateClusterRoleBinding() error {
 	}}
 	clusterRoleBinding.Namespace = f.Namespace.Name
 
-	_, err = f.KubeClient.RbacV1().ClusterRoleBindings().Create(&clusterRoleBinding)
+	_, err = f.KubeClient.RbacV1().ClusterRoleBindings().Create(context.Background(), &clusterRoleBinding, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -237,7 +247,7 @@ func (f *TestUtil) CreateOperator() error {
 		Data: configValue,
 	}
 
-	if _, err := f.KubeClient.CoreV1().ConfigMaps(f.Namespace.Name).Create(&configMap); err != nil {
+	if _, err := f.KubeClient.CoreV1().ConfigMaps(f.Namespace.Name).Create(context.Background(), &configMap, metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
@@ -309,7 +319,7 @@ func (f *TestUtil) CreateOperator() error {
 		},
 	}
 
-	if _, err := f.KubeClient.AppsV1().Deployments(f.Namespace.Name).Create(&deployment); err != nil {
+	if _, err := f.KubeClient.AppsV1().Deployments(f.Namespace.Name).Create(context.Background(), &deployment, metav1.CreateOptions{}); err != nil {
 		return err
 	}
 
@@ -317,7 +327,7 @@ func (f *TestUtil) CreateOperator() error {
 }
 
 func (f *TestUtil) GetJobManagerPod() (string, error) {
-	pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
+	pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -333,7 +343,7 @@ func (f *TestUtil) GetJobManagerPod() (string, error) {
 
 func (f *TestUtil) GetTaskManagerPods() ([]string, error) {
 	tms := make([]string, 0)
-	pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{})
+	pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(context.Background(), metav1.ListOptions{})
 
 	if err != nil {
 		return tms, err
@@ -356,7 +366,7 @@ func (f *TestUtil) GetLogs(podName string, lines *int64) error {
 				Follow:    false,
 			})
 
-	readCloser, err := req.Stream()
+	readCloser, err := req.Stream(context.Background())
 	if err != nil {
 		return err
 	}
@@ -374,7 +384,7 @@ func (f *TestUtil) GetLogs(podName string, lines *int64) error {
 func (f *TestUtil) TailOperatorLogs() error {
 	var podName string
 	for {
-		pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(metav1.ListOptions{
+		pods, err := f.KubeClient.CoreV1().Pods(f.Namespace.Name).List(context.Background(), metav1.ListOptions{
 			LabelSelector: "app=flinkk8soperator",
 		})
 
@@ -400,7 +410,7 @@ func (f *TestUtil) TailOperatorLogs() error {
 		SubResource("log").
 		Param("follow", "true")
 
-	readerCloser, err := req.Stream()
+	readerCloser, err := req.Stream(context.Background())
 	if err != nil {
 		return err
 	}
@@ -438,18 +448,18 @@ func (f *TestUtil) FlinkApps() client.FlinkApplicationInterface {
 }
 
 func (f *TestUtil) CreateFlinkApplication(application *flinkapp.FlinkApplication) error {
-	_, err := f.FlinkApps().Create(application)
+	_, err := f.FlinkApps().Create(context.Background(), application, metav1.CreateOptions{})
 	return err
 }
 
 func (f *TestUtil) GetFlinkApplication(name string) (*flinkapp.FlinkApplication, error) {
-	return f.FlinkApps().Get(name, metav1.GetOptions{})
+	return f.FlinkApps().Get(context.Background(), name, metav1.GetOptions{})
 }
 
 func (f *TestUtil) WaitForPhase(name string, phase flinkapp.FlinkApplicationPhase, failurePhases ...flinkapp.FlinkApplicationPhase) error {
 	waitTime := 0
 	for {
-		app, err := f.FlinkApps().Get(name, metav1.GetOptions{})
+		app, err := f.FlinkApps().Get(context.Background(), name, metav1.GetOptions{})
 
 		if err != nil {
 			return err
@@ -598,7 +608,7 @@ func (f *TestUtil) Update(name string, updateFn func(app *flinkapp.FlinkApplicat
 		// Update the app
 		updateFn(newApp)
 
-		updated, err := f.FlinkApps().Update(newApp)
+		updated, err := f.FlinkApps().Update(context.Background(), newApp, metav1.UpdateOptions{})
 
 		if err == nil {
 			return updated, nil

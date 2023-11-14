@@ -93,16 +93,13 @@ Ran on:
 1. Install Dependencies
    Run `go mod vendor`
 
-3. Start minikube
-   `minikube start --kubernetes-version=v1.20.15`
+2. Start minikube
+   `minikube start --kubernetes-version=v1.24.17`
 
-4. Proxy minikube
-   `kubectl proxy --port 8001 &`
-
-5. Set up test app images and operator image
+3. Set up test app images and operator image
    `integ/setup.sh`
 
-8. Set the following for the Go test:
+4. Set the following for the Go test:
    Package path: `github.com/lyft/flinkk8soperator/integ`
    Env: `INTEGRATION=true;OPERATOR_IMAGE=flinkk8soperator:local;RUN_DIRECT=true`
    Program Args: `-timeout 40m -check.vv IntegTest`

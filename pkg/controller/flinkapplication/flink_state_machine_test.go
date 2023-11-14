@@ -22,8 +22,9 @@ import (
 	mockScope "github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
+	clockTest "k8s.io/utils/clock/testing"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const testSavepointLocation = "location"
@@ -35,7 +36,7 @@ func getTestStateMachine() FlinkStateMachine {
 	return FlinkStateMachine{
 		flinkController: &mock.FlinkController{},
 		k8Cluster:       &k8mock.K8Cluster{},
-		clock:           &clock.FakeClock{},
+		clock:           &clockTest.FakeClock{},
 		metrics:         newStateMachineMetrics(testScope),
 		retryHandler:    &mock.RetryHandler{},
 	}
@@ -54,7 +55,7 @@ func TestHandleNewOrCreate(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationClusterStarting, application.Status.Phase)
 		return nil
@@ -74,7 +75,7 @@ func TestHandleStartingClusterStarting(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		return nil
 	}
 	err := stateMachineForTest.Handle(context.Background(), &v1beta1.FlinkApplication{
@@ -114,11 +115,11 @@ func TestHandleNewOrCreateWithSavepointDisabled(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		return nil
 	}
 
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationCancelling, application.Status.Phase)
 		updateInvoked = true
@@ -161,7 +162,7 @@ func TestHandleApplicationCancel(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
 		return nil
@@ -198,7 +199,7 @@ func TestHandleApplicationCancelFailedWithMaxRetries(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		updateInvoked = true
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
@@ -239,7 +240,7 @@ func TestHandleStartingDual(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationSavepointing, application.Status.Phase)
 		updateInvoked = true
@@ -267,7 +268,7 @@ func TestHandleApplicationSavepointingInitialDeploy(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
 		updateInvoked = true
@@ -316,7 +317,7 @@ func TestHandleApplicationSavepointingDual(t *testing.T) {
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	updateCount := 0
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		if updateCount == 0 {
 			assert.Equal(t, "trigger", application.Status.SavepointTriggerID)
@@ -362,7 +363,7 @@ func TestHandleApplicationSavepointingFailed(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Empty(t, application.Status.SavepointPath)
 		assert.Equal(t, v1beta1.FlinkApplicationRecovering, application.Status.Phase)
@@ -394,7 +395,7 @@ func TestRestoreFromExternalizedCheckpoint(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, "/tmp/checkpoint", application.Status.SavepointPath)
 		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
@@ -428,7 +429,7 @@ func TestRestoreWithFallbackWithoutState(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, "", application.Status.SavepointPath)
 		assert.Equal(t, v1beta1.FlinkApplicationSubmittingJob, application.Status.Phase)
@@ -568,7 +569,7 @@ func TestSubmittingToRunning(t *testing.T) {
 	}
 
 	updateCount := 0
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if updateCount == 0 {
 			// update to the service
 			service := object.(*v1.Service)
@@ -583,7 +584,7 @@ func TestSubmittingToRunning(t *testing.T) {
 	}
 
 	statusUpdateCount := 0
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if statusUpdateCount == 0 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
@@ -740,7 +741,7 @@ func TestSubmittingVertexFailsToStart(t *testing.T) {
 	}
 
 	updateCount := 0
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if updateCount == 0 {
 			// update to the service
 			service := object.(*v1.Service)
@@ -755,7 +756,7 @@ func TestSubmittingVertexFailsToStart(t *testing.T) {
 	}
 
 	statusUpdateCount := 0
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if statusUpdateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
@@ -906,7 +907,7 @@ func TestSubmittingVertexStartTimeout(t *testing.T) {
 	}
 
 	updateCount := 0
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if updateCount == 0 {
 			// update to the service
 			service := object.(*v1.Service)
@@ -921,7 +922,7 @@ func TestSubmittingVertexStartTimeout(t *testing.T) {
 	}
 
 	statusUpdateCount := 0
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if statusUpdateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
@@ -1026,13 +1027,13 @@ func TestHandleNilDeployments(t *testing.T) {
 	}
 
 	updateCount := 0
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		updateCount++
 		return nil
 	}
 
 	statusUpdateCount := 0
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		statusUpdateCount++
 		return nil
 	}
@@ -1050,7 +1051,7 @@ func TestHandleApplicationRunning(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		assert.True(t, false)
 		return nil
 	}
@@ -1071,7 +1072,7 @@ func TestRunningToClusterStarting(t *testing.T) {
 	}
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationUpdating, application.Status.Phase)
 		updateInvoked = true
@@ -1209,7 +1210,7 @@ func TestRollingBack(t *testing.T) {
 	}
 
 	updateCount := 0
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if updateCount == 0 {
 			// update to the service
 			service := object.(*v1.Service)
@@ -1224,7 +1225,7 @@ func TestRollingBack(t *testing.T) {
 	}
 
 	statusUpdated := false
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if !statusUpdated {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, appHash, application.Status.FailedDeployHash)
@@ -1246,7 +1247,7 @@ func TestRollingBack(t *testing.T) {
 
 func TestIsApplicationStuck(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
+	stateMachineForTest.clock.(*clockTest.FakeClock).SetTime(time.Now())
 	retryableErr := client.GetRetryableError(errors.New("blah"), "GetClusterOverview", "FAILED", 3)
 	failFastError := client.GetNonRetryableError(errors.New("blah"), "SubmitJob", "400BadRequest")
 
@@ -1340,7 +1341,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	updateStatusCount := 0
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationDeleting, application.Status.Phase)
 
@@ -1357,7 +1358,7 @@ func TestDeleteWithSavepoint(t *testing.T) {
 	}
 
 	updated := false
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		assert.Equal(t, 0, len(app.Finalizers))
 		updated = true
 		return nil
@@ -1452,7 +1453,7 @@ func TestDeleteWithSavepointAndFinishedJob(t *testing.T) {
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationDeleting, application.Status.Phase)
 
@@ -1509,7 +1510,7 @@ func TestDeleteWithForceCancel(t *testing.T) {
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	updateCount := 1
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationDeleting, application.Status.Phase)
 
@@ -1575,7 +1576,7 @@ func TestDeleteModeNone(t *testing.T) {
 
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 	updateCount := 1
-	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateK8ObjectFunc = func(ctx context.Context, object k8sclient.Object) error {
 		application := object.(*v1beta1.FlinkApplication)
 		assert.Equal(t, v1beta1.FlinkApplicationDeleting, application.Status.Phase)
 
@@ -1655,7 +1656,7 @@ func TestRollbackWithRetryableError(t *testing.T) {
 	mockK8Cluster := stateMachineForTest.k8Cluster.(*k8mock.K8Cluster)
 
 	updateErrCount := 0
-	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object runtime.Object) error {
+	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		updateErrCount++
 		return nil
 	}
@@ -1898,7 +1899,7 @@ func TestForceRollback(t *testing.T) {
 	}
 
 	stateMachineForTest := getTestStateMachine()
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
+	stateMachineForTest.clock.(*clockTest.FakeClock).SetTime(time.Now())
 
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
 	mockRetryHandler.WaitOnErrorFunc = func(clock clock.Clock, lastUpdatedTime time.Time) (duration time.Duration, b bool) {
@@ -2001,7 +2002,7 @@ func TestLastSeenErrTimeIsNil(t *testing.T) {
 	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
 		return true
 	}
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
+	stateMachineForTest.clock.(*clockTest.FakeClock).SetTime(time.Now())
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 

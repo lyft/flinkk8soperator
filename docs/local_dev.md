@@ -9,8 +9,8 @@ to develop their applications locally.
 
 ### Install [Minikube](https://minikube.sigs.k8s.io/docs/start/#what-youll-need)
 
-You will want to start minikube on <=1.20, for example:
-`minikube start --kubernetes-version=v1.20.15`
+You will want to start minikube on >1.16 <=1.24, for example:
+`minikube start --kubernetes-version=v1.24.17`
 
 
 ### (Optional) Setup kubernetes dashboard

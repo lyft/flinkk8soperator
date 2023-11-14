@@ -1,6 +1,7 @@
 package integ
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,10 +9,10 @@ import (
 	"time"
 
 	"github.com/lyft/flinkk8soperator/cmd/flinkk8soperator/cmd"
+	"github.com/lyft/flinkk8soperator/integ/log"
 	integFramework "github.com/lyft/flinkk8soperator/integ/utils"
 	controllerConfig "github.com/lyft/flinkk8soperator/pkg/controller/config"
 	flyteConfig "github.com/lyft/flytestdlib/config"
-	"github.com/prometheus/common/log"
 	. "gopkg.in/check.v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,7 @@ type IntegSuite struct {
 var _ = Suite(&IntegSuite{})
 
 func Test(t *testing.T) {
+	// flag.Parse()
 	TestingT(t)
 }
 
@@ -125,6 +127,9 @@ func (s *IntegSuite) TearDownSuite(c *C) {
 
 func (s *IntegSuite) SetUpTest(c *C) {
 	// create checkpoint directory
+	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo rm -rf /tmp/checkpoints"); err != nil {
+		c.Fatalf("Failed to clean up checkpoint directory: %v", err)
+	}
 	if err := s.Util.ExecuteCommand("minikube", "ssh", "sudo mkdir /tmp/checkpoints && sudo chmod -R 0777 /tmp/checkpoints"); err != nil {
 		c.Fatalf("Failed to create checkpoint directory: %v", err)
 	}
@@ -162,7 +167,8 @@ func (s *IntegSuite) TearDownTest(c *C) {
 	err = s.Util.ExecuteCommand("kubectl", "describe", "flinkapplications", "-n", "flinkoperatortest")
 	c.Assert(err, IsNil)
 
-	err = s.Util.FlinkApps().DeleteCollection(nil, v1.ListOptions{})
+	deleteOpts := &v1.DeleteOptions{}
+	err = s.Util.FlinkApps().DeleteCollection(context.Background(), *deleteOpts, v1.ListOptions{})
 	if err != nil {
 		log.Fatalf("Failed to clean up flink applications: %v", err)
 	}
