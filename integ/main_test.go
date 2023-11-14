@@ -27,7 +27,10 @@ type IntegSuite struct {
 var _ = Suite(&IntegSuite{})
 
 func Test(t *testing.T) {
-	flag.Parse()
+	var integration = os.Getenv("INTEGRATION") != ""
+	if integration {
+		flag.Parse()
+	}
 	TestingT(t)
 }
 
