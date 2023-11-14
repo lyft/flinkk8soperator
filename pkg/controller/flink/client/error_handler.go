@@ -10,7 +10,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/apis/app/v1beta1"
 
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
 )
 
 // appError codes

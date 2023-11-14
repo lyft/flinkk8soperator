@@ -3,7 +3,7 @@ package mock
 import (
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
 )
 
 type IsErrorRetryableFunc func(err error) bool

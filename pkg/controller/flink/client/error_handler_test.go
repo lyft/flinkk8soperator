@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/clock"
+	clockTesting "k8s.io/utils/clock/testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -63,7 +63,7 @@ func TestRetryHandler_IsTimeToRetry(t *testing.T) {
 	retryer := getTestRetryer()
 	currTime := metav1.NewTime(time.Now())
 	olderTime := currTime.Add(-5 * time.Second)
-	fakeClock := clock.NewFakeClock(currTime.Time)
+	fakeClock := clockTesting.NewFakeClock(currTime.Time)
 	fakeClock.SetTime(time.Now())
 	// Set retry count to 0 to keep retry delay small
 	assert.True(t, retryer.IsTimeToRetry(fakeClock, olderTime, 0))
