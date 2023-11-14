@@ -22,7 +22,8 @@ import (
 	mockScope "github.com/lyft/flytestdlib/promutils"
 	"github.com/lyft/flytestdlib/promutils/labeled"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/utils/clock"
+	clockTest "k8s.io/utils/clock/testing"
 	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -35,7 +36,7 @@ func getTestStateMachine() FlinkStateMachine {
 	return FlinkStateMachine{
 		flinkController: &mock.FlinkController{},
 		k8Cluster:       &k8mock.K8Cluster{},
-		clock:           &clock.FakeClock{},
+		clock:           &clockTest.FakeClock{},
 		metrics:         newStateMachineMetrics(testScope),
 		retryHandler:    &mock.RetryHandler{},
 	}
@@ -1246,7 +1247,7 @@ func TestRollingBack(t *testing.T) {
 
 func TestIsApplicationStuck(t *testing.T) {
 	stateMachineForTest := getTestStateMachine()
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
+	stateMachineForTest.clock.(*clockTest.FakeClock).SetTime(time.Now())
 	retryableErr := client.GetRetryableError(errors.New("blah"), "GetClusterOverview", "FAILED", 3)
 	failFastError := client.GetNonRetryableError(errors.New("blah"), "SubmitJob", "400BadRequest")
 
@@ -1898,7 +1899,7 @@ func TestForceRollback(t *testing.T) {
 	}
 
 	stateMachineForTest := getTestStateMachine()
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
+	stateMachineForTest.clock.(*clockTest.FakeClock).SetTime(time.Now())
 
 	mockRetryHandler := stateMachineForTest.retryHandler.(*mock.RetryHandler)
 	mockRetryHandler.WaitOnErrorFunc = func(clock clock.Clock, lastUpdatedTime time.Time) (duration time.Duration, b bool) {
@@ -2001,7 +2002,7 @@ func TestLastSeenErrTimeIsNil(t *testing.T) {
 	mockRetryHandler.IsRetryRemainingFunc = func(err error, retryCount int32) bool {
 		return true
 	}
-	stateMachineForTest.clock.(*clock.FakeClock).SetTime(time.Now())
+	stateMachineForTest.clock.(*clockTest.FakeClock).SetTime(time.Now())
 	err := stateMachineForTest.Handle(context.Background(), &app)
 	assert.Nil(t, err)
 
