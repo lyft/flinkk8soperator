@@ -2,7 +2,6 @@ package integ
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,10 +26,7 @@ type IntegSuite struct {
 var _ = Suite(&IntegSuite{})
 
 func Test(t *testing.T) {
-	var integration = os.Getenv("INTEGRATION") != ""
-	if integration {
-		flag.Parse()
-	}
+	// flag.Parse()
 	TestingT(t)
 }
 
