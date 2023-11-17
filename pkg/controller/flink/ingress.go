@@ -8,6 +8,7 @@ import (
 	"github.com/lyft/flinkk8soperator/pkg/controller/common"
 	"github.com/lyft/flinkk8soperator/pkg/controller/config"
 	"github.com/lyft/flinkk8soperator/pkg/controller/k8"
+	v1network "k8s.io/api/networking/v1"
 	"k8s.io/api/networking/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -61,7 +62,7 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *v1beta1.In
 	return &v1beta1.Ingress{
 		ObjectMeta: ingressMeta,
 		TypeMeta: v1.TypeMeta{
-			APIVersion: v1beta1.SchemeGroupVersion.String(),
+			APIVersion: v1network.SchemeGroupVersion.String(),
 			Kind:       k8.Ingress,
 		},
 		Spec: ingressSpec,
