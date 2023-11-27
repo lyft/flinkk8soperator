@@ -47,13 +47,15 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *networkV1.
 		},
 	}
 
+	pathType := networkV1.PathTypeImplementationSpecific
 	ingressSpec := networkV1.IngressSpec{
 		Rules: []networkV1.IngressRule{{
 			Host: GetFlinkUIIngressURL(getIngressName(app)),
 			IngressRuleValue: networkV1.IngressRuleValue{
 				HTTP: &networkV1.HTTPIngressRuleValue{
 					Paths: []networkV1.HTTPIngressPath{{
-						Backend: backend,
+						Backend:  backend,
+						PathType: &pathType,
 					}},
 				},
 			},
