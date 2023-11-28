@@ -41,7 +41,6 @@ func FetchJobManagerIngressCreateObj(app *flinkapp.FlinkApplication) *networkV1.
 		Service: &networkV1.IngressServiceBackend{
 			Name: getJobManagerServiceName(app),
 			Port: networkV1.ServiceBackendPort{
-				Name:   getJobManagerServiceName(app),
 				Number: getUIPort(app),
 			},
 		},
