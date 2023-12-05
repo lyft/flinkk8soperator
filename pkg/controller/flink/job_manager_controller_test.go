@@ -21,7 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
+	networkV1 "k8s.io/api/networking/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -132,7 +132,7 @@ func TestJobManagerCreateSuccess(t *testing.T) {
 			labels := map[string]string{
 				"flink-app": "app-name",
 			}
-			ingress := object.(*v1beta1.Ingress)
+			ingress := object.(*networkV1.Ingress)
 			assert.Equal(t, app.Name, ingress.Name)
 			assert.Equal(t, app.Namespace, ingress.Namespace)
 			assert.Equal(t, labels, ingress.Labels)
@@ -215,7 +215,7 @@ func TestJobManagerHACreateSuccess(t *testing.T) {
 			labels := map[string]string{
 				"flink-app": "app-name",
 			}
-			ingress := object.(*v1beta1.Ingress)
+			ingress := object.(*networkV1.Ingress)
 			assert.Equal(t, app.Name, ingress.Name)
 			assert.Equal(t, app.Namespace, ingress.Namespace)
 			assert.Equal(t, labels, ingress.Labels)
@@ -430,7 +430,7 @@ func TestJobManagerCreateSuccessWithVersion(t *testing.T) {
 			labels := map[string]string{
 				"flink-app": "app-name",
 			}
-			ingress := object.(*v1beta1.Ingress)
+			ingress := object.(*networkV1.Ingress)
 			assert.Equal(t, app.Name+"-"+testVersion, ingress.Name)
 			assert.Equal(t, app.Namespace, ingress.Namespace)
 			assert.Equal(t, labels, ingress.Labels)
