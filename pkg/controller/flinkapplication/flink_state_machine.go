@@ -784,6 +784,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 	if err != nil {
 		logger.Info(ctx, "Job monitoring failed with error: %v", err)
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobMonitoringFailed", err.Error())
+		s.flinkController.UpdateLatestJobID(ctx, app, "")
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
 		return statusChanged, err
 	}
