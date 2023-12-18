@@ -786,6 +786,7 @@ func (s *FlinkStateMachine) handleSubmittingJob(ctx context.Context, app *v1beta
 		s.flinkController.LogEvent(ctx, app, corev1.EventTypeWarning, "JobMonitoringFailed", err.Error())
 		s.updateApplicationPhase(app, v1beta1.FlinkApplicationRollingBackJob)
 		return statusChanged, err
+		//return statusUnchanged, err
 	}
 	if jobStarted {
 		return updateJobAndReturn(ctx, s, app, hash)

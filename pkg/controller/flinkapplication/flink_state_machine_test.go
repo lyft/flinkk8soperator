@@ -762,7 +762,8 @@ func TestSubmittingVertexFailsToStart(t *testing.T) {
 			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
 		} else if statusUpdateCount == 2 {
 			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
 		} else if statusUpdateCount == 3 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
@@ -928,9 +929,11 @@ func TestSubmittingVertexStartTimeout(t *testing.T) {
 			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
 		} else if statusUpdateCount == 2 {
 			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
 		} else if statusUpdateCount == 3 {
 			application := object.(*v1beta1.FlinkApplication)
+			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
 			assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
 		}
 		statusUpdateCount++
