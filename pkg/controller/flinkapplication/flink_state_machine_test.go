@@ -759,13 +759,16 @@ func TestSubmittingVertexFailsToStart(t *testing.T) {
 	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if statusUpdateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
 		} else if statusUpdateCount == 2 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
 		} else if statusUpdateCount == 3 {
 			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
+			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
+			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
 		}
 		statusUpdateCount++
 		return nil
@@ -925,13 +928,16 @@ func TestSubmittingVertexStartTimeout(t *testing.T) {
 	mockK8Cluster.UpdateStatusFunc = func(ctx context.Context, object k8sclient.Object) error {
 		if statusUpdateCount == 1 {
 			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, jobID, mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
 		} else if statusUpdateCount == 2 {
 			application := object.(*v1beta1.FlinkApplication)
 			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
 		} else if statusUpdateCount == 3 {
 			application := object.(*v1beta1.FlinkApplication)
-			assert.Equal(t, v1beta1.FlinkApplicationRollingBackJob, application.Status.Phase)
+			assert.Equal(t, "", mockFlinkController.GetLatestJobID(ctx, application))
+			assert.Equal(t, v1beta1.FlinkApplicationDeployFailed, application.Status.Phase)
 		}
 		statusUpdateCount++
 		return nil
