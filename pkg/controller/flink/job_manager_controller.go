@@ -221,8 +221,11 @@ func FetchJobManagerServiceCreateObj(app *v1beta1.FlinkApplication, selector str
 			Labels: GetCommonAppLabels(app),
 		},
 		Spec: coreV1.ServiceSpec{
-			Ports:    getJobManagerServicePorts(app),
-			Selector: serviceLabels,
+			Ports:      getJobManagerServicePorts(app),
+			Selector:   serviceLabels,
+			Type:       coreV1.ServiceTypeClusterIP,
+			ClusterIP:  "None",
+			ClusterIPs: []string{},
 		},
 	}
 }
