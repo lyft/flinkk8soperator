@@ -152,7 +152,7 @@ func TestTaskManagerHACreateSuccess(t *testing.T) {
 			"jobmanager.web.port: 8081\nmetrics.internal.query-service.port: 50101\n"+
 			"query.server.port: 6124\ntaskmanager.heap.size: 524288k\n"+
 			"taskmanager.numberOfTaskSlots: 16\n\n"+
-			"high-availability.cluster-id: app-name-"+hash+"\n"+
+			"kubernetes.cluster-id: app-name-"+hash+"\n"+
 			"taskmanager.host: $HOST_IP\n",
 			common.GetEnvVar(deployment.Spec.Template.Spec.Containers[0].Env,
 				"FLINK_PROPERTIES").Value)
