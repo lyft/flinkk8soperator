@@ -216,6 +216,7 @@ func taskmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 					NodeSelector:     app.Spec.TaskManagerConfig.NodeSelector,
 					Tolerations:      app.Spec.TaskManagerConfig.Tolerations,
 					Affinity:         app.Spec.TaskManagerConfig.Affinity,
+					SchedulerName:    config.GetConfig().SchedulerName,
 				},
 			},
 		},
