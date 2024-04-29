@@ -371,6 +371,7 @@ func jobmanagerTemplate(app *v1beta1.FlinkApplication) *v1.Deployment {
 					NodeSelector:     app.Spec.JobManagerConfig.NodeSelector,
 					Tolerations:      app.Spec.JobManagerConfig.Tolerations,
 					Affinity:         app.Spec.JobManagerConfig.Affinity,
+					SchedulerName:    config.GetConfig().SchedulerName,
 				},
 			},
 		},
