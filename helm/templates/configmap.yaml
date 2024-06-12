@@ -1,0 +1,21 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "flink-operator.name" . }}-config
+data:
+  config: |-
+    operator:
+      limitNamespace: {{ .Values.limitNamespace }}
+      resyncPeriod: {{ .Values.resyncPeriod }}
+      metricsPrefix: {{ .Values.metricsPrefix }}
+      profilerPort: {{ .Values.profilerPort }}
+      ingressUrlFormat: {{ .Values.ingressUrlFormat }}
+      useKubectlProxy: {{ .Values.useKubectlProxy }}
+      proxyPort: {{ .Values.proxyPort }}
+      containerNameFormat: {{ .Values.containerNameFormat }}
+      workers: {{ .Values.workers }}
+      baseBackoffDuration: {{ .Values.baseBackoffDuration }}
+      maxBackoffDuration: {{ .Values.maxBackoffDuration }}
+      maxErrDuration: {{ .Values.maxErrDuration }}
+    logger:
+      level: 4

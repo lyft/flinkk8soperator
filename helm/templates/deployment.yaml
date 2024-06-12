@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "flink-operator.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "flink-operator.name" . }}
+    helm.sh/chart: {{ include "flink-operator.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "flink-operator.name" . }}
+      app.kubernetes.io/version: {{ .Values.operatorVersion }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "flink-operator.name" . }}
+        app.kubernetes.io/version: {{ .Values.operatorVersion }}
+    spec:
+      serviceAccountName: {{ include "flink-operator.serviceAccountName" . }}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: flink-operator-config
+            items:
+              - key: config
+                path: config.yaml
+      containers:
+        - name: flinkoperator-gojson
+          image: {{ .Values.operatorImageName }}:{{ .Values.operatorVersion }}
+          command:
+            - flinkoperator
+          args:
+            - --logtostderr
+            - --config
+            - /etc/flinkoperator/config*/config.yaml
+          env:
+            - name: OPERATOR_NAME
+              value: flinkk8soperator
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: 10254
+          resources:
+            requests:
+              memory: {{ .Values.resourceRequests.memory }}
+              cpu: {{ .Values.resourceRequests.cpu }}
+            limits:
+              memory: {{ .Values.resourceLimits.memory }}
+              cpu: {{ .Values.resourceLimits.cpu }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/flinkoperator/config
