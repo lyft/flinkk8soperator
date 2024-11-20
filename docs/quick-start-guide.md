@@ -12,16 +12,16 @@ Follow the instructions [here](https://kubernetes.io/docs/tasks/tools/install-ku
 * Let's first create the custom resource definition, namespace, and roles for running the flink operator.
 
 ```bash
-$ kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/crd.yaml
-$ kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/namespace.yaml
-$ kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/role.yaml
-$ kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/role-binding.yaml
+kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/crd.yaml
+kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/namespace.yaml
+kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/role.yaml
+kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/role-binding.yaml
 ```
 
 * Before creating the flink operator deployment, edit/update the operator config:
 
 ``` bash
-$ curl https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/config.yaml
+curl https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/config.yaml
 ```
 
 Replace the `{ingress_suffix}` to indicate your cluster's ingress url.
@@ -39,19 +39,19 @@ Note: If `ingressUrlFormat` is not set, then no ingress is created for the appli
 
 Then create the ConfigMap on the cluster:
 ```bash
-$ kubectl create -f config.yaml
+kubectl create -f config.yaml
 ```
 
 Finally, create the operator Deployment:
 ```
-$ kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/flinkk8soperator.yaml
+kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/deploy/flinkk8soperator.yaml
 ```
 
 * Ensure that the flink operator pod is *RUNNING*, and check operator logs if needed.
 
 ```bash
-$ kubectl get pods -n flink-operator
-$ kubectl logs {pod-name} -n flink-operator
+kubectl get pods -n flink-operator
+kubectl logs {pod-name} -n flink-operator
 ```
 
 ## Running the example
@@ -65,19 +65,19 @@ Make sure to edit the value of `sha` with the most recently pushed tag found [he
 To run a flink application, run the following command:
 
 ```bash
-$ kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/examples/wordcount/flink-operator-custom-resource.yaml
+kubectl create -f https://raw.githubusercontent.com/lyft/flinkk8soperator/v0.5.0/examples/wordcount/flink-operator-custom-resource.yaml
 ```
 
 The above command will create the flink application custom resource in kubernetes. The operator will observe the custom resource, and will create a flink cluster in kubernetes.
 
 Command below should show deployments created for the application
 ```bash
-$ kubectl get deployments -n flink-operator
+kubectl get deployments -n flink-operator
 ```
 
 Check the phase and other status attributes in the custom resource
 ```bash
-$ kubectl get flinkapplication.flink.k8s.io -n flink-operator wordcount-operator-example -o yaml
+kubectl get flinkapplication.flink.k8s.io -n flink-operator wordcount-operator-example -o yaml
 ```
 
 The output should be something like this
@@ -157,7 +157,7 @@ status:
 To check events for the `FlinkApplication` object, run the following command:
 
 ```bash
-$ kubectl describe flinkapplication.flink.k8s.io -n flink-operator wordcount-operator-example
+kubectl describe flinkapplication.flink.k8s.io -n flink-operator wordcount-operator-example
 ```
 
 This will show events similarly to the following:
