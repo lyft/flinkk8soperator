@@ -75,6 +75,11 @@ func init() {
 	// See https://gist.github.com/nak3/78a32817a8a3950ae48f239a44cd3663
 	// allows `$ flinkoperator --logtostderr` to work
 	klog.InitFlags(nil)
+
+	// Opt into fixed stderrthreshold behavior (kubernetes/klog#212).
+	_ = flag.Set("legacy_stderr_threshold_behavior", "false")
+	_ = flag.Set("stderrthreshold", "INFO")
+
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	err := flag.CommandLine.Parse([]string{})
 	if err != nil {
