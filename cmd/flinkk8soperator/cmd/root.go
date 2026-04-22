@@ -75,6 +75,11 @@ func init() {
 	// See https://gist.github.com/nak3/78a32817a8a3950ae48f239a44cd3663
 	// allows `$ flinkoperator --logtostderr` to work
 	klog.InitFlags(nil)
+	// Opt into the new klog behavior so that -stderrthreshold is honored even
+	// when -logtostderr=true (the default).
+	// Ref: kubernetes/klog#212, kubernetes/klog#432
+	flag.Set("legacy_stderr_threshold_behavior", "false") //nolint:errcheck
+	flag.Set("stderrthreshold", "INFO")                   //nolint:errcheck
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	err := flag.CommandLine.Parse([]string{})
 	if err != nil {
